@@ -1,0 +1,8 @@
+{
+  "name": "mi-tienda",
+  "version": "1.0.0",
+  "description": "Proyecto completo de tienda online",
+  "scripts": {
+    "start": "node server/index.js"
+  }
+}

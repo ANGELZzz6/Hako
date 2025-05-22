@@ -1,2 +1,3 @@
-# Hako
-Store by one person
+# Mi Tienda
+
+Proyecto de tienda online con stack MERN (MongoDB, Express, React, Node).
