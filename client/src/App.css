@@ -1,0 +1,163 @@
+/* Variables globales */
+:root {
+  --primary-color: #0d6efd;
+  --secondary-color: #6c757d;
+  --background-light: #f8f9fa;
+  --text-color: #212529;
+  --transition-speed: 0.3s;
+}
+
+/* Estilos generales */
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+#root {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+/* Hero Section */
+.hero-section {
+  background: linear-gradient(135deg, var(--background-light) 0%, #e9ecef 100%);
+  padding: 6rem 0;
+  margin-bottom: 2rem;
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  .hero-section {
+    padding: 3rem 0;
+  }
+}
+
+/* Productos */
+.product-card {
+  transition: all var(--transition-speed);
+  border: none;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  width: 100%;
+}
+
+.product-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+}
+
+.product-card img {
+  object-fit: cover;
+  height: 200px;
+  width: 100%;
+}
+
+/* Navbar */
+.navbar {
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  width: 100%;
+}
+
+.navbar-brand {
+  font-weight: 700;
+  color: var(--primary-color);
+  font-size: 1.5rem;
+}
+
+.navbar > .container {
+  padding: 0.5rem 1rem;
+}
+
+/* Secciones */
+section {
+  width: 100%;
+  padding: 2rem 0;
+}
+
+.row {
+  width: 100%;
+  margin: 0;
+}
+
+/* Botones */
+.btn {
+  transition: all var(--transition-speed);
+  border-radius: 5px;
+  padding: 0.5rem 1.5rem;
+}
+
+.btn-primary {
+  background-color: var(--primary-color);
+  border: none;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(13, 110, 253, 0.3);
+}
+
+/* Footer */
+footer {
+  background-color: var(--background-light);
+  padding: 3rem 0;
+  margin-top: 4rem;
+  width: 100%;
+}
+
+footer a {
+  color: var(--text-color);
+  transition: color var(--transition-speed);
+}
+
+footer a:hover {
+  color: var(--primary-color);
+}
+
+/* Responsive adjustments */
+@media (max-width: 576px) {
+  .container {
+    padding: 0 1rem;
+  }
+  
+  .card-title {
+    font-size: 1rem;
+  }
+  
+  .btn {
+    padding: 0.4rem 1rem;
+    font-size: 0.9rem;
+  }
+}
+
+/* Animaciones */
+.fade-in {
+  animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
