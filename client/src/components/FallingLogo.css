@@ -1,0 +1,25 @@
+.falling-logo {
+  position: absolute;
+  top: -50px;
+  font-size: 2rem;
+  color: var(--primary-color);
+  animation: logoFall 2s linear forwards;
+  pointer-events: none;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+  transition: opacity 0.3s ease;
+  font-weight: bold;
+}
+
+@keyframes logoFall {
+  0% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(800px) rotate(360deg);
+    opacity: 0;
+  }
+} 

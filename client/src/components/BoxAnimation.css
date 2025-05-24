@@ -1,0 +1,124 @@
+.shelf-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 2rem 0;
+  perspective: 1000px;
+}
+
+.shelf {
+  width: 180px; /* 60px por celda * 3 celdas */
+  height: 240px; /* 60px por celda * 4 celdas */
+  position: relative;
+  transform-style: preserve-3d;
+  cursor: pointer;
+}
+
+.shelf > div {
+  position: absolute;
+  background: var(--primary-color);
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  backface-visibility: hidden;
+}
+
+.shelf-front,
+.shelf-back {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(135deg, var(--primary-color) 0%, #ff6b6b 100%) !important;
+}
+
+.shelf-row {
+  display: flex;
+  flex: 1;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+.shelf-cell {
+  flex: 1;
+  border-right: 2px solid rgba(255, 255, 255, 0.3);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+}
+
+.shelf-cell:last-child {
+  border-right: none;
+}
+
+.shelf-icon {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 1.5rem;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  transition: transform 0.3s ease;
+}
+
+.shelf-cell:hover .shelf-icon {
+  transform: scale(1.2);
+  color: white;
+}
+
+/* Posicionamiento 3D de las caras */
+.shelf-front {
+  transform: translateZ(20px);
+}
+
+.shelf-back {
+  transform: translateZ(-20px) rotateY(180deg);
+}
+
+.shelf-left,
+.shelf-right {
+  width: 40px;
+  height: 100%;
+  top: 0;
+}
+
+.shelf-left {
+  left: -20px;
+  transform: rotateY(-90deg);
+}
+
+.shelf-right {
+  right: -20px;
+  transform: rotateY(90deg);
+}
+
+.shelf-top,
+.shelf-bottom {
+  width: 100%;
+  height: 40px;
+  left: 0;
+}
+
+.shelf-top {
+  top: -20px;
+  transform: rotateX(90deg);
+}
+
+.shelf-bottom {
+  bottom: -20px;
+  transform: rotateX(-90deg);
+}
+
+/* Efecto hover */
+.shelf:hover {
+  animation-play-state: paused;
+}
+
+/* Sombras y efectos de profundidad */
+.shelf-cell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    45deg,
+    rgba(0,0,0,0.1) 0%,
+    rgba(0,0,0,0) 50%,
+    rgba(255,255,255,0.1) 100%
+  );
+  pointer-events: none;
+} 
