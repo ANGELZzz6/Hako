@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css'; // Para los íconos como el del carrito
 import { Carousel } from 'react-bootstrap';
@@ -28,7 +28,25 @@ interface Product {
 const App = () => {
   const [isNavCollapsed, setIsNavCollapsed] = useState(true);
   const [isVideoPlaying, setIsVideoPlaying] = useState(true);
+  const [isDarkTheme, setIsDarkTheme] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  // Efecto para manejar el tema
+  useEffect(() => {
+    // Verificar si hay una preferencia guardada
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') {
+      setIsDarkTheme(true);
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
+  }, []);
+
+  // Función para cambiar el tema
+  const toggleTheme = () => {
+    setIsDarkTheme(!isDarkTheme);
+    document.documentElement.setAttribute('data-theme', !isDarkTheme ? 'dark' : 'light');
+    localStorage.setItem('theme', !isDarkTheme ? 'dark' : 'light');
+  };
 
   // Datos de ejemplo para los productos
   const products: Product[] = [
@@ -189,7 +207,14 @@ const App = () => {
                 <a className="nav-link" href="#contacto"><i className="bi bi-envelope me-1"></i>Contacto</a>
               </li>
             </ul>
-            <div className="d-flex flex-column flex-lg-row gap-2">
+            <div className="d-flex flex-column flex-lg-row gap-2 align-items-center">
+              <button
+                className="theme-switch"
+                onClick={toggleTheme}
+                aria-label={isDarkTheme ? 'Activar modo claro' : 'Activar modo oscuro'}
+              >
+                <i className={`bi bi-${isDarkTheme ? 'sun' : 'moon'}-fill`}></i>
+              </button>
               <a href="#" className="btn btn-outline-primary">
                 <i className="bi bi-box-seam me-1"></i>
                 Tu Box <span className="badge bg-primary">0</span>
@@ -307,55 +332,56 @@ const App = () => {
       </section>
 
       {/* Productos */}
-      <section className="container my-5" id="productos">
-        <h2 className="text-center mb-4">Productos Destacados</h2>
-        <Carousel 
-          indicators={true}
-          controls={true}
-          interval={5000}
-          className="product-carousel"
-          touch={true}
-          wrap={true}
-        >
-          {products.reduce((groups, product, index) => {
-            const groupIndex = Math.floor(index / 6); // 6 productos por slide (3x2)
-            if (!groups[groupIndex]) {
-              groups[groupIndex] = [];
-            }
-            groups[groupIndex].push(product);
-            return groups;
-          }, [] as Product[][]).map((group, groupIndex) => (
-            <Carousel.Item key={groupIndex}>
-              <div className="row g-2">
-                {group.map((product) => (
-                  <div className="col-4" key={product.id}>
-                    <div className="card product-card h-100 fade-in">
-                      <div className="position-absolute top-0 end-0 m-2">
-                        <span className="badge bg-primary">Nuevo</span>
-                      </div>
-                      <img 
-                        src={product.image}
-                        className="card-img-top" 
-                        alt={product.name}
-                        loading="lazy"
-                      />
-                      <div className="card-body d-flex flex-column">
-                        <h5 className="card-title">{product.name}</h5>
-                        <p className="card-text">{product.description}</p>
-                        <div className="price-tag mb-2">
-                          <span className="h5 mb-0 text-primary">${product.price.toFixed(2)}</span>
+      <section className="hero-section hero-section-productos" id="productos">
+        <div className="container">
+          <h2>Productos Destacados</h2>
+          <Carousel 
+            className="productos-carousel"
+            indicators={true}
+            controls={true}
+          >
+            {products.reduce((groups, product, index) => {
+              // En móvil mostraremos 4 productos por slide (2x2), en desktop 6 productos (3x2)
+              const isMobile = window.innerWidth < 768;
+              const itemsPerSlide = isMobile ? 4 : 6;
+              const groupIndex = Math.floor(index / itemsPerSlide);
+              if (!groups[groupIndex]) {
+                groups[groupIndex] = [];
+              }
+              groups[groupIndex].push(product);
+              return groups;
+            }, [] as Product[][]).map((group, groupIndex) => (
+              <Carousel.Item key={groupIndex}>
+                <div className="container">
+                  <div className="row g-4">
+                    {group.map((product) => (
+                      <div className="col-6 col-md-4" key={product.id}>
+                        <div className="card">
+                          <img 
+                            src={product.image}
+                            className="card-img-top" 
+                            alt={product.name}
+                          />
+                          <div className="card-body d-flex flex-column">
+                            <h5 className="card-title">{product.name}</h5>
+                            <p className="card-text">{product.description}</p>
+                            <div className="price-tag">
+                              ${product.price.toFixed(2)}
+                            </div>
+                            <button className="btn btn-primary mt-auto">
+                              <i className="bi bi-box-seam me-2"></i>
+                              Agregar al Box
+                            </button>
+                          </div>
                         </div>
-                        <button className="btn btn-primary btn-sm mt-auto">
-                          <i className="bi bi-box-seam me-1"></i>A MI BOX
-                        </button>
                       </div>
-                    </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </Carousel.Item>
-          ))}
-        </Carousel>
+                </div>
+              </Carousel.Item>
+            ))}
+          </Carousel>
+        </div>
       </section>
 
       {/* Footer */}

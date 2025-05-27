@@ -8,6 +8,34 @@
   --font-primary: 'Montserrat', system-ui, -apple-system, sans-serif;
   --logo-color: #db554e;
   --hako-color: #030303;
+  --navbar-bg: #f8f9fa;
+  --card-bg: #ffffff;
+  --footer-bg: #f8f9fa;
+  --card-shadow: rgba(0,0,0,0.1);
+  --hero-gradient-start: #f8f9fa;
+  --hero-gradient-end: #e9ecef;
+  --nav-text: #212529;
+  --section-bg: #ffffff;
+  --body-bg: #ffffff;
+  --productos-gradient-start: #f8f9fa;
+  --productos-gradient-end: #e9ecef;
+}
+
+/* Tema oscuro */
+[data-theme='dark'] {
+  --background-light: #1a1a1a;
+  --text-color: #ffffff;
+  --navbar-bg: #242424;
+  --card-bg: #2d2d2d;
+  --footer-bg: #121212;
+  --card-shadow: rgba(0,0,0,0.3);
+  --hero-gradient-start: #242424;
+  --hero-gradient-end: #1a1a1a;
+  --nav-text: #ffffff;
+  --section-bg: #242424;
+  --body-bg: #6f706f;
+  --productos-gradient-start: #242424;
+  --productos-gradient-end: #1a1a1a;
 }
 
 /* Estilos generales */
@@ -24,6 +52,7 @@ body {
   display: flex;
   flex-direction: column;
   font-weight: 400;
+  background-color: var(--body-bg);
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -49,27 +78,171 @@ h1, h2, h3, h4, h5, h6 {
   padding: 0 1rem;
 }
 
-/* Hero Section */
+/* Hero Sections */
 .hero-section {
-  background: linear-gradient(135deg, var(--background-light) 0%, #e9ecef 100%);
+  background: linear-gradient(135deg, var(--hero-gradient-start) 0%, var(--hero-gradient-end) 100%);
+  color: var(--text-color);
   padding: 6rem 0;
-  margin-bottom: 2rem;
+  margin-bottom: 0;
   width: 100%;
   position: relative;
   overflow: hidden;
   min-height: 600px;
 }
 
-@media (max-width: 768px) {
-  .hero-section {
-    padding: 3rem 0;
-    min-height: 500px;
-  }
+.hero-section-alt {
+  background: linear-gradient(135deg, var(--hero-gradient-start) 0%, var(--hero-gradient-end) 100%);
 }
 
-/* Hero Section Alternativa */
-.hero-section-alt {
-  background: linear-gradient(135deg, #e9ecef 0%, var(--background-light) 100%);
+.hero-section-productos {
+  background: linear-gradient(135deg, var(--productos-gradient-start) 0%, var(--productos-gradient-end) 100%);
+  padding: 4rem 0;
+  color: var(--text-color);
+}
+
+.hero-section-productos h2 {
+  text-align: center;
+  margin-bottom: 3rem;
+  color: var(--text-color);
+}
+
+/* Estilos básicos del carrusel */
+.productos-carousel {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 2rem;
+}
+
+.productos-carousel .card {
+  background: white;
+  border: none;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  height: 100%;
+  transition: transform 0.3s ease;
+}
+
+.productos-carousel .card:hover {
+  transform: translateY(-5px);
+}
+
+.productos-carousel .card-img-top {
+  height: 200px;
+  object-fit: cover;
+}
+
+.productos-carousel .card-body {
+  padding: 1.25rem;
+}
+
+.productos-carousel .card-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+
+.productos-carousel .card-text {
+  font-size: 0.9rem;
+  color: #666;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.productos-carousel .price-tag {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--primary-color);
+  margin: 1rem 0;
+}
+
+/* Controles del carrusel */
+.productos-carousel .carousel-control-prev,
+.productos-carousel .carousel-control-next {
+  width: 40px;
+  height: 40px;
+  background-color: var(--primary-color);
+  border-radius: 50%;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0.8;
+}
+
+.productos-carousel .carousel-control-prev {
+  left: -1rem;
+}
+
+.productos-carousel .carousel-control-next {
+  right: -1rem;
+}
+
+.productos-carousel .carousel-control-prev:hover,
+.productos-carousel .carousel-control-next:hover {
+  opacity: 1;
+}
+
+.productos-carousel .carousel-indicators {
+  bottom: -3rem;
+}
+
+.productos-carousel .carousel-indicators [data-bs-target] {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: var(--primary-color);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .hero-section-productos {
+    padding: 2rem 0;
+  }
+
+  .productos-carousel {
+    padding: 0 1rem;
+  }
+
+  .productos-carousel .card-img-top {
+    height: 140px;
+  }
+
+  .productos-carousel .card-body {
+    padding: 1rem;
+  }
+
+  .productos-carousel .card-title {
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .productos-carousel .card-text {
+    font-size: 0.8rem;
+    -webkit-line-clamp: 2;
+  }
+
+  .productos-carousel .price-tag {
+    font-size: 1rem;
+    margin: 0.5rem 0;
+  }
+
+  .productos-carousel .btn {
+    font-size: 0.8rem;
+    padding: 0.4rem 0.8rem;
+  }
+
+  .productos-carousel .carousel-control-prev {
+    left: -0.5rem;
+  }
+
+  .productos-carousel .carousel-control-next {
+    right: -0.5rem;
+  }
+
+  .productos-carousel .carousel-control-prev,
+  .productos-carousel .carousel-control-next {
+    width: 30px;
+    height: 30px;
+  }
 }
 
 .features-list {
@@ -147,6 +320,8 @@ h1, h2, h3, h4, h5, h6 {
   border: none;
   box-shadow: 0 2px 10px rgba(0,0,0,0.1);
   width: 100%;
+  background-color: var(--card-bg);
+  color: var(--text-color);
 }
 
 .product-card:hover {
@@ -162,7 +337,8 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Navbar */
 .navbar {
-  box-shadow: 0 2px 10px rgba(194, 27, 27, 0.1);
+  background-color: var(--navbar-bg) !important;
+  box-shadow: 0 2px 10px var(--card-shadow);
   width: 100%;
 }
 
@@ -227,7 +403,8 @@ section {
 
 /* Footer */
 footer {
-  background-color: var(--background-light);
+  background-color: var(--footer-bg);
+  color: var(--text-color);
   padding: 3rem 0;
   margin-top: 4rem;
   width: 100%;
@@ -282,6 +459,9 @@ footer a:hover {
   position: relative;
   padding-left: 2rem;
   padding-right: 2rem;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
 .product-carousel .carousel-indicators {
@@ -290,6 +470,8 @@ footer a:hover {
 
 .product-carousel .carousel-item {
   padding: 0.5rem;
+  display: flex;
+  justify-content: center;
 }
 
 .product-carousel .row {
@@ -545,4 +727,103 @@ footer a:hover {
 
 .video-control-btn .bi-play-fill {
   margin-left: 2px;
+}
+
+/* Tema oscuro - botón */
+.theme-switch {
+  background: none;
+  border: none;
+  color: var(--text-color);
+  padding: 0.5rem;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: transform var(--transition-speed);
+}
+
+.theme-switch:hover {
+  transform: scale(1.1);
+}
+
+/* Navbar en modo oscuro */
+[data-theme='dark'] .navbar {
+  background-color: var(--navbar-bg) !important;
+}
+
+[data-theme='dark'] .navbar .nav-link,
+[data-theme='dark'] .navbar-brand .brand-text {
+  color: var(--nav-text) !important;
+}
+
+/* Sección de productos destacados */
+#productos {
+  background: linear-gradient(135deg, var(--productos-gradient-start) 0%, var(--productos-gradient-end) 100%);
+  color: var(--text-color);
+  width: 100vw;
+  margin-left: calc(-50vw + 50%);
+  margin-right: calc(-50vw + 50%);
+  padding: 4rem calc(50vw - 50%);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+#productos .container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+#productos h2 {
+  color: var(--text-color);
+  margin-bottom: 3rem;
+  position: relative;
+  z-index: 1;
+  text-align: center;
+}
+
+/* Footer - Modo Oscuro */
+[data-theme='dark'] footer {
+  background-color: var(--footer-bg) !important;
+  color: #ffffff;
+}
+
+[data-theme='dark'] footer a {
+  color: #ffffff;
+}
+
+[data-theme='dark'] footer .text-muted {
+  color: #ffffff !important;
+}
+
+[data-theme='dark'] footer a:hover {
+  color: var(--primary-color);
+}
+
+/* Mantener las tarjetas de productos en color claro incluso en modo oscuro */
+[data-theme='dark'] .product-card {
+  background-color: #ffffff;
+  color: #212529;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+}
+
+[data-theme='dark'] .product-card .card-text {
+  color: #221818;
+}
+
+/* Ajustes adicionales para el carrusel en modo oscuro */
+[data-theme='dark'] .product-carousel .carousel-indicators [data-bs-target] {
+  background-color: #ffffff;
+}
+
+[data-theme='dark'] .product-carousel .carousel-control-prev,
+[data-theme='dark'] .product-carousel .carousel-control-next {
+  background-color: var(--primary-color);
+  opacity: 0.8;
+}
+
+[data-theme='dark'] .product-carousel .carousel-control-prev:hover,
+[data-theme='dark'] .product-carousel .carousel-control-next:hover {
+  opacity: 1;
 }
