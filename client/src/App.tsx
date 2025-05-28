@@ -1,9 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { Routes, Route, Link, useLocation } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css'; // Para los íconos como el del carrito
 import { Carousel } from 'react-bootstrap';
 import BoxAnimation from './components/BoxAnimation';
 import FallingLines from './components/FallingLines';
+import Productos from './pages/Productos';
 import './App.css'; // Puedes mover los estilos en línea aquí
 import anuncioVideo from './assets/anuncio.mp4';
 import ubicacion from './assets/ubicacion.png';
@@ -30,6 +32,7 @@ const App = () => {
   const [isVideoPlaying, setIsVideoPlaying] = useState(true);
   const [isDarkTheme, setIsDarkTheme] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const location = useLocation();
 
   // Efecto para manejar el tema
   useEffect(() => {
@@ -176,14 +179,175 @@ const App = () => {
 
   const productGroups = chunkArray(products, 4);
 
+  // Renderizar el contenido según la ruta
+  const renderContent = () => {
+    if (location.pathname === '/productos') {
+      return <Productos />;
+    }
+
+    return (
+      <>
+        {/* Hero Section */}
+        <section className="hero-section">
+          <FallingLines />
+          <div className="container position-relative" style={{ zIndex: 2 }}>
+            <div className="row align-items-center">
+              {/* Columna del Video */}
+              <div className="col-md-6">
+                <div className="ratio ratio-16x9">
+                  <video 
+                    ref={videoRef}
+                    className="rounded shadow"
+                    autoPlay 
+                    muted 
+                    playsInline
+                    onEnded={handleVideoEnd}
+                  >
+                    <source src={anuncioVideo} type="video/mp4" />
+                    Tu navegador no soporta el elemento de video.
+                  </video>
+                  <button
+                    className="video-control-btn"
+                    onClick={handleVideoToggle}
+                    aria-label={isVideoPlaying ? 'Pausar video' : 'Reproducir video'}
+                  >
+                    <i className={`bi bi-${isVideoPlaying ? 'pause' : 'play'}-fill`}></i>
+                  </button>
+                </div>
+              </div>
+              {/* Columna del Texto */}
+              <div className="col-md-6 text-center text-md-start">
+                <BoxAnimation />
+                <h1 className="display-4 fade-in">Bienvenido a Hako</h1>
+                <p className="lead fade-in">Descubre nuestros productos exclusivos con los mejores precios</p>
+                <div className="d-flex gap-3 justify-content-center justify-content-md-start mt-4">
+                  <Link to="/productos" className="btn btn-primary btn-lg">
+                    <i className="bi bi-shop me-2"></i>Ver Productos
+                  </Link>
+                  <a href="#ofertas" className="btn btn-outline-primary btn-lg">
+                    <i className="bi bi-tag me-2"></i>Ver Ofertas
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Segunda Hero Section */}
+        <section className="hero-section hero-section-alt">
+          <FallingLines />
+          <div className="container position-relative" style={{ zIndex: 2 }}>
+            <div className="row align-items-center">
+              {/* Columna del Texto (Ahora a la izquierda) */}
+              <div className="col-md-6 text-center text-md-start">
+                <h2 className="display-4 fade-in">Recoge tus compras al instante</h2>
+                <p className="lead fade-in">Ya no tienes que esperar a que te llegue tu pedido, recogelo en el momento que quieras.</p>
+                <div className="features-list fade-in">
+                  <div className="feature-item">
+                    <i className="bi bi-cash-coin text-primary me-2"></i>
+                    Pagos seguros y rápidos
+                  </div>
+                  <div className="feature-item">
+                    <i className="bi bi-person-check text-primary me-2"></i>
+                    Productos calificados por el personal
+                  </div>
+                  <div className="feature-item">
+                    <i className="bi bi-person-check text-primary me-2"></i>
+                    Soporte al usuario 24/7
+                  </div>
+                  <div className="feature-item">
+                    <i className="bi bi-shield-check text-primary me-2"></i>
+                    Productos 100% garantizados
+                  </div>
+                  <div className="feature-item">
+                    <i className="bi bi-shield-check text-primary me-2"></i>
+                    Rembolso por artículo defectuoso
+                  </div>
+                  <div className="feature-item">
+                    <i className="bi bi-shield-check text-primary me-2"></i>
+                    Datos personales protegidos
+                  </div>
+                </div>
+                <div className="d-flex gap-3 justify-content-center justify-content-md-start mt-4">
+                  <button 
+                    onClick={handleOpenGoogleMaps}
+                    className="btn btn-primary btn-lg">
+                    <i className="bi bi-geo-alt me-2"></i>Consultar zona
+                  </button>
+                </div>
+              </div>
+              {/* Columna de la Imagen (Ahora a la derecha) */}
+              <div className="col-md-6">
+                <div className="delivery-image-container">
+                  <img 
+                    src={ubicacion}
+                    alt="Servicio de envíos"
+                    className="img-fluid rounded shadow fade-in"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Productos */}
+        <section className="hero-section hero-section-productos" id="productos">
+          <div className="container">
+            <h2>Productos Destacados</h2>
+            <Carousel 
+              className="productos-carousel"
+              indicators={true}
+              controls={true}
+            >
+              {productGroups.map((group, groupIndex) => (
+                <Carousel.Item key={groupIndex}>
+                  <div className="container">
+                    <div className="row g-4">
+                      {group.map((product) => (
+                        <div className="col-6 col-md-4" key={product.id}>
+                          <div className="card">
+                            <img 
+                              src={product.image}
+                              className="card-img-top" 
+                              alt={product.name}
+                            />
+                            <div className="card-body d-flex flex-column">
+                              <h5 className="card-title">{product.name}</h5>
+                              <p className="card-text">{product.description}</p>
+                              <div className="price-tag">
+                                ${product.price.toFixed(2)}
+                              </div>
+                              <button className="btn btn-primary mt-auto">
+                                <i className="bi bi-box-seam me-2"></i>
+                                Agregar al Box
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </Carousel.Item>
+              ))}
+            </Carousel>
+            <Link to="/productos" className="ver-mas-btn">
+              <i className="bi bi-arrow-right-circle me-2"></i>
+              Ver más productos
+            </Link>
+          </div>
+        </section>
+      </>
+    );
+  };
+
   return (
     <>
       {/* Navbar */}
       <nav className="navbar navbar-expand-lg navbar-light bg-light sticky-top">
         <div className="container">
-          <a className="navbar-brand d-flex align-items-center" href="#">
+          <Link className="navbar-brand d-flex align-items-center" to="/">
             <span>箱</span><span className="brand-text">hako</span>
-          </a>
+          </Link>
           <button 
             className="navbar-toggler" 
             type="button" 
@@ -195,10 +359,10 @@ const App = () => {
           <div className={`${isNavCollapsed ? 'collapse' : ''} navbar-collapse`}>
             <ul className="navbar-nav me-auto">
               <li className="nav-item">
-                <a className="nav-link active" href="#"><i className="bi bi-house-door me-1"></i>Inicio</a>
+                <Link className="nav-link" to="/"><i className="bi bi-house-door me-1"></i>Inicio</Link>
               </li>
               <li className="nav-item">
-                <a className="nav-link" href="#productos"><i className="bi bi-grid me-1"></i>Productos</a>
+                <Link className="nav-link" to="/productos"><i className="bi bi-grid me-1"></i>Productos</Link>
               </li>
               <li className="nav-item">
                 <a className="nav-link" href="#ofertas"><i className="bi bi-tag me-1"></i>Ofertas</a>
@@ -228,161 +392,11 @@ const App = () => {
         </div>
       </nav>
 
-      {/* Hero Section */}
-      <section className="hero-section">
-        <FallingLines />
-        <div className="container position-relative" style={{ zIndex: 2 }}>
-          <div className="row align-items-center">
-            {/* Columna del Video */}
-            <div className="col-md-6">
-              <div className="ratio ratio-16x9">
-                <video 
-                  ref={videoRef}
-                  className="rounded shadow"
-                  autoPlay 
-                  muted 
-                  playsInline
-                  onEnded={handleVideoEnd}
-                >
-                  <source src={anuncioVideo} type="video/mp4" />
-                  Tu navegador no soporta el elemento de video.
-                </video>
-                <button
-                  className="video-control-btn"
-                  onClick={handleVideoToggle}
-                  aria-label={isVideoPlaying ? 'Pausar video' : 'Reproducir video'}
-                >
-                  <i className={`bi bi-${isVideoPlaying ? 'pause' : 'play'}-fill`}></i>
-                </button>
-              </div>
-            </div>
-            {/* Columna del Texto */}
-            <div className="col-md-6 text-center text-md-start">
-              <BoxAnimation />
-              <h1 className="display-4 fade-in">Bienvenido a Hako</h1>
-              <p className="lead fade-in">Descubre nuestros productos exclusivos con los mejores precios</p>
-              <div className="d-flex gap-3 justify-content-center justify-content-md-start mt-4">
-                <a href="#productos" className="btn btn-primary btn-lg">
-                  <i className="bi bi-shop me-2"></i>Ver Productos
-                </a>
-                <a href="#ofertas" className="btn btn-outline-primary btn-lg">
-                  <i className="bi bi-tag me-2"></i>Ver Ofertas
-                </a>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Segunda Hero Section */}
-      <section className="hero-section hero-section-alt">
-        <FallingLines />
-        <div className="container position-relative" style={{ zIndex: 2 }}>
-          <div className="row align-items-center">
-            {/* Columna del Texto (Ahora a la izquierda) */}
-            <div className="col-md-6 text-center text-md-start">
-              <h2 className="display-4 fade-in">Recoge tus compras al instante</h2>
-              <p className="lead fade-in">Ya no tienes que esperar a que te llegue tu pedido, recogelo en el momento que quieras.</p>
-              <div className="features-list fade-in">
-              <div className="feature-item">
-                  <i className="bi bi-cash-coin text-primary me-2"></i>
-                  Pagos seguros y rápidos
-                </div>
-                <div className="feature-item">
-                  <i className="bi bi-person-check text-primary me-2"></i>
-                  Productos calificados por el personal
-                </div>
-                <div className="feature-item">
-                  <i className="bi bi-person-check text-primary me-2"></i>
-                  Soporte al usuario 24/7
-                </div>
-                <div className="feature-item">
-                  <i className="bi bi-shield-check text-primary me-2"></i>
-                  Productos 100% garantizados
-                </div>
-                <div className="feature-item">
-                  <i className="bi bi-shield-check text-primary me-2"></i>
-                  Rembolso por artículo defectuoso
-                </div>
-                <div className="feature-item">
-                  <i className="bi bi-shield-check text-primary me-2"></i>
-                  Datos personales protegidos
-                </div>
-              </div>
-              <div className="d-flex gap-3 justify-content-center justify-content-md-start mt-4">
-                <button 
-                  onClick={handleOpenGoogleMaps}
-                  className="btn btn-primary btn-lg">
-                  <i className="bi bi-geo-alt me-2"></i>Consultar zona
-                </button>
-              </div>
-            </div>
-            {/* Columna de la Imagen (Ahora a la derecha) */}
-            <div className="col-md-6">
-              <div className="delivery-image-container">
-                <img 
-                  src={ubicacion}
-                  alt="Servicio de envíos"
-                  className="img-fluid rounded shadow fade-in"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Productos */}
-      <section className="hero-section hero-section-productos" id="productos">
-        <div className="container">
-          <h2>Productos Destacados</h2>
-          <Carousel 
-            className="productos-carousel"
-            indicators={true}
-            controls={true}
-          >
-            {products.reduce((groups, product, index) => {
-              // En móvil mostraremos 4 productos por slide (2x2), en desktop 6 productos (3x2)
-              const isMobile = window.innerWidth < 768;
-              const itemsPerSlide = isMobile ? 4 : 6;
-              const groupIndex = Math.floor(index / itemsPerSlide);
-              if (!groups[groupIndex]) {
-                groups[groupIndex] = [];
-              }
-              groups[groupIndex].push(product);
-              return groups;
-            }, [] as Product[][]).map((group, groupIndex) => (
-              <Carousel.Item key={groupIndex}>
-                <div className="container">
-                  <div className="row g-4">
-                    {group.map((product) => (
-                      <div className="col-6 col-md-4" key={product.id}>
-                        <div className="card">
-                          <img 
-                            src={product.image}
-                            className="card-img-top" 
-                            alt={product.name}
-                          />
-                          <div className="card-body d-flex flex-column">
-                            <h5 className="card-title">{product.name}</h5>
-                            <p className="card-text">{product.description}</p>
-                            <div className="price-tag">
-                              ${product.price.toFixed(2)}
-                            </div>
-                            <button className="btn btn-primary mt-auto">
-                              <i className="bi bi-box-seam me-2"></i>
-                              Agregar al Box
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </Carousel.Item>
-            ))}
-          </Carousel>
-        </div>
-      </section>
+      {/* Contenido principal */}
+      <Routes>
+        <Route path="/" element={renderContent()} />
+        <Route path="/productos" element={renderContent()} />
+      </Routes>
 
       {/* Footer */}
       <footer className="bg-light py-4 mt-5">
