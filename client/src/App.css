@@ -36,6 +36,69 @@
   --body-bg: #6f706f;
   --productos-gradient-start: #242424;
   --productos-gradient-end: #1a1a1a;
+
+  /* Estilos de Autenticación en Tema Oscuro */
+  .auth-page-container.light-gray-bg {
+    background-color: #1e1e1e; /* Fondo gris oscuro */
+  }
+
+  .auth-form-card.peach-bg {
+    background-color: #2c2c2c; /* Tarjeta gris oscuro */
+    color: #ffffff; /* Texto blanco por defecto en la tarjeta oscura */
+  }
+
+  .auth-form-card h2,
+  .auth-form-card p {
+    color: #ffffff; /* Títulos y párrafos en blanco */
+  }
+
+  .auth-form-card .brand-text {
+    color: #ffffff; /* hako en blanco */
+  }
+
+  .auth-form-card .red-text {
+    color: #d25d4d; /* Mantener el rojo claro para 箱 */
+  }
+
+  .auth-form-card a {
+    color: #d25d4d; /* Enlaces en rojo claro */
+  }
+
+  /* Asegurar que los inputs mantengan su estilo */
+  .auth-form-card .pill-input {
+    background-color: #ffffff; /* Fondo blanco */
+    color: #030303; /* Texto negro */
+    border-color: #ced4da; /* Borde por defecto */
+  }
+
+  .auth-form-card .pill-input::placeholder {
+    color: #6c757d; /* Color del placeholder */
+  }
+
+  .auth-form-card .pill-input:focus {
+    border-color: #d25d4d; /* Borde al enfocar */
+    box-shadow: 0 0 0 0.25rem rgba(210, 93, 77, 0.25); /* Sombra al enfocar */
+  }
+
+  /* Asegurar que los botones mantengan su estilo visual */
+  .auth-form-card .btn-custom-red {
+    background-color: #d25d4d; /* Rojo oscuro */
+    color: #030303; /* Texto negro */
+  }
+
+   .auth-form-card .btn-custom-red:hover {
+    background-color: #c04c3e; /* Rojo un poco más oscuro al pasar el ratón */
+    color: #030303;
+  }
+
+  .auth-form-card .btn-google-icon {
+    background: none; /* Sin fondo */
+    border-color: #ced4da; /* Borde */
+  }
+
+   .auth-form-card .btn-google-icon:hover {
+    border-color: #6c757d; /* Borde al pasar el ratón */
+  }
 }
 
 /* Estilos generales */
@@ -851,4 +914,130 @@ footer a:hover {
 [data-theme='dark'] .product-carousel .carousel-control-prev:hover,
 [data-theme='dark'] .product-carousel .carousel-control-next:hover {
   opacity: 1;
+}
+
+/* --- Estilos para Páginas de Autenticación (Login/Signup) --- */
+.auth-page-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.light-gray-bg {
+  background-color: #f4f1f0;
+}
+
+.auth-form-card {
+  background-color: #ffffff; /* Default white background */
+  padding: 40px;
+  border-radius: 15px; /* Default rounded corners */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 400px; /* Adjust max-width as needed */
+  text-align: center;
+}
+
+.peach-bg {
+  background-color: #fce7da;
+}
+
+.rounded-card {
+  border-radius: 30px; /* Very rounded corners */
+}
+
+.brand-logo {
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+  margin-bottom: 2rem;
+}
+
+.logo-japanese {
+  font-size: 3rem; /* Large font size */
+  font-weight: 700; /* Elegant/bold font weight */
+  margin-right: 5px;
+}
+
+.red-text {
+  color: #d25d4d;
+}
+
+.black-text {
+  color: #030303; /* Using a dark black */
+}
+
+.brand-text {
+  font-size: 2rem; /* Adjust size relative to Japanese char */
+  font-weight: 300; /* Thin font weight */
+}
+
+.pill-input {
+  border-radius: 50px; /* Pill shape */
+  padding: 12px 20px; /* Generous padding */
+  text-align: center;
+  background-color: #ffffff;
+  border: 1px solid #ced4da; /* Default border */
+}
+
+.pill-input::placeholder {
+  color: #6c757d; /* Placeholder color */
+  text-align: center;
+}
+
+.pill-input:focus {
+  border-color: #d25d4d; /* Highlight color on focus */
+  box-shadow: 0 0 0 0.25rem rgba(210, 93, 77, 0.25); /* Matching shadow */
+}
+
+.btn-custom-red {
+  background-color: #d25d4d;
+  color: #030303; /* Black text */
+  border: none;
+  border-radius: 50px; /* Rounded borders */
+  padding: 12px 30px; /* Ample padding */
+  font-size: 1.2rem; /* Large font size */
+  font-weight: 600;
+  transition: background-color 0.3s ease;
+}
+
+.btn-custom-red:hover {
+  background-color: #c04c3e; /* Slightly darker on hover */
+  color: #030303;
+}
+
+.btn-google-icon {
+  background: none;
+  border: 1px solid #ced4da;
+  border-radius: 50px;
+  padding: 10px; /* Padding around the icon */
+  width: 50px; /* Fixed width to make it round */
+  height: 50px; /* Fixed height to make it round */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 0 auto 15px auto; /* Center the button and add bottom margin */
+  transition: border-color 0.3s ease;
+}
+
+.btn-google-icon:hover {
+  border-color: #6c757d;
+}
+
+.btn-google-icon img {
+  display: block; /* Ensure image is block to help centering */
+  width: 24px; /* Adjust icon size as needed */
+  height: 24px; /* Adjust icon size as needed */
+}
+
+/* Optional: Center links below form */
+.auth-form-card .text-center.mt-3 a {
+  color: #d25d4d; /* Link color */
+  text-decoration: none;
+}
+
+.auth-form-card .text-center.mt-3 a:hover {
+  text-decoration: underline;
 }

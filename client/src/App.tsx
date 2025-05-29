@@ -6,9 +6,17 @@ import { Carousel } from 'react-bootstrap';
 import BoxAnimation from './components/BoxAnimation';
 import FallingLines from './components/FallingLines';
 import Productos from './pages/Productos';
+import LoginPage from './pages/LoginPage';
+import SignupPage from './pages/SignupPage';
 import './App.css'; // Puedes mover los estilos en línea aquí
 import anuncioVideo from './assets/anuncio.mp4';
 import ubicacion from './assets/ubicacion.png';
+import productService from './services/productService';
+import type { Product } from './services/productService';
+import authService from './services/authService';
+import type { User } from './services/authService';
+import cartService from './services/cartService';
+import type { Cart } from './services/cartService';
 
 // Importar fuente Montserrat
 import '@fontsource/montserrat/300.css';
@@ -18,25 +26,52 @@ import '@fontsource/montserrat/600.css';
 import '@fontsource/montserrat/700.css';
 import '@fontsource/montserrat/800.css';
 
-// Definir la interfaz para un producto
-interface Product {
-  id: number;
-  name: string;
-  price: number;
-  description: string;
-  image: string;
-}
-
 const App = () => {
   const [isNavCollapsed, setIsNavCollapsed] = useState(true);
   const [isVideoPlaying, setIsVideoPlaying] = useState(true);
   const [isDarkTheme, setIsDarkTheme] = useState(false);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [cart, setCart] = useState<Cart | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const location = useLocation();
 
+  // Efecto para cargar productos
+  useEffect(() => {
+    const loadProducts = async () => {
+      try {
+        const data = await productService.getAllProducts();
+        setProducts(data);
+      } catch (error) {
+        console.error('Error al cargar productos:', error);
+      }
+    };
+    loadProducts();
+  }, []);
+
+  // Efecto para verificar autenticación
+  useEffect(() => {
+    const user = authService.getCurrentUser();
+    setCurrentUser(user);
+  }, []);
+
+  // Efecto para cargar el carrito si el usuario está autenticado
+  useEffect(() => {
+    const loadCart = async () => {
+      if (currentUser) {
+        try {
+          const cartData = await cartService.getCart();
+          setCart(cartData);
+        } catch (error) {
+          console.error('Error al cargar el carrito:', error);
+        }
+      }
+    };
+    loadCart();
+  }, [currentUser]);
+
   // Efecto para manejar el tema
   useEffect(() => {
-    // Verificar si hay una preferencia guardada
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme === 'dark') {
       setIsDarkTheme(true);
@@ -49,101 +84,6 @@ const App = () => {
     setIsDarkTheme(!isDarkTheme);
     document.documentElement.setAttribute('data-theme', !isDarkTheme ? 'dark' : 'light');
     localStorage.setItem('theme', !isDarkTheme ? 'dark' : 'light');
-  };
-
-  // Datos de ejemplo para los productos
-  const products: Product[] = [
-    {
-      id: 1,
-      name: "Box Premium",
-      price: 99.99,
-      description: "Box premium con productos seleccionados y exclusivos.",
-      image: "https://via.placeholder.com/300x300?text=Box+Premium"
-    },
-    {
-      id: 2,
-      name: "Box Gamer",
-      price: 149.99,
-      description: "Box especial para gamers con accesorios y coleccionables.",
-      image: "https://via.placeholder.com/300x300?text=Box+Gamer"
-    },
-    {
-      id: 3,
-      name: "Box Anime",
-      price: 199.99,
-      description: "Box temático de anime con figuras y merchandising exclusivo.",
-      image: "https://via.placeholder.com/300x300?text=Box+Anime"
-    },
-    {
-      id: 4,
-      name: "Box Kawaii",
-      price: 129.99,
-      description: "Box lleno de productos kawaii y accesorios adorables.",
-      image: "https://via.placeholder.com/300x300?text=Box+Kawaii"
-    },
-    {
-      id: 5,
-      name: "Box Retro",
-      price: 179.99,
-      description: "Box con artículos retro y coleccionables vintage.",
-      image: "https://via.placeholder.com/300x300?text=Box+Retro"
-    },
-    {
-      id: 6,
-      name: "Box Sorpresa",
-      price: 89.99,
-      description: "Box misterioso con productos sorpresa de alta calidad.",
-      image: "https://via.placeholder.com/300x300?text=Box+Sorpresa"
-    },
-    {
-      id: 7,
-      name: "Box Deluxe",
-      price: 249.99,
-      description: "Box de lujo con productos premium y ediciones limitadas.",
-      image: "https://via.placeholder.com/300x300?text=Box+Deluxe"
-    },
-    {
-      id: 8,
-      name: "Box Coleccionista",
-      price: 299.99,
-      description: "Box especial para coleccionistas con items exclusivos.",
-      image: "https://via.placeholder.com/300x300?text=Box+Coleccionista"
-    },
-    {
-      id: 9,
-      name: "Box Manga",
-      price: 159.99,
-      description: "Box con mangas selectos y artículos relacionados.",
-      image: "https://via.placeholder.com/300x300?text=Box+Manga"
-    },
-    {
-      id: 10,
-      name: "Box Arte",
-      price: 189.99,
-      description: "Box con materiales de arte y productos creativos.",
-      image: "https://via.placeholder.com/300x300?text=Box+Arte"
-    },
-    {
-      id: 11,
-      name: "Box Limited",
-      price: 399.99,
-      description: "Box de edición limitada con productos únicos.",
-      image: "https://via.placeholder.com/300x300?text=Box+Limited"
-    },
-    {
-      id: 12,
-      name: "Box Popular",
-      price: 79.99,
-      description: "Box con los productos más populares del momento.",
-      image: "https://via.placeholder.com/300x300?text=Box+Popular"
-    }
-  ];
-
-  // Coordenadas exactas de la ubicación
-  const storeLocation = {
-    lat: 4.701816097338806,
-    lng: -74.1201097123357,
-    name: "Hako Store"
   };
 
   const handleNavCollapse = () => setIsNavCollapsed(!isNavCollapsed);
@@ -164,6 +104,11 @@ const App = () => {
   };
 
   const handleOpenGoogleMaps = () => {
+    const storeLocation = {
+      lat: 4.701816097338806,
+      lng: -74.1201097123357,
+      name: "Hako Store"
+    };
     const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${storeLocation.lat},${storeLocation.lng}&query_place_id=${encodeURIComponent(storeLocation.name)}`;
     window.open(mapsUrl, '_blank');
   };
@@ -182,7 +127,7 @@ const App = () => {
   // Renderizar el contenido según la ruta
   const renderContent = () => {
     if (location.pathname === '/productos') {
-      return <Productos />;
+      return <Productos products={products} />;
     }
 
     return (
@@ -304,7 +249,7 @@ const App = () => {
                   <div className="container">
                     <div className="row g-4">
                       {group.map((product) => (
-                        <div className="col-6 col-md-4" key={product.id}>
+                        <div className="col-6 col-md-4" key={product._id}>
                           <div className="card">
                             <img 
                               src={product.image}
@@ -317,7 +262,10 @@ const App = () => {
                               <div className="price-tag">
                                 ${product.price.toFixed(2)}
                               </div>
-                              <button className="btn btn-primary mt-auto">
+                              <button 
+                                className="btn btn-primary mt-auto"
+                                onClick={() => cartService.addToCart(product._id)}
+                              >
                                 <i className="bi bi-box-seam me-2"></i>
                                 Agregar al Box
                               </button>
@@ -379,14 +327,28 @@ const App = () => {
               >
                 <i className={`bi bi-${isDarkTheme ? 'sun' : 'moon'}-fill`}></i>
               </button>
-              <a href="#" className="btn btn-outline-primary">
+              <Link to="/cart" className="btn btn-outline-primary">
                 <i className="bi bi-box-seam me-1"></i>
-                Tu Box <span className="badge bg-primary">0</span>
-              </a>
-              <a href="#" className="btn btn-primary">
-                <i className="bi bi-person me-1"></i>
-                Iniciar Sesión
-              </a>
+                Tu Box <span className="badge bg-primary">{cart?.items.length || 0}</span>
+              </Link>
+              {currentUser ? (
+                <button 
+                  className="btn btn-primary"
+                  onClick={() => {
+                    authService.logout();
+                    setCurrentUser(null);
+                    setCart(null);
+                  }}
+                >
+                  <i className="bi bi-box-arrow-right me-1"></i>
+                  Cerrar Sesión
+                </button>
+              ) : (
+                <Link to="/login" className="btn btn-primary">
+                  <i className="bi bi-person me-1"></i>
+                  Iniciar Sesión
+                </Link>
+              )}
             </div>
           </div>
         </div>
@@ -396,6 +358,8 @@ const App = () => {
       <Routes>
         <Route path="/" element={renderContent()} />
         <Route path="/productos" element={renderContent()} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignupPage />} />
       </Routes>
 
       {/* Footer */}
