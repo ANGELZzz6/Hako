@@ -8,6 +8,7 @@ import FallingLines from './components/FallingLines';
 import Productos from './pages/Productos';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
+import CartPage from './pages/CartPage';
 import './App.css'; // Puedes mover los estilos en línea aquí
 import anuncioVideo from './assets/anuncio.mp4';
 import ubicacion from './assets/ubicacion.png';
@@ -360,6 +361,7 @@ const App = () => {
         <Route path="/productos" element={renderContent()} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
+        <Route path="/cart" element={<CartPage />} />
       </Routes>
 
       {/* Footer */}
