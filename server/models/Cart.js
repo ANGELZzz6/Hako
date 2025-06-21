@@ -1,12 +1,12 @@
 const mongoose = require('mongoose');
 
-const cartItemSchema = new mongoose.Schema({
-  product: {
+const item_carrito_schema = new mongoose.Schema({
+  id_producto: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Producto',
+    ref: 'Product',
     required: true
   },
-  quantity: {
+  cantidad: {
     type: Number,
     required: true,
     min: 1,
@@ -14,32 +14,17 @@ const cartItemSchema = new mongoose.Schema({
   }
 });
 
-const cartSchema = new mongoose.Schema({
-  user: {
+const carritoSchema = new mongoose.Schema({
+  id_usuario: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
   },
-  items: [cartItemSchema],
-  total: {
-    type: Number,
-    required: true,
-    default: 0
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now
-  },
-  updatedAt: {
+  items: [item_carrito_schema],
+  creado_en: {
     type: Date,
     default: Date.now
   }
 });
 
-// Middleware para actualizar updatedAt antes de cada guardado
-cartSchema.pre('save', function(next) {
-  this.updatedAt = Date.now();
-  next();
-});
-
-module.exports = mongoose.model('Cart', cartSchema); 
+module.exports = mongoose.model('Cart', carritoSchema);

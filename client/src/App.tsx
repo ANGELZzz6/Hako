@@ -9,6 +9,10 @@ import Productos from './pages/Productos';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import CartPage from './pages/CartPage';
+import AdminDashboard from './pages/AdminDashboard';
+import UserManagement from './pages/UserManagement';
+import InventoryManagement from './pages/InventoryManagement';
+import SupportManagement from './pages/SupportManagement';
 import './App.css'; // Puedes mover los estilos en línea aquí
 import anuncioVideo from './assets/anuncio.mp4';
 import ubicacion from './assets/ubicacion.png';
@@ -289,71 +293,81 @@ const App = () => {
     );
   };
 
+  const showNavbar = location.pathname !== '/admin' && !location.pathname.startsWith('/admin/');
+
   return (
     <>
       {/* Navbar */}
-      <nav className="navbar navbar-expand-lg navbar-light bg-light sticky-top">
-        <div className="container">
-          <Link className="navbar-brand d-flex align-items-center" to="/">
-            <span>箱</span><span className="brand-text">hako</span>
-          </Link>
-          <button 
-            className="navbar-toggler" 
-            type="button" 
-            onClick={handleNavCollapse}
-            aria-expanded={!isNavCollapsed}
-          >
-            <span className="navbar-toggler-icon"></span>
-          </button>
-          <div className={`${isNavCollapsed ? 'collapse' : ''} navbar-collapse`}>
-            <ul className="navbar-nav me-auto">
-              <li className="nav-item">
-                <Link className="nav-link" to="/"><i className="bi bi-house-door me-1"></i>Inicio</Link>
-              </li>
-              <li className="nav-item">
-                <Link className="nav-link" to="/productos"><i className="bi bi-grid me-1"></i>Productos</Link>
-              </li>
-              <li className="nav-item">
-                <a className="nav-link" href="#ofertas"><i className="bi bi-tag me-1"></i>Ofertas</a>
-              </li>
-              <li className="nav-item">
-                <a className="nav-link" href="#contacto"><i className="bi bi-envelope me-1"></i>Contacto</a>
-              </li>
-            </ul>
-            <div className="d-flex flex-column flex-lg-row gap-2 align-items-center">
-              <button
-                className="theme-switch"
-                onClick={toggleTheme}
-                aria-label={isDarkTheme ? 'Activar modo claro' : 'Activar modo oscuro'}
-              >
-                <i className={`bi bi-${isDarkTheme ? 'sun' : 'moon'}-fill`}></i>
-              </button>
-              <Link to="/cart" className="btn btn-outline-primary">
-                <i className="bi bi-box-seam me-1"></i>
-                Tu Box <span className="badge bg-primary">{cart?.items.length || 0}</span>
-              </Link>
-              {currentUser ? (
-                <button 
-                  className="btn btn-primary"
-                  onClick={() => {
-                    authService.logout();
-                    setCurrentUser(null);
-                    setCart(null);
-                  }}
+      {showNavbar && (
+        <nav className="navbar navbar-expand-lg navbar-light bg-light sticky-top">
+          <div className="container">
+            <Link className="navbar-brand d-flex align-items-center" to="/">
+              <span>箱</span><span className="brand-text">hako</span>
+            </Link>
+            <button 
+              className="navbar-toggler" 
+              type="button" 
+              onClick={handleNavCollapse}
+              aria-expanded={!isNavCollapsed}
+            >
+              <span className="navbar-toggler-icon"></span>
+            </button>
+            <div className={`${isNavCollapsed ? 'collapse' : ''} navbar-collapse`}>
+              <ul className="navbar-nav me-auto">
+                <li className="nav-item">
+                  <Link className="nav-link" to="/"><i className="bi bi-house-door me-1"></i>Inicio</Link>
+                </li>
+                <li className="nav-item">
+                  <Link className="nav-link" to="/productos"><i className="bi bi-grid me-1"></i>Productos</Link>
+                </li>
+                <li className="nav-item">
+                  <a className="nav-link" href="#ofertas"><i className="bi bi-tag me-1"></i>Ofertas</a>
+                </li>
+                <li className="nav-item">
+                  <a className="nav-link" href="#contacto"><i className="bi bi-envelope me-1"></i>Contacto</a>
+                </li>
+              </ul>
+              <div className="d-flex flex-column flex-lg-row gap-2 align-items-center">
+                <button
+                  className="theme-switch"
+                  onClick={toggleTheme}
+                  aria-label={isDarkTheme ? 'Activar modo claro' : 'Activar modo oscuro'}
                 >
-                  <i className="bi bi-box-arrow-right me-1"></i>
-                  Cerrar Sesión
+                  <i className={`bi bi-${isDarkTheme ? 'sun' : 'moon'}-fill`}></i>
                 </button>
-              ) : (
-                <Link to="/login" className="btn btn-primary">
-                  <i className="bi bi-person me-1"></i>
-                  Iniciar Sesión
+                <Link to="/cart" className="btn btn-outline-primary">
+                  <i className="bi bi-box-seam me-1"></i>
+                  Tu Box <span className="badge bg-primary">{cart?.items.length || 0}</span>
                 </Link>
-              )}
+                {currentUser ? (
+                  <button 
+                    className="btn btn-primary"
+                    onClick={() => {
+                      authService.logout();
+                      setCurrentUser(null);
+                      setCart(null);
+                    }}
+                  >
+                    <i className="bi bi-box-arrow-right me-1"></i>
+                    Cerrar Sesión
+                  </button>
+                ) : (
+                  <>
+                    <Link to="/login" className="btn btn-primary">
+                      <i className="bi bi-person me-1"></i>
+                      Iniciar Sesión
+                    </Link>
+                    <Link to="/admin" className="btn btn-outline-danger">
+                      <i className="bi bi-shield-lock me-1"></i>
+                      Admin
+                    </Link>
+                  </>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      </nav>
+        </nav>
+      )}
 
       {/* Contenido principal */}
       <Routes>
@@ -362,6 +376,10 @@ const App = () => {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/cart" element={<CartPage />} />
+        <Route path="/admin" element={<AdminDashboard />} />
+        <Route path="/admin/users" element={<UserManagement />} />
+        <Route path="/admin/inventory" element={<InventoryManagement />} />
+        <Route path="/admin/support" element={<SupportManagement />} />
       </Routes>
 
       {/* Footer */}

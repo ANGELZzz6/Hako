@@ -1,0 +1,92 @@
+.admin-dashboard {
+  background-color: #f5f2f2;
+  min-height: 100vh;
+  font-family: 'Montserrat', sans-serif;
+}
+
+.admin-header-bar {
+  background-color: #fff;
+  padding: 1.5rem 2rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.admin-header {
+  font-size: 3rem; /* "hako" más grande */
+  font-weight: 300;
+  margin: 0;
+  text-align: center;
+}
+
+.admin-header .logo-japanese {
+  color: #d9534f;
+  font-weight: 700;
+}
+
+.admin-header .brand-text {
+  color: #333;
+}
+
+.admin-header .develop-text {
+  color: #d9534f;
+  font-size: 0.4em; /* "Develop" más pequeño */
+  font-weight: 500;
+  vertical-align: middle;
+}
+
+.admin-main-content {
+  padding: 3rem 2rem;
+}
+
+.admin-header span {
+  font-weight: 300;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 2rem;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.dashboard-card {
+  background-color: #fff;
+  border: 1px solid #ddd;
+  border-radius: 15px;
+  padding: 2rem;
+  text-align: center;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1 / 1;
+}
+
+.dashboard-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+}
+
+.dashboard-card .icon {
+  font-size: 48px;
+  line-height: 1;
+  margin-bottom: 1rem;
+  color: #333;
+}
+
+.dashboard-card p {
+  margin: 0;
+  font-weight: 600;
+  color: #555;
+}
+
+.dashboard-card .text-red p {
+  color: #d9534f;
+}
+
+.placeholder {
+  background-color: #f9f9f9;
+  border-style: dashed;
+} 
