@@ -12,7 +12,7 @@ import CartPage from './pages/CartPage';
 import AdminDashboard from './pages/AdminDashboard';
 import UserManagement from './pages/UserManagement';
 import InventoryManagement from './pages/InventoryManagement';
-import SupportManagement from './pages/SupportManagement';
+import SupportPage from './pages/SupportManagement';
 import './App.css'; // Puedes mover los estilos en línea aquí
 import anuncioVideo from './assets/anuncio.mp4';
 import ubicacion from './assets/ubicacion.png';
@@ -324,7 +324,7 @@ const App = () => {
                   <a className="nav-link" href="#ofertas"><i className="bi bi-tag me-1"></i>Ofertas</a>
                 </li>
                 <li className="nav-item">
-                  <a className="nav-link" href="#contacto"><i className="bi bi-envelope me-1"></i>Contacto</a>
+                  <Link className="nav-link" to="/soporte"><i className="bi bi-headset me-1"></i>Soporte</Link>
                 </li>
               </ul>
               <div className="d-flex flex-column flex-lg-row gap-2 align-items-center">
@@ -379,7 +379,8 @@ const App = () => {
         <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/admin/users" element={<UserManagement />} />
         <Route path="/admin/inventory" element={<InventoryManagement />} />
-        <Route path="/admin/support" element={<SupportManagement />} />
+        <Route path="/admin/support" element={<SupportPage />} />
+        <Route path="/soporte" element={<SupportPage />} />
       </Routes>
 
       {/* Footer */}

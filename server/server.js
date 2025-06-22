@@ -1,9 +1,10 @@
 require('dotenv').config();
 const express = require('express');
-const connectDB = require('./config/db');
+const { connectDB } = require('./config/db');
 const cors = require('cors');
+const app = require('./app');
 
-const app = express();
+const PORT = process.env.PORT || 5000;
 
 // Conectar a MongoDB Atlas
 connectDB();
@@ -16,9 +17,6 @@ app.use(express.json());
 app.get('/', (req, res) => {
     res.send('API de Hako funcionando');
 });
-
-// Puerto
-const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
     console.log(`Servidor corriendo en el puerto ${PORT}`);

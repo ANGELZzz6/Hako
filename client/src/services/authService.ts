@@ -2,34 +2,30 @@ import { ENDPOINTS } from '../config/api';
 
 export interface User {
   _id: string;
-  name: string;
+  nombre: string;
   email: string;
   role: 'user' | 'admin';
 }
 
 export interface AuthResponse {
   user: User;
-  token: string;
+  message: string;
 }
 
 class AuthService {
-  async login(email: string, password: string): Promise<AuthResponse> {
+  async login(email: string, contraseña: string): Promise<AuthResponse> {
     try {
       const response = await fetch(`${ENDPOINTS.AUTH}/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, contraseña }),
       });
 
-      if (!response.ok) throw new Error('Error en el inicio de sesión');
       const data = await response.json();
-      
-      // Guardar el token en localStorage
-      localStorage.setItem('token', data.token);
+      if (!response.ok) throw new Error(data.error || 'Error en el inicio de sesión');
       localStorage.setItem('user', JSON.stringify(data.user));
-      
       return data;
     } catch (error) {
       console.error('Error:', error);
@@ -37,23 +33,19 @@ class AuthService {
     }
   }
 
-  async register(name: string, email: string, password: string): Promise<AuthResponse> {
+  async register(nombre: string, email: string, contraseña: string): Promise<AuthResponse> {
     try {
       const response = await fetch(`${ENDPOINTS.AUTH}/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify({ nombre, email, contraseña }),
       });
 
       if (!response.ok) throw new Error('Error en el registro');
       const data = await response.json();
-      
-      // Guardar el token en localStorage
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      
+      // El backend solo devuelve mensaje, no usuario ni token
       return data;
     } catch (error) {
       console.error('Error:', error);
@@ -62,7 +54,6 @@ class AuthService {
   }
 
   logout(): void {
-    localStorage.removeItem('token');
     localStorage.removeItem('user');
   }
 
@@ -73,11 +64,7 @@ class AuthService {
   }
 
   isAuthenticated(): boolean {
-    return !!localStorage.getItem('token');
-  }
-
-  getToken(): string | null {
-    return localStorage.getItem('token');
+    return !!localStorage.getItem('user');
   }
 }
 
