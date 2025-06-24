@@ -15,24 +15,24 @@ const Productos: React.FC<ProductosProps> = ({ products }) => {
 
   // Filtrar y ordenar productos
   const filteredProducts = products
-    .filter(product => selectedCategory === 'todos' || product.category === selectedCategory)
+    .filter(product => selectedCategory === 'todos' || product.isActive) // Solo mostrar productos activos
     .sort((a, b) => {
       switch (sortBy) {
         case 'price-asc':
-          return a.price - b.price;
+          return a.precio - b.precio;
         case 'price-desc':
-          return b.price - a.price;
+          return b.precio - a.precio;
         case 'name-asc':
-          return a.name.localeCompare(b.name);
+          return a.nombre.localeCompare(b.nombre);
         case 'name-desc':
-          return b.name.localeCompare(a.name);
+          return b.nombre.localeCompare(a.nombre);
         default:
           return 0;
       }
     });
 
-  // Obtener categorías únicas
-  const categories = ['todos', ...new Set(products.map(product => product.category))];
+  // Obtener categorías únicas (por ahora solo mostrar todos los productos activos)
+  const categories = ['todos'];
 
   return (
     <Container className="py-5 position-relative">
@@ -82,15 +82,18 @@ const Productos: React.FC<ProductosProps> = ({ products }) => {
             <Card className="h-100 product-card">
               <Card.Img 
                 variant="top" 
-                src={product.image} 
-                alt={product.name}
+                src={product.imagen_url} 
+                alt={product.nombre}
                 className="product-image"
+                onError={(e) => {
+                  e.currentTarget.src = 'https://via.placeholder.com/300x200?text=Sin+Imagen';
+                }}
               />
               <Card.Body className="d-flex flex-column">
-                <Card.Title>{product.name}</Card.Title>
-                <Card.Text>{product.description}</Card.Text>
+                <Card.Title>{product.nombre}</Card.Title>
+                <Card.Text>{product.descripcion}</Card.Text>
                 <div className="price-tag mt-auto mb-3">
-                  ${product.price.toFixed(2)}
+                  ${product.precio.toFixed(2)}
                 </div>
                 <Button variant="primary" className="w-100">
                   <i className="bi bi-box-seam me-2"></i>

@@ -107,7 +107,6 @@
   background-color: #fff;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  overflow: hidden;
   border: 1px solid #e9ecef;
 }
 
@@ -120,21 +119,26 @@
 .user-table th {
   background-color: #f8f9fa;
   padding: 1rem;
-  text-align: center;
+  text-align: left;
   font-weight: 600;
   color: #495057;
   border-bottom: 2px solid #e9ecef;
   font-size: 0.9rem;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  height: 50px;
+  box-sizing: border-box;
 }
 
 .user-table td {
   padding: 1rem;
-  text-align: center;
-  border-bottom: 1px solid #e9ecef;
+  text-align: left;
+  border-bottom: none;
   color: #495057;
   transition: background-color 0.3s ease;
+  vertical-align: middle;
+  height: 60px;
+  box-sizing: border-box;
 }
 
 .user-table tbody tr:hover {
@@ -144,6 +148,188 @@
 
 .user-table tbody tr:last-child td {
   border-bottom: none;
+}
+
+/* Asegurar que las líneas de separación se vean correctamente */
+.user-table tr {
+  border-bottom: 1px solid #e9ecef;
+}
+
+.user-table tr:last-child {
+  border-bottom: none;
+}
+
+.user-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+/* Botones de acción */
+.action-buttons {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-start;
+  align-items: center;
+  min-height: 36px;
+}
+
+.btn-action {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+
+.btn-edit {
+  background: #007bff;
+  color: white;
+}
+
+.btn-edit:hover {
+  background: #0056b3;
+  transform: scale(1.05);
+}
+
+.btn-toggle-status {
+  background: #28a745;
+  color: white;
+}
+
+.btn-toggle-status:hover {
+  background: #dc3545;
+  transform: scale(1.05);
+}
+
+.btn-delete {
+  background: #dc3545;
+  color: white;
+}
+
+.btn-delete:hover {
+  background: #c82333;
+  transform: scale(1.05);
+}
+
+/* Estilos para los badges de estado */
+.status-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-align: center;
+  min-width: 80px;
+}
+
+.status-active {
+  background: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.status-inactive {
+  background: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+.role-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-align: center;
+  min-width: 80px;
+}
+
+.role-admin {
+  background: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffeaa7;
+}
+
+.role-user {
+  background: #d1ecf1;
+  color: #0c5460;
+  border: 1px solid #bee5eb;
+}
+
+/* Loading */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  border: 1px solid #e9ecef;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #d9534f;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-container p {
+  color: #666;
+  font-weight: 500;
+  margin: 0;
+}
+
+/* Alertas */
+.alert {
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  font-weight: 500;
+}
+
+.alert-danger {
+  background: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+.alert-success {
+  background: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+/* Scrollbar personalizado */
+.table-container::-webkit-scrollbar {
+  height: 8px;
+}
+
+.table-container::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.table-container::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.table-container::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
 }
 
 /* Responsive */
@@ -165,77 +351,144 @@
     font-size: 2rem;
   }
   
+  .user-main-content {
+    padding: 2rem 1rem;
+  }
+  
+  .user-management-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .user-management-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .container {
+    max-width: 100%;
+    padding: 0 0.5rem;
+    overflow-x: hidden;
+  }
+  
+  .table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Tabla responsiva para móviles */
+  .table-container {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 8px;
+    position: relative;
+    background: linear-gradient(to right, white 30%, rgba(255, 255, 255, 0)),
+                linear-gradient(to left, white 30%, rgba(255, 255, 255, 0));
+    background-position: left center, right center;
+    background-repeat: no-repeat;
+    background-size: 20px 100%, 20px 100%;
+    background-attachment: local, local;
+    max-width: 100%;
+    border: 2px solid #007bff; /* Debug: borde azul para verificar */
+  }
+  
+  .mobile-scroll-hint {
+    display: block;
+  }
+  
+  .table-container {
+    border-radius: 0 0 8px 8px;
+  }
+  
   .user-table {
-    font-size: 0.9rem;
+    min-width: 700px !important; /* Ancho mínimo más grande para forzar scroll */
+    font-size: 0.85rem;
+    width: 100%;
   }
   
   .user-table th,
   .user-table td {
     padding: 0.75rem 0.5rem;
+    white-space: nowrap;
+  }
+  
+  .user-info {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 150px;
+  }
+  
+  .user-avatar {
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+  }
+  
+  .user-name {
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  
+  .action-buttons {
+    flex-direction: row;
+    gap: 0.25rem;
+    min-width: 120px;
+  }
+  
+  .btn-action {
+    width: 28px;
+    height: 28px;
+    font-size: 0.75rem;
+  }
+  
+  .status-badge,
+  .role-badge {
+    font-size: 0.7rem;
+    padding: 0.2rem 0.5rem;
+    min-width: 50px;
   }
 }
 
-/* Scrollbar personalizado */
-.table-container::-webkit-scrollbar {
-  width: 8px;
-}
-
-.table-container::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 4px;
-}
-
-.table-container::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
-  border-radius: 4px;
-}
-
-.table-container::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
-}
-
-/* Estilos para los badges de estado */
-.status-badge {
-  padding: 0.25rem 0.75rem;
-  border-radius: 20px;
-  font-size: 0.8rem;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.status-active {
-  background-color: #d4edda;
-  color: #155724;
-  border: 1px solid #c3e6cb;
-}
-
-.status-inactive {
-  background-color: #f8d7da;
-  color: #721c24;
-  border: 1px solid #f5c6cb;
-}
-
-/* Estilos para los badges de rol */
-.role-badge {
-  padding: 0.25rem 0.75rem;
-  border-radius: 20px;
-  font-size: 0.8rem;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.role-admin {
-  background-color: #fff3cd;
-  color: #856404;
-  border: 1px solid #ffeaa7;
-}
-
-.role-user {
-  background-color: #d1ecf1;
-  color: #0c5460;
-  border: 1px solid #bee5eb;
+@media (max-width: 480px) {
+  .user-management-stats {
+    grid-template-columns: 1fr;
+  }
+  
+  .user-table {
+    min-width: 600px !important;
+    font-size: 0.8rem;
+    width: 100%;
+  }
+  
+  .user-table th,
+  .user-table td {
+    padding: 0.5rem 0.25rem;
+  }
+  
+  .user-info {
+    min-width: 120px;
+  }
+  
+  .user-avatar {
+    width: 35px;
+    height: 35px;
+  }
+  
+  .user-name {
+    max-width: 80px;
+  }
+  
+  .action-buttons {
+    min-width: 100px;
+  }
+  
+  .btn-action {
+    width: 24px;
+    height: 24px;
+    font-size: 0.7rem;
+  }
 }
 
 .back-link {
@@ -247,37 +500,26 @@
   transform: scale(1.1);
 }
 
-/* Estilos para botones de acción */
-.action-buttons {
-  display: flex;
-  justify-content: center;
+/* Table wrapper y mensaje de scroll */
+.table-wrapper {
+  position: relative;
+}
+
+.mobile-scroll-hint {
+  display: none;
+  text-align: center;
+  padding: 0.5rem;
+  background: linear-gradient(90deg, #f8f9fa, #e9ecef, #f8f9fa);
+  border-radius: 8px 8px 0 0;
+  border: 1px solid #e9ecef;
+  border-bottom: none;
+  font-size: 0.8rem;
+  color: #6c757d;
+  font-weight: 500;
+}
+
+.mobile-scroll-hint span {
+  display: inline-flex;
   align-items: center;
-  gap: 0.75rem;
-}
-
-.btn-action {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 1.2rem;
-  padding: 0.25rem;
-  transition: all 0.2s ease-in-out;
-}
-
-.btn-edit {
-  color: #007bff;
-}
-
-.btn-edit:hover {
-  color: #0056b3;
-  transform: scale(1.1);
-}
-
-.btn-delete {
-  color: #dc3545;
-}
-
-.btn-delete:hover {
-  color: #a71d2a;
-  transform: scale(1.1);
+  gap: 0.5rem;
 } 

@@ -3,39 +3,76 @@ const mongoose = require('mongoose');
 const productSchema = new mongoose.Schema({
     nombre: {
         type: String,
-        required: true,
-        trim: true
-    },
-    precio: {
-        type: Number,
-        required: true,
-        min: 0
+        required: [true, 'El nombre del producto es obligatorio'],
+        trim: true,
+        maxlength: [100, 'El nombre no puede exceder 100 caracteres']
     },
     descripcion: {
         type: String,
-        required: true
+        required: [true, 'La descripción es obligatoria'],
+        maxlength: [500, 'La descripción no puede exceder 500 caracteres']
     },
-    imagen_url: {
-        type: String,
-        required: true
-    },
-    category: {
-        type: String,
-        required: true,
-        enum: ['premium', 'gamer', 'anime', 'kawaii', 'retro', 'sorpresa', 'manga', 'arte', 'limited', 'popular', 'coleccionista']
+    precio: {
+        type: Number,
+        required: [true, 'El precio es obligatorio'],
+        min: [0, 'El precio no puede ser negativo'],
+        validate: {
+            validator: function(v) {
+                return v >= 0;
+            },
+            message: 'El precio debe ser mayor o igual a 0'
+        }
     },
     stock: {
         type: Number,
-        required: true,
-        min: 0,
+        required: [true, 'El stock es obligatorio'],
+        min: [0, 'El stock no puede ser negativo'],
         default: 0
+    },
+    imagen_url: {
+        type: String,
+        required: [true, 'La URL de la imagen es obligatoria'],
+        validate: {
+            validator: function(v) {
+                return /^https?:\/\/.+/.test(v);
+            },
+            message: 'La URL de la imagen debe ser válida'
+        }
     },
     isActive: {
         type: Boolean,
         default: true
     }
 }, {
-    timestamps: true
+    timestamps: { 
+        createdAt: 'fecha_creacion', 
+        updatedAt: 'fecha_actualizacion' 
+    }
 });
 
-module.exports = mongoose.model('Product', productSchema); 
+// Índices para mejor rendimiento
+productSchema.index({ nombre: 1 });
+productSchema.index({ isActive: 1 });
+productSchema.index({ precio: 1 });
+
+// Método para verificar si hay stock disponible
+productSchema.methods.hasStock = function(quantity = 1) {
+    return this.stock >= quantity;
+};
+
+// Método para reducir stock
+productSchema.methods.reduceStock = function(quantity = 1) {
+    if (this.hasStock(quantity)) {
+        this.stock -= quantity;
+        return true;
+    }
+    return false;
+};
+
+// Método para aumentar stock
+productSchema.methods.addStock = function(quantity = 1) {
+    this.stock += quantity;
+    return this.stock;
+};
+
+module.exports = mongoose.model('Product', productSchema, 'productos'); 

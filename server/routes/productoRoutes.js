@@ -3,8 +3,18 @@
 
 const express = require('express');
 const router = express.Router();
-const productoController = require('../controllers/productoController');
+const productController = require('../controllers/productController');
 
-router.get('/productos', productoController.getProductos);
+// Rutas públicas
+router.get('/', productController.getAllProducts);
+router.get('/search', productController.searchProducts);
+router.get('/:id', productController.getProductById);
+
+// Rutas de administración
+router.get('/admin/all', productController.getAllProductsAdmin);
+router.post('/admin', productController.createProduct);
+router.put('/admin/:id', productController.updateProduct);
+router.delete('/admin/:id', productController.deleteProduct);
+router.patch('/admin/:id/toggle-status', productController.toggleProductStatus);
 
 module.exports = router;

@@ -1,68 +1,92 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import './UserManagement.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import SearchBar from '../components/SearchBar';
 import UserTable from '../components/UserTable';
-
-// Datos de ejemplo para usuarios
-const mockUsers = [
-  {
-    id: 1,
-    name: 'Juan Pérez',
-    email: 'juan.perez@email.com',
-    document: '12345678',
-    phone: '3001234567',
-    status: 'active',
-    role: 'user'
-  },
-  {
-    id: 2,
-    name: 'María García',
-    email: 'maria.garcia@email.com',
-    document: '87654321',
-    phone: '3109876543',
-    status: 'active',
-    role: 'admin'
-  },
-  {
-    id: 3,
-    name: 'Carlos López',
-    email: 'carlos.lopez@email.com',
-    document: '11223344',
-    phone: '3205551234',
-    status: 'inactive',
-    role: 'user'
-  },
-  {
-    id: 4,
-    name: 'Ana Rodríguez',
-    email: 'ana.rodriguez@email.com',
-    document: '55667788',
-    phone: '3157778888',
-    status: 'active',
-    role: 'user'
-  },
-  {
-    id: 5,
-    name: 'Luis Martínez',
-    email: 'luis.martinez@email.com',
-    document: '99887766',
-    phone: '3009998888',
-    status: 'active',
-    role: 'admin'
-  }
-];
+import EditUserModal from '../components/EditUserModal';
+import userService, { type User, type UpdateUserData } from '../services/userService';
 
 const UserManagement = () => {
-  const [users, setUsers] = useState(mockUsers);
+  const [users, setUsers] = useState<User[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Cargar usuarios al montar el componente
+  useEffect(() => {
+    loadUsers();
+  }, []);
+
+  const loadUsers = async () => {
+    try {
+      setLoading(true);
+      const usersData = await userService.getAllUsers();
+      setUsers(usersData);
+      setError('');
+    } catch (err: any) {
+      setError(err.message || 'Error al cargar usuarios');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredUsers = users.filter(user =>
-    user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.document.includes(searchTerm)
+    user.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    user.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const handleEdit = (user: User) => {
+    setSelectedUser(user);
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = async (userId: string) => {
+    if (!window.confirm('¿Estás seguro de que quieres eliminar este usuario?')) {
+      return;
+    }
+
+    try {
+      await userService.deleteUser(userId);
+      setUsers(users.filter(user => user._id !== userId));
+      setError('');
+    } catch (err: any) {
+      setError(err.message || 'Error al eliminar usuario');
+    }
+  };
+
+  const handleToggleStatus = async (userId: string) => {
+    try {
+      const result = await userService.toggleUserStatus(userId);
+      setUsers(users.map(user => 
+        user._id === userId ? { ...user, isActive: result.user.isActive } : user
+      ));
+      setError('');
+    } catch (err: any) {
+      setError(err.message || 'Error al cambiar estado del usuario');
+    }
+  };
+
+  const handleSaveUser = async (userData: UpdateUserData) => {
+    if (!selectedUser) return;
+
+    try {
+      const result = await userService.updateUser(selectedUser._id, userData);
+      setUsers(users.map(user => 
+        user._id === selectedUser._id ? result.user : user
+      ));
+      setError('');
+    } catch (err: any) {
+      throw err; // Re-lanzar para que el modal maneje el error
+    }
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setSelectedUser(null);
+  };
 
   return (
     <div className="user-management">
@@ -97,10 +121,50 @@ const UserManagement = () => {
             onSearchChange={setSearchTerm}
           />
 
+          {/* Mensaje de error */}
+          {error && (
+            <div className="alert alert-danger">
+              {error}
+            </div>
+          )}
+
+          {/* Loading */}
+          {loading && (
+            <div className="loading-container">
+              <div className="spinner-border text-primary" role="status">
+                <span className="visually-hidden">Cargando...</span>
+              </div>
+              <p>Cargando usuarios...</p>
+            </div>
+          )}
+
           {/* Tabla de usuarios */}
-          <UserTable users={filteredUsers} />
+          {!loading && (
+            <UserTable 
+              users={filteredUsers}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+              onToggleStatus={handleToggleStatus}
+            />
+          )}
+
+          {/* Mensaje cuando no hay usuarios */}
+          {!loading && filteredUsers.length === 0 && (
+            <div className="no-users">
+              <i className="bi bi-people-fill"></i>
+              <p>No se encontraron usuarios</p>
+            </div>
+          )}
         </div>
       </main>
+
+      {/* Modal de edición */}
+      <EditUserModal
+        user={selectedUser}
+        isOpen={isModalOpen}
+        onClose={closeModal}
+        onSave={handleSaveUser}
+      />
     </div>
   );
 };

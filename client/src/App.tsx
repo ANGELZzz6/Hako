@@ -135,6 +135,16 @@ const App = () => {
       return <Productos products={products} />;
     }
 
+    // Verificar que los productos existan antes de renderizar
+    if (!products || products.length === 0) {
+      return (
+        <div className="container py-5 text-center">
+          <div className="spinner"></div>
+          <p>Cargando productos...</p>
+        </div>
+      );
+    }
+
     return (
       <>
         {/* Hero Section */}
@@ -257,15 +267,18 @@ const App = () => {
                         <div className="col-6 col-md-4" key={product._id}>
                           <div className="card">
                             <img 
-                              src={product.image}
+                              src={product.imagen_url}
                               className="card-img-top" 
-                              alt={product.name}
+                              alt={product.nombre}
+                              onError={(e) => {
+                                e.currentTarget.src = 'https://via.placeholder.com/300x200?text=Sin+Imagen';
+                              }}
                             />
                             <div className="card-body d-flex flex-column">
-                              <h5 className="card-title">{product.name}</h5>
-                              <p className="card-text">{product.description}</p>
+                              <h5 className="card-title">{product.nombre}</h5>
+                              <p className="card-text">{product.descripcion}</p>
                               <div className="price-tag">
-                                ${product.price.toFixed(2)}
+                                ${product.precio.toFixed(2)}
                               </div>
                               <button 
                                 className="btn btn-primary mt-auto"
