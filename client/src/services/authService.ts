@@ -179,6 +179,34 @@ class AuthService {
       return false;
     }
   }
+
+  async loginWithGoogle(googleToken: string): Promise<AuthResponse> {
+    try {
+      const response = await fetch(`${ENDPOINTS.AUTH}/google-auth`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ token: googleToken }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Error en el inicio de sesión con Google');
+      if (data.token && data.user) {
+        this.setToken(data.token);
+        const safeUser = {
+          id: data.user.id,
+          nombre: data.user.nombre,
+          email: data.user.email,
+          role: data.user.role
+        };
+        sessionStorage.setItem('user', JSON.stringify(safeUser));
+      }
+      return data;
+    } catch (error) {
+      console.error('Error:', error);
+      throw error;
+    }
+  }
 }
 
 export default new AuthService(); 

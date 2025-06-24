@@ -16,6 +16,8 @@ const authLimiter = rateLimit({
 router.post('/register', authLimiter, userController.register);
 router.post('/login', authLimiter, userController.login);
 router.post('/verify-code', authLimiter, userController.verifyCode);
+// Ruta de Google Auth
+router.post('/google-auth', authLimiter, userController.googleAuth);
 
 // Rutas de gestión de usuarios (para administrador) - SIN rate limiting
 router.get('/all', userController.getAllUsers);

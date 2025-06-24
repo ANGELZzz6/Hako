@@ -4,6 +4,7 @@ const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 const validator = require('validator');
 const jwt = require('jsonwebtoken');
+const { OAuth2Client } = require('google-auth-library');
 
 // Configuración de nodemailer (ajusta con tus credenciales)
 const transporter = nodemailer.createTransport({
@@ -13,6 +14,9 @@ const transporter = nodemailer.createTransport({
     pass: process.env.EMAIL_PASS,
   },
 });
+
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '529191388743-u3jdkh3kkqsnskbqopm18kuot8svpc18.apps.googleusercontent.com';
+const client = new OAuth2Client(GOOGLE_CLIENT_ID);
 
 function generarCodigo() {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -63,6 +67,23 @@ function validarNombre(nombre) {
   // Solo letras, espacios y caracteres especiales comunes en nombres
   const regex = /^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]+$/;
   return regex.test(nombre) && nombre.trim().length >= 2 && nombre.trim().length <= 50;
+}
+
+// Generador de contraseña segura que cumple con los requisitos del modelo
+function generarContraseñaSegura() {
+  const mayus = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const minus = 'abcdefghijklmnopqrstuvwxyz';
+  const nums = '0123456789';
+  const symbols = '!@#$%^&*()_+-=[]{};:,.<>/?';
+  function randomChar(str) { return str[Math.floor(Math.random() * str.length)]; }
+  let pass =
+    randomChar(mayus) +
+    randomChar(minus) +
+    randomChar(nums) +
+    randomChar(symbols);
+  const all = mayus + minus + nums + symbols;
+  for (let i = 0; i < 12; i++) pass += randomChar(all);
+  return pass.split('').sort(() => 0.5 - Math.random()).join('');
 }
 
 // Registrar usuario
@@ -408,5 +429,43 @@ exports.getProfile = async (req, res) => {
   } catch (error) {
     console.error('Error obteniendo perfil:', error);
     res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
+// Login/registro con Google
+exports.googleAuth = async (req, res) => {
+  try {
+    const { token } = req.body;
+    if (!token) return res.status(400).json({ error: 'Token de Google requerido' });
+    const ticket = await client.verifyIdToken({ idToken: token, audience: GOOGLE_CLIENT_ID });
+    const payload = ticket.getPayload();
+    if (!payload.email_verified) return res.status(400).json({ error: 'Email de Google no verificado' });
+    let user = await User.findOne({ email: payload.email });
+    if (!user) {
+      // Crear usuario nuevo con contraseña segura
+      const randomPass = generarContraseñaSegura();
+      user = await User.create({
+        nombre: payload.name || 'Usuario Google',
+        email: payload.email,
+        contraseña: randomPass,
+        role: 'user',
+        isActive: true
+      });
+    }
+    // Generar JWT
+    const tokenJwt = generarJWT(user);
+    res.json({
+      message: 'Login con Google exitoso',
+      user: {
+        id: user._id,
+        nombre: user.nombre,
+        email: user.email,
+        role: user.role
+      },
+      token: tokenJwt
+    });
+  } catch (error) {
+    console.error('Error en Google Auth:', error);
+    res.status(500).json({ error: 'Error en autenticación con Google' });
   }
 }; 

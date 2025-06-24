@@ -3,6 +3,7 @@ import '../App.css'; // Asegúrate de que los estilos generales se apliquen
 import '@fontsource/montserrat'; // Importar fuente
 import authService from '../services/authService';
 import { useNavigate } from 'react-router-dom';
+import { GoogleLogin } from '@react-oauth/google';
 
 const LoginPage = () => {
   const [email, setEmail] = useState('');
@@ -14,7 +15,7 @@ const LoginPage = () => {
   const navigate = useNavigate();
 
   const validarEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-  const validarContraseña = (contraseña: string) => /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{8,}$/.test(contraseña);
+  const validarContraseña = (contraseña: string) => contraseña.trim().length > 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,7 +28,7 @@ const LoginPage = () => {
       return;
     }
     if (!validarContraseña(contraseña)) {
-      setError('La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula, un número y un símbolo.');
+      setError('Correo o contraseña incorrectos. Por favor, verifica tus datos.');
       setLoading(false);
       return;
     }
@@ -82,9 +83,30 @@ const LoginPage = () => {
           <div className="text-center mb-3">
             <p>o</p>
           </div>
-          <button type="button" className="btn btn-google-icon mb-3 d-flex align-items-center justify-content-center">
-            <img src="https://cdn-icons-png.flaticon.com/128/300/300221.png" alt="Google logo" />
-          </button>
+          <div className="mb-3 d-flex align-items-center justify-content-center">
+            <GoogleLogin
+              onSuccess={async credentialResponse => {
+                try {
+                  if (!credentialResponse.credential) throw new Error('No se recibió token de Google');
+                  const res = await authService.loginWithGoogle(credentialResponse.credential);
+                  if (res.token && res.user) {
+                    setMensaje(res.message || '¡Inicio de sesión con Google exitoso!');
+                    setTimeout(() => {
+                      navigate('/');
+                    }, 1500);
+                  } else {
+                    setError('No se pudo iniciar sesión con Google.');
+                  }
+                } catch (err: any) {
+                  setError(err.message || 'Error al iniciar sesión con Google');
+                }
+              }}
+              onError={() => {
+                setError('Error al iniciar sesión con Google');
+              }}
+              width="100%"
+            />
+          </div>
         </form>
         <div className="text-center mt-3">
           <p><a href="#">Se me olvido mi contraseña</a></p>

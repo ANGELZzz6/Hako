@@ -3,6 +3,7 @@ import '../App.css'; // Asegúrate de que los estilos generales se apliquen
 import '@fontsource/montserrat'; // Importar fuente
 import authService from '../services/authService';
 import { useNavigate } from 'react-router-dom';
+import { GoogleLogin } from '@react-oauth/google';
 
 const SignupPage = () => {
   const [nombre, setNombre] = useState('');
@@ -19,7 +20,8 @@ const SignupPage = () => {
   const navigate = useNavigate();
 
   const validarNombre = (nombre: string) => /^[A-Za-zÁÉÍÓÚáéíóúÑñ ]+$/.test(nombre);
-  const validarEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  // Solo acepta correos @gmail.com
+  const validarEmail = (email: string) => /^[^\s@]+@gmail\.com$/.test(email);
   const validarContraseña = (contraseña: string) => /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{8,}$/.test(contraseña);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -33,7 +35,7 @@ const SignupPage = () => {
       return;
     }
     if (!validarEmail(email)) {
-      setError('El correo electrónico no es válido.');
+      setError('Solo se permiten correos de @gmail.com.');
       setLoading(false);
       return;
     }
@@ -105,9 +107,31 @@ const SignupPage = () => {
             <div className="text-center mb-3">
               <p>o</p>
             </div>
-            <button type="button" className="btn btn-google-icon mb-3 d-flex align-items-center justify-content-center">
-              <img src="https://cdn-icons-png.flaticon.com/128/300/300221.png" alt="Google logo" />
-            </button>
+            {/* Botón de Google Login */}
+            <div className="mb-3 d-flex align-items-center justify-content-center">
+              <GoogleLogin
+                onSuccess={async credentialResponse => {
+                  try {
+                    if (!credentialResponse.credential) throw new Error('No se recibió token de Google');
+                    const res = await authService.loginWithGoogle(credentialResponse.credential);
+                    if (res.token && res.user) {
+                      setMensaje(res.message || '¡Registro e inicio de sesión con Google exitoso!');
+                      setTimeout(() => {
+                        navigate('/');
+                      }, 1500);
+                    } else {
+                      setError('No se pudo registrar/iniciar sesión con Google.');
+                    }
+                  } catch (err: any) {
+                    setError(err.message || 'Error al registrar/iniciar sesión con Google');
+                  }
+                }}
+                onError={() => {
+                  setError('Error al registrar/iniciar sesión con Google');
+                }}
+                width="100%"
+              />
+            </div>
           </form>
         ) : (
           <form onSubmit={handleVerify}>
