@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "description": "Proyecto completo de tienda online",
   "scripts": {
-    "start": "node server/index.js"
+    "start": "node server/index.js",
+    "dev": "node server/server-dev.js",
+    "server": "node server/server.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

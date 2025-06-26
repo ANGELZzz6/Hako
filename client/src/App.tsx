@@ -13,13 +13,14 @@ import AdminDashboard from './pages/AdminDashboard';
 import UserManagement from './pages/UserManagement';
 import InventoryManagement from './pages/InventoryManagement';
 import SupportPage from './pages/SupportManagement';
+import ProtectedRoute from './components/ProtectedRoute';
+import AdminOnly from './components/AdminOnly';
 import './App.css'; // Puedes mover los estilos en línea aquí
 import anuncioVideo from './assets/anuncio.mp4';
 import ubicacion from './assets/ubicacion.png';
 import productService from './services/productService';
 import type { Product } from './services/productService';
-import authService from './services/authService';
-import type { User } from './services/authService';
+import { useAuth } from './contexts/AuthContext';
 import cartService from './services/cartService';
 import type { Cart } from './services/cartService';
 
@@ -36,10 +37,12 @@ const App = () => {
   const [isVideoPlaying, setIsVideoPlaying] = useState(true);
   const [isDarkTheme, setIsDarkTheme] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [cart, setCart] = useState<Cart | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const location = useLocation();
+  
+  // Usar el contexto de autenticación
+  const { currentUser, isAuthenticated, logout, isAdmin } = useAuth();
 
   // Efecto para cargar productos
   useEffect(() => {
@@ -54,16 +57,10 @@ const App = () => {
     loadProducts();
   }, []);
 
-  // Efecto para verificar autenticación
-  useEffect(() => {
-    const user = authService.getCurrentUser();
-    setCurrentUser(user);
-  }, []);
-
   // Efecto para cargar el carrito si el usuario está autenticado
   useEffect(() => {
     const loadCart = async () => {
-      if (currentUser) {
+      if (isAuthenticated) {
         try {
           const cartData = await cartService.getCart();
           setCart(cartData);
@@ -73,7 +70,7 @@ const App = () => {
       }
     };
     loadCart();
-  }, [currentUser]);
+  }, [isAuthenticated]);
 
   // Efecto para manejar el tema
   useEffect(() => {
@@ -128,6 +125,12 @@ const App = () => {
   };
 
   const productGroups = chunkArray(products, 4);
+
+  // Función para manejar el logout
+  const handleLogout = () => {
+    logout();
+    setCart(null);
+  };
 
   // Renderizar el contenido según la ruta
   const renderContent = () => {
@@ -352,27 +355,31 @@ const App = () => {
                   <i className="bi bi-box-seam me-1"></i>
                   Tu Box <span className="badge bg-primary">{cart?.items.length || 0}</span>
                 </Link>
-                {currentUser ? (
-                  <button 
-                    className="btn btn-primary"
-                    onClick={() => {
-                      authService.logout();
-                      setCurrentUser(null);
-                      setCart(null);
-                    }}
-                  >
-                    <i className="bi bi-box-arrow-right me-1"></i>
-                    Cerrar Sesión
-                  </button>
+                {isAuthenticated ? (
+                  <div className="d-flex gap-2 align-items-center">
+                    <span className="text-muted small">
+                      <i className="bi bi-person me-1"></i>
+                      {currentUser?.nombre}
+                    </span>
+                    <AdminOnly>
+                      <Link to="/admin" className="btn btn-outline-danger">
+                        <i className="bi bi-shield-lock me-1"></i>
+                        Admin
+                      </Link>
+                    </AdminOnly>
+                    <button 
+                      className="btn btn-primary"
+                      onClick={handleLogout}
+                    >
+                      <i className="bi bi-box-arrow-right me-1"></i>
+                      Cerrar Sesión
+                    </button>
+                  </div>
                 ) : (
                   <>
                     <Link to="/login" className="btn btn-primary">
                       <i className="bi bi-person me-1"></i>
                       Iniciar Sesión
-                    </Link>
-                    <Link to="/admin" className="btn btn-outline-danger">
-                      <i className="bi bi-shield-lock me-1"></i>
-                      Admin
                     </Link>
                   </>
                 )}
@@ -388,11 +395,31 @@ const App = () => {
         <Route path="/productos" element={renderContent()} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
-        <Route path="/cart" element={<CartPage />} />
-        <Route path="/admin" element={<AdminDashboard />} />
-        <Route path="/admin/users" element={<UserManagement />} />
-        <Route path="/admin/inventory" element={<InventoryManagement />} />
-        <Route path="/admin/support" element={<SupportPage />} />
+        <Route path="/cart" element={
+          <ProtectedRoute>
+            <CartPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/admin" element={
+          <ProtectedRoute requireAdmin>
+            <AdminDashboard />
+          </ProtectedRoute>
+        } />
+        <Route path="/admin/users" element={
+          <ProtectedRoute requireAdmin>
+            <UserManagement />
+          </ProtectedRoute>
+        } />
+        <Route path="/admin/inventory" element={
+          <ProtectedRoute requireAdmin>
+            <InventoryManagement />
+          </ProtectedRoute>
+        } />
+        <Route path="/admin/support" element={
+          <ProtectedRoute requireAdmin>
+            <SupportPage />
+          </ProtectedRoute>
+        } />
         <Route path="/soporte" element={<SupportPage />} />
       </Routes>
 

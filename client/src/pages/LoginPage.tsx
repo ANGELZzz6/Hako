@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import '../App.css'; // Asegúrate de que los estilos generales se apliquen
-import '@fontsource/montserrat'; // Importar fuente
-import authService from '../services/authService';
-import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { GoogleLogin } from '@react-oauth/google';
 
 const LoginPage = () => {
@@ -13,6 +12,11 @@ const LoginPage = () => {
   const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
+  const location = useLocation();
+  const { login, loginWithGoogle } = useAuth();
+
+  // Obtener la página de donde vino el usuario (si existe)
+  const from = location.state?.from?.pathname || '/';
 
   const validarEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   const validarContraseña = (contraseña: string) => contraseña.trim().length > 0;
@@ -22,6 +26,7 @@ const LoginPage = () => {
     setMensaje('');
     setError('');
     setLoading(true);
+    
     if (!validarEmail(email)) {
       setError('El correo electrónico no es válido.');
       setLoading(false);
@@ -32,24 +37,14 @@ const LoginPage = () => {
       setLoading(false);
       return;
     }
+    
     try {
-      const res = await authService.login(email, contraseña);
-      // Login exitoso - guardar token y usuario directamente
-      if (res.token && res.user) {
-        authService.setToken(res.token);
-        const safeUser = {
-          id: res.user.id,
-          nombre: res.user.nombre,
-          email: res.user.email,
-          role: res.user.role
-        };
-        sessionStorage.setItem('user', JSON.stringify(safeUser));
-        setMensaje(res.message || '¡Inicio de sesión exitoso!');
-        // Redirigir a dashboard o página principal
-        setTimeout(() => {
-          navigate('/dashboard');
-        }, 1500);
-      }
+      await login(email, contraseña);
+      setMensaje('¡Inicio de sesión exitoso!');
+      // Redirigir a la página de donde vino o a la página principal
+      setTimeout(() => {
+        navigate(from, { replace: true });
+      }, 1500);
     } catch (err: any) {
       if (err.message && err.message.includes('Credenciales inválidas')) {
         setError('Correo o contraseña incorrectos. Por favor, verifica tus datos.');
@@ -60,6 +55,19 @@ const LoginPage = () => {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async (credentialResponse: any) => {
+    try {
+      if (!credentialResponse.credential) throw new Error('No se recibió token de Google');
+      await loginWithGoogle(credentialResponse.credential);
+      setMensaje('¡Inicio de sesión con Google exitoso!');
+      setTimeout(() => {
+        navigate(from, { replace: true });
+      }, 1500);
+    } catch (err: any) {
+      setError(err.message || 'Error al iniciar sesión con Google');
     }
   };
 
@@ -85,22 +93,7 @@ const LoginPage = () => {
           </div>
           <div className="mb-3 d-flex align-items-center justify-content-center">
             <GoogleLogin
-              onSuccess={async credentialResponse => {
-                try {
-                  if (!credentialResponse.credential) throw new Error('No se recibió token de Google');
-                  const res = await authService.loginWithGoogle(credentialResponse.credential);
-                  if (res.token && res.user) {
-                    setMensaje(res.message || '¡Inicio de sesión con Google exitoso!');
-                    setTimeout(() => {
-                      navigate('/');
-                    }, 1500);
-                  } else {
-                    setError('No se pudo iniciar sesión con Google.');
-                  }
-                } catch (err: any) {
-                  setError(err.message || 'Error al iniciar sesión con Google');
-                }
-              }}
+              onSuccess={handleGoogleLogin}
               onError={() => {
                 setError('Error al iniciar sesión con Google');
               }}

@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import '../App.css'; // Asegúrate de que los estilos generales se apliquen
-import '@fontsource/montserrat'; // Importar fuente
-import authService from '../services/authService';
+import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { GoogleLogin } from '@react-oauth/google';
 
@@ -18,6 +17,7 @@ const SignupPage = () => {
   const [userEmail, setUserEmail] = useState('');
 
   const navigate = useNavigate();
+  const { register, verifyCode, loginWithGoogle } = useAuth();
 
   const validarNombre = (nombre: string) => /^[A-Za-zÁÉÍÓÚáéíóúÑñ ]+$/.test(nombre);
   // Solo acepta correos @gmail.com
@@ -50,7 +50,7 @@ const SignupPage = () => {
       return;
     }
     try {
-      const res = await authService.register(nombre, email, contraseña);
+      const res = await register(nombre, email, contraseña);
       if (res.verificacionPendiente) {
         setUserEmail(email);
         setStep('verify');
@@ -69,14 +69,28 @@ const SignupPage = () => {
     setError('');
     setLoading(true);
     try {
-      const res = await authService.verifyCode(userEmail, codigo);
-      setMensaje(res.message || '¡Verificación exitosa!');
-      // Redirigir a login o dashboard
-      // navigate('/login');
+      await verifyCode(userEmail, codigo);
+      setMensaje('¡Verificación exitosa! Inicia sesión para continuar.');
+      setTimeout(() => {
+        navigate('/login');
+      }, 2000);
     } catch (err: any) {
       setError(err.message || 'Código incorrecto o expirado.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async (credentialResponse: any) => {
+    try {
+      if (!credentialResponse.credential) throw new Error('No se recibió token de Google');
+      await loginWithGoogle(credentialResponse.credential);
+      setMensaje('¡Registro e inicio de sesión con Google exitoso!');
+      setTimeout(() => {
+        navigate('/');
+      }, 1500);
+    } catch (err: any) {
+      setError(err.message || 'Error al registrar/iniciar sesión con Google');
     }
   };
 
@@ -110,22 +124,7 @@ const SignupPage = () => {
             {/* Botón de Google Login */}
             <div className="mb-3 d-flex align-items-center justify-content-center">
               <GoogleLogin
-                onSuccess={async credentialResponse => {
-                  try {
-                    if (!credentialResponse.credential) throw new Error('No se recibió token de Google');
-                    const res = await authService.loginWithGoogle(credentialResponse.credential);
-                    if (res.token && res.user) {
-                      setMensaje(res.message || '¡Registro e inicio de sesión con Google exitoso!');
-                      setTimeout(() => {
-                        navigate('/');
-                      }, 1500);
-                    } else {
-                      setError('No se pudo registrar/iniciar sesión con Google.');
-                    }
-                  } catch (err: any) {
-                    setError(err.message || 'Error al registrar/iniciar sesión con Google');
-                  }
-                }}
+                onSuccess={handleGoogleLogin}
                 onError={() => {
                   setError('Error al registrar/iniciar sesión con Google');
                 }}

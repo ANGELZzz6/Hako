@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const rateLimit = require('express-rate-limit');
 const userController = require('../controllers/userController');
+const { auth, requireAdmin } = require('../middleware/auth');
 
 // Rate limiting específico para autenticación
 const authLimiter = rateLimit({
@@ -19,13 +20,16 @@ router.post('/verify-code', authLimiter, userController.verifyCode);
 // Ruta de Google Auth
 router.post('/google-auth', authLimiter, userController.googleAuth);
 
-// Rutas de gestión de usuarios (para administrador) - SIN rate limiting
-router.get('/all', userController.getAllUsers);
-router.put('/:id', userController.updateUser);
-router.delete('/:id', userController.deleteUser);
-router.patch('/:id/toggle-status', userController.toggleUserStatus);
+// Ruta de validación de token (requiere autenticación)
+router.get('/validate-token', auth, userController.validateToken);
 
-// Perfil - SIN rate limiting
-router.get('/profile/:id', userController.getProfile);
+// Rutas de gestión de usuarios (para administrador) - requieren autenticación y permisos de admin
+router.get('/all', auth, requireAdmin, userController.getAllUsers);
+router.put('/:id', auth, requireAdmin, userController.updateUser);
+router.delete('/:id', auth, requireAdmin, userController.deleteUser);
+router.patch('/:id/toggle-status', auth, requireAdmin, userController.toggleUserStatus);
+
+// Perfil - requiere autenticación
+router.get('/profile/:id', auth, userController.getProfile);
 
 module.exports = router; 

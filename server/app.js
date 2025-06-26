@@ -9,8 +9,33 @@ const userRoutes = require('./routes/userRoutes');
 const cors = require('cors');
 const app = express();
 
-// Middleware de seguridad
-app.use(helmet());
+// Configuración de CORS más permisiva para Google OAuth
+app.use(cors({
+  origin: ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:8080'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
+
+// Configuración de Helmet más permisiva para Google OAuth
+app.use(helmet({
+  crossOriginEmbedderPolicy: false,
+  crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://accounts.google.com", "https://www.gstatic.com"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'", "https://accounts.google.com", "https://www.googleapis.com"],
+      frameSrc: ["'self'", "https://accounts.google.com"],
+      objectSrc: ["'none'"],
+      upgradeInsecureRequests: []
+    }
+  }
+}));
 
 // Rate limiting para prevenir ataques de fuerza bruta
 const limiter = rateLimit({
@@ -30,7 +55,6 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-app.use(cors());
 app.use(express.json({ limit: '10mb' })); // Limitar tamaño de requests
 
 // Aplicar rate limiting general

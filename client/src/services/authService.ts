@@ -154,9 +154,30 @@ class AuthService {
       const token = this.getToken();
       if (!token) return false;
 
-      // Aquí podrías hacer una llamada al backend para validar el token
-      // Por ahora, solo verificamos que existe
-      return true;
+      // Hacer una llamada al backend para validar el token
+      const response = await fetch(`${ENDPOINTS.AUTH}/validate-token`, {
+        method: 'GET',
+        headers: this.getAuthHeaders(),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Actualizar la información del usuario si es necesario
+        if (data.user) {
+          const safeUser = {
+            id: data.user.id,
+            nombre: data.user.nombre,
+            email: data.user.email,
+            role: data.user.role
+          };
+          sessionStorage.setItem('user', JSON.stringify(safeUser));
+        }
+        return true;
+      } else {
+        // Token inválido, limpiar datos
+        this.logout();
+        return false;
+      }
     } catch (error) {
       console.error('Error validating token:', error);
       this.logout();
