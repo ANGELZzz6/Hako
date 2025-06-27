@@ -23,6 +23,8 @@ import type { Product } from './services/productService';
 import { useAuth } from './contexts/AuthContext';
 import cartService from './services/cartService';
 import type { Cart } from './services/cartService';
+import ProductDetail from './pages/ProductDetail';
+import ProfilePage from './pages/ProfilePage';
 
 // Importar fuente Montserrat
 import '@fontsource/montserrat/300.css';
@@ -357,10 +359,6 @@ const App = () => {
                 </Link>
                 {isAuthenticated ? (
                   <div className="d-flex gap-2 align-items-center">
-                    <span className="text-muted small">
-                      <i className="bi bi-person me-1"></i>
-                      {currentUser?.nombre}
-                    </span>
                     <AdminOnly>
                       <Link to="/admin" className="btn btn-outline-danger">
                         <i className="bi bi-shield-lock me-1"></i>
@@ -374,6 +372,9 @@ const App = () => {
                       <i className="bi bi-box-arrow-right me-1"></i>
                       Cerrar Sesión
                     </button>
+                    <Link to="/profile" className="user-icon-container">
+                      <i className="bi bi-person-circle user-icon"></i>
+                    </Link>
                   </div>
                 ) : (
                   <>
@@ -393,6 +394,7 @@ const App = () => {
       <Routes>
         <Route path="/" element={renderContent()} />
         <Route path="/productos" element={renderContent()} />
+        <Route path="/productos/:id" element={<ProductDetail />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/cart" element={
@@ -421,6 +423,7 @@ const App = () => {
           </ProtectedRoute>
         } />
         <Route path="/soporte" element={<SupportPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
       </Routes>
 
       {/* Footer */}

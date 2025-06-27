@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
@@ -5,10 +6,6 @@ const productoRoutes = require('./routes/productoRoutes');
 const userRoutes = require('./routes/userRoutes');
 const { connectDB } = require('./config/db');
 const path = require('path');
-const dotenv = require('dotenv');
-
-// Cargar variables de entorno
-dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 const app = express();
 

@@ -24,33 +24,43 @@ class AuthService {
   }
 
   setToken(token: string) {
-    // Usar sessionStorage en lugar de localStorage para mayor seguridad
-    // El token se elimina cuando se cierra la pestaña/navegador
-    sessionStorage.setItem('authToken', token);
+    localStorage.setItem('authToken', token);
   }
 
   getToken(): string | null {
-    return sessionStorage.getItem('authToken');
+    return localStorage.getItem('authToken');
   }
 
   private removeToken() {
-    sessionStorage.removeItem('authToken');
+    localStorage.removeItem('authToken');
   }
 
   async login(email: string, contraseña: string): Promise<AuthResponse> {
     try {
       const response = await fetch(`${ENDPOINTS.AUTH}/login`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, contraseña }),
       });
-
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Error en el inicio de sesión');
-      
-      // No guardar usuario hasta que se complete la verificación
+      console.log('authService.login: respuesta del backend:', data);
+      if (!response.ok) {
+        if (response.status === 429) {
+          throw new Error('Demasiados intentos. Por favor, espera unos minutos antes de volver a intentar.');
+        }
+        throw new Error(data.error || 'Error en el inicio de sesión');
+      }
+      // Guardar token y usuario si existen
+      if (data.token && data.user) {
+        this.setToken(data.token);
+        const safeUser = {
+          id: data.user.id,
+          nombre: data.user.nombre,
+          email: data.user.email,
+          role: data.user.role
+        };
+        localStorage.setItem('user', JSON.stringify(safeUser));
+      }
       return data;
     } catch (error) {
       console.error('Error:', error);
@@ -101,7 +111,7 @@ class AuthService {
           email: data.user.email,
           role: data.user.role
         };
-        sessionStorage.setItem('user', JSON.stringify(safeUser));
+        localStorage.setItem('user', JSON.stringify(safeUser));
       }
       
       return data;
@@ -113,13 +123,13 @@ class AuthService {
 
   logout(): void {
     this.removeToken();
-    sessionStorage.removeItem('user');
+    localStorage.removeItem('user');
     // Limpiar cualquier otro dato de sesión
-    sessionStorage.clear();
+    localStorage.clear();
   }
 
   getCurrentUser(): User | null {
-    const userStr = sessionStorage.getItem('user');
+    const userStr = localStorage.getItem('user');
     if (!userStr) return null;
     try {
       return JSON.parse(userStr);
@@ -170,7 +180,7 @@ class AuthService {
             email: data.user.email,
             role: data.user.role
           };
-          sessionStorage.setItem('user', JSON.stringify(safeUser));
+          localStorage.setItem('user', JSON.stringify(safeUser));
         }
         return true;
       } else {
@@ -220,7 +230,7 @@ class AuthService {
           email: data.user.email,
           role: data.user.role
         };
-        sessionStorage.setItem('user', JSON.stringify(safeUser));
+        localStorage.setItem('user', JSON.stringify(safeUser));
       }
       return data;
     } catch (error) {

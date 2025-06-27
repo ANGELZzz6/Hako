@@ -65,7 +65,7 @@ exports.getProductById = async (req, res) => {
       return res.status(400).json({ error: 'ID de producto inválido' });
     }
 
-    const product = await Product.findById(id);
+    const product = await Product.findById(id).populate('reviews.user', 'nombre email');
     if (!product) {
       return res.status(404).json({ error: 'Producto no encontrado' });
     }
@@ -128,7 +128,7 @@ exports.createProduct = async (req, res) => {
 exports.updateProduct = async (req, res) => {
   try {
     const { id } = req.params;
-    const { nombre, descripcion, precio, stock, imagen_url, isActive } = req.body;
+    const { nombre, descripcion, precio, stock, imagen_url, isActive, adminRating, images } = req.body;
 
     if (!validator.isMongoId(id)) {
       return res.status(400).json({ error: 'ID de producto inválido' });
@@ -149,6 +149,16 @@ exports.updateProduct = async (req, res) => {
       return res.status(400).json({ error: 'El stock no puede ser negativo' });
     }
 
+    // Validar adminRating si se proporciona
+    if (adminRating !== undefined && (adminRating < 0 || adminRating > 5)) {
+      return res.status(400).json({ error: 'La calificación de admin debe estar entre 0 y 5' });
+    }
+
+    // Validar images si se proporciona
+    if (images && (!Array.isArray(images) || images.some((url) => typeof url !== 'string' || !/^https?:\/\/.+/.test(url)))) {
+      return res.status(400).json({ error: 'Todas las imágenes deben ser URLs válidas' });
+    }
+
     const updateData = {};
     if (nombre) updateData.nombre = nombre.trim();
     if (descripcion) updateData.descripcion = descripcion.trim();
@@ -156,6 +166,8 @@ exports.updateProduct = async (req, res) => {
     if (stock !== undefined) updateData.stock = parseInt(stock);
     if (imagen_url) updateData.imagen_url = imagen_url;
     if (isActive !== undefined) updateData.isActive = isActive;
+    if (adminRating !== undefined) updateData.adminRating = adminRating;
+    if (images) updateData.images = images;
 
     const product = await Product.findByIdAndUpdate(
       id,
@@ -259,6 +271,72 @@ exports.searchProducts = async (req, res) => {
     res.json({ products, total: products.length });
   } catch (error) {
     console.error('Error buscando productos:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
+// Agregar o editar reseña de usuario autenticado
+exports.addOrEditReview = async (req, res) => {
+  try {
+    const { id } = req.params; // id del producto
+    const userId = req.user.id;
+    const { comentario, rating } = req.body;
+    console.log('addOrEditReview: userId:', userId);
+    console.log('addOrEditReview: productId:', id);
+    if (!comentario || !rating) {
+      return res.status(400).json({ error: 'Comentario y calificación requeridos' });
+    }
+    if (rating < 1 || rating > 5) {
+      return res.status(400).json({ error: 'La calificación debe estar entre 1 y 5' });
+    }
+    const product = await Product.findById(id);
+    if (!product) {
+      return res.status(404).json({ error: 'Producto no encontrado' });
+    }
+    console.log('addOrEditReview: producto encontrado:', product.nombre);
+    console.log('addOrEditReview: reseñas existentes:', product.reviews);
+    // Buscar si ya existe reseña de este usuario
+    const idx = product.reviews.findIndex(r => r.user.toString() === userId.toString());
+    console.log('addOrEditReview: índice de reseña encontrada:', idx);
+    if (req.method === 'POST') {
+      if (idx !== -1) {
+        return res.status(400).json({ error: 'Ya has dejado una reseña para este producto. Usa editar.' });
+      }
+      product.reviews.push({ user: userId, comentario, rating });
+    } else if (req.method === 'PUT') {
+      if (idx === -1) {
+        return res.status(404).json({ error: 'No tienes reseña para este producto.' });
+      }
+      product.reviews[idx].comentario = comentario;
+      product.reviews[idx].rating = rating;
+      product.reviews[idx].fecha = new Date();
+    }
+    await product.save();
+    res.json({ message: 'Reseña guardada correctamente' });
+  } catch (error) {
+    console.error('Error en reseña:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
+// Eliminar reseña de usuario autenticado
+exports.deleteReview = async (req, res) => {
+  try {
+    const { id } = req.params; // id del producto
+    const userId = req.user.id;
+    const product = await Product.findById(id);
+    if (!product) {
+      return res.status(404).json({ error: 'Producto no encontrado' });
+    }
+    const idx = product.reviews.findIndex(r => r.user.toString() === userId.toString());
+    if (idx === -1) {
+      return res.status(404).json({ error: 'No tienes reseña para este producto.' });
+    }
+    product.reviews.splice(idx, 1);
+    await product.save();
+    res.json({ message: 'Reseña eliminada correctamente' });
+  } catch (error) {
+    console.error('Error eliminando reseña:', error);
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 }; 

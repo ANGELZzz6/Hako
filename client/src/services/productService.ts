@@ -1,6 +1,19 @@
 import { ENDPOINTS } from '../config/api';
 import authService from './authService';
 
+export interface ReviewUser {
+  _id: string;
+  nombre: string;
+  email: string;
+}
+
+export interface Review {
+  user: ReviewUser;
+  comentario: string;
+  rating: number;
+  fecha: string;
+}
+
 export interface Product {
   _id: string;
   nombre: string;
@@ -8,6 +21,9 @@ export interface Product {
   precio: number;
   stock: number;
   imagen_url: string;
+  images?: string[];
+  adminRating?: number;
+  reviews?: Review[];
   isActive: boolean;
   fecha_creacion: string;
   fecha_actualizacion: string;
@@ -28,6 +44,8 @@ export interface UpdateProductData {
   stock?: number;
   imagen_url?: string;
   isActive?: boolean;
+  images?: string[];
+  adminRating?: number;
 }
 
 export interface ProductSearchParams {
@@ -278,6 +296,44 @@ class ProductService {
     } catch (error) {
       console.error('Error:', error);
       throw error;
+    }
+  }
+
+  // Agregar reseña
+  async addReview(productId: string, data: { comentario: string; rating: number }): Promise<void> {
+    const response = await fetch(`${ENDPOINTS.PRODUCTS}/${productId}/reviews`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Error al agregar reseña');
+    }
+  }
+
+  // Editar reseña
+  async editReview(productId: string, data: { comentario: string; rating: number }): Promise<void> {
+    const response = await fetch(`${ENDPOINTS.PRODUCTS}/${productId}/reviews`, {
+      method: 'PUT',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Error al editar reseña');
+    }
+  }
+
+  // Eliminar reseña
+  async deleteReview(productId: string): Promise<void> {
+    const response = await fetch(`${ENDPOINTS.PRODUCTS}/${productId}/reviews`, {
+      method: 'DELETE',
+      headers: this.getAuthHeaders(),
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Error al eliminar reseña');
     }
   }
 }

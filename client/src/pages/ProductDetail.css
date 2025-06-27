@@ -1,0 +1,204 @@
+.product-detail-container {
+  background: var(--card-bg);
+  border-radius: 16px;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+  margin-top: 2rem;
+  padding: 2rem;
+}
+.main-img-container {
+  text-align: center;
+}
+.main-img {
+  max-width: 100%;
+  max-height: 350px;
+  object-fit: contain;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  transition: all 0.3s ease;
+}
+.main-img:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+}
+.extra-imgs {
+  margin-top: 8px;
+}
+.extra-img {
+  border: 1px solid #ccc;
+  transition: all 0.3s ease;
+  transform: scale(1);
+}
+.extra-img:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+.extra-img.selected {
+  border: 2px solid #d32f2f;
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(211, 47, 47, 0.2);
+}
+.stars {
+  color: #f7b731;
+  font-size: 1.3rem;
+  vertical-align: middle;
+}
+.price {
+  font-size: 2rem;
+  color: var(--primary-color);
+  font-weight: bold;
+}
+.secure-section {
+  background: var(--bg-secondary);
+  color: var(--text-color);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+.secure-section h5 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+.secure-section ul {
+  margin: 0;
+  padding: 0 0 0 1.2rem;
+}
+.btn-primary.w-100 {
+  font-size: 1.2rem;
+  padding: 0.9rem 0;
+  border-radius: 8px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+.btn-primary.w-100:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+.btn-primary.w-100:active:not(:disabled) {
+  transform: translateY(0);
+}
+.reseñas-popup-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.3);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.3s ease;
+}
+.reseñas-popup {
+  background: var(--card-bg);
+  color: var(--text-color);
+  border-radius: 12px;
+  max-width: 400px;
+  width: 95vw;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.18);
+  padding: 1.5rem 1rem;
+  animation: slideIn 0.3s ease;
+}
+.reseñas-popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+.reseñas-popup-body {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+.reseña-item {
+  background: var(--bg-secondary);
+  color: var(--text-color);
+}
+.extra-imgs img.selected {
+  border: 2px solid #d32f2f;
+}
+@media (max-width: 768px) {
+  .main-img {
+    max-height: 220px;
+  }
+  .product-detail-container {
+    padding: 1rem 0.5rem;
+  }
+  .reseñas-popup {
+    max-width: 98vw;
+    padding: 1rem 0.3rem;
+  }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes slideIn {
+  from { 
+    opacity: 0; 
+    transform: translateY(-20px) scale(0.95);
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes slideInRight {
+  from { 
+    opacity: 0; 
+    transform: translateX(100%);
+  }
+  to { 
+    opacity: 1; 
+    transform: translateX(0);
+  }
+}
+@keyframes slideOutRight {
+  from { 
+    opacity: 1; 
+    transform: translateX(0);
+  }
+  to { 
+    opacity: 0; 
+    transform: translateX(100%);
+  }
+}
+.secure-title {
+  color: var(--text-color) !important;
+}
+.product-title {
+  color: var(--text-color) !important;
+}
+.product-description {
+  color: var(--text-color) !important;
+}
+.related-title {
+  color: var(--text-color) !important;
+}
+.close-btn {
+  color: #dc3545 !important;
+  border-color: #dc3545 !important;
+}
+.close-btn:hover {
+  background-color: #dc3545 !important;
+  color: white !important;
+}
+.reviews-count {
+  color: var(--text-color) !important;
+}
+.no-reviews-message {
+  color: var(--text-color) !important;
+}
+.review-date {
+  color: var(--text-color) !important;
+}
+.review-username {
+  color: var(--text-color) !important;
+  word-break: break-word;
+  max-width: 200px;
+}
+.review-comment {
+  color: var(--text-color) !important;
+  flex: 1;
+  margin-right: 10px;
+} 

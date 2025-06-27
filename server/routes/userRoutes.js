@@ -16,7 +16,7 @@ const authLimiter = rateLimit({
 // Rutas de autenticación con rate limiting
 router.post('/register', authLimiter, userController.register);
 router.post('/login', authLimiter, userController.login);
-router.post('/verify-code', authLimiter, userController.verifyCode);
+router.post('/verify-code', userController.verifyCode);
 // Ruta de Google Auth
 router.post('/google-auth', authLimiter, userController.googleAuth);
 

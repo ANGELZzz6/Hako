@@ -39,6 +39,27 @@ const productSchema = new mongoose.Schema({
             message: 'La URL de la imagen debe ser válida'
         }
     },
+    images: [{
+        type: String,
+        validate: {
+            validator: function(v) {
+                return /^https?:\/\/.+/.test(v);
+            },
+            message: 'La URL de la imagen debe ser válida'
+        }
+    }],
+    adminRating: {
+        type: Number,
+        min: 0,
+        max: 5,
+        default: 0
+    },
+    reviews: [{
+        user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        comentario: { type: String, maxlength: 500 },
+        rating: { type: Number, min: 1, max: 5 },
+        fecha: { type: Date, default: Date.now }
+    }],
     isActive: {
         type: Boolean,
         default: true

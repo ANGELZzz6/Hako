@@ -1041,3 +1041,101 @@ footer a:hover {
 .auth-form-card .text-center.mt-3 a:hover {
   text-decoration: underline;
 }
+
+/* Estilos para el icono de usuario */
+.user-icon-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.user-icon-container:hover {
+  transform: scale(1.1);
+}
+
+.user-icon {
+  font-size: 1.8rem;
+  color: var(--primary-color);
+  transition: all 0.3s ease;
+}
+
+.user-icon-container:hover .user-icon {
+  transform: rotate(5deg);
+  color: #c04c3e;
+}
+
+/* Tema oscuro para el icono de usuario */
+[data-theme='dark'] .user-icon {
+  color: var(--primary-color);
+}
+
+[data-theme='dark'] .user-icon-container:hover .user-icon {
+  color: #ff6b6b;
+}
+
+/* Estilos para botones especiales */
+.btn-outline-primary {
+  border: 2px solid #007bff !important;
+  color: #007bff !important;
+  background-color: transparent !important;
+  transition: all 0.3s ease;
+}
+
+.btn-outline-primary:hover {
+  background-color: #007bff !important;
+  color: white !important;
+  border-color: #007bff !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.4);
+}
+
+.btn-outline-primary:hover i {
+  color: white !important;
+}
+
+.btn-outline-danger {
+  border: 2px solid #dc3545 !important;
+  color: #dc3545 !important;
+  background-color: transparent !important;
+  transition: all 0.3s ease;
+}
+
+.btn-outline-danger:hover {
+  background-color: #dc3545 !important;
+  color: white !important;
+  border-color: #dc3545 !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(220, 53, 69, 0.4);
+}
+
+.btn-outline-danger:hover i {
+  color: white !important;
+}
+
+/* Tema oscuro para los botones */
+[data-theme='dark'] .btn-outline-primary {
+  border-color: #4da6ff !important;
+  color: #4da6ff !important;
+}
+
+[data-theme='dark'] .btn-outline-primary:hover {
+  background-color: #4da6ff !important;
+  color: white !important;
+  box-shadow: 0 4px 12px rgba(77, 166, 255, 0.5);
+}
+
+[data-theme='dark'] .btn-outline-danger {
+  border-color: #ff6b6b !important;
+  color: #ff6b6b !important;
+}
+
+[data-theme='dark'] .btn-outline-danger:hover {
+  background-color: #ff6b6b !important;
+  color: white !important;
+  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.5);
+}

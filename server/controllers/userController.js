@@ -5,8 +5,8 @@ const crypto = require('crypto');
 const validator = require('validator');
 const jwt = require('jsonwebtoken');
 const { OAuth2Client } = require('google-auth-library');
+const PendingUser = require('../models/PendingUser');
 
-// Configuración de nodemailer (ajusta con tus credenciales)
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
@@ -120,33 +120,30 @@ exports.register = async (req, res) => {
       });
     }
 
-    // Verificar si el usuario ya existe
+    // Verificar si el usuario ya existe en usuarios o pending_users
     const existe = await User.findOne({ email: email.toLowerCase() });
-    if (existe) {
-      return res.status(400).json({ error: 'El correo ya está registrado' });
+    const pendiente = await PendingUser.findOne({ email: email.toLowerCase() });
+    if (existe || pendiente) {
+      return res.status(400).json({ error: 'El correo ya está registrado o en proceso de verificación' });
     }
 
-    // Hashear contraseña con salt rounds más alto
+    // Hashear contraseña
     const hash = await bcrypt.hash(contraseña, 12);
     const code = generarCodigo();
     const expires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutos
-    
-    const user = new User({ 
-      nombre: nombre.trim(), 
-      email: email.toLowerCase(), 
-      contraseña: hash, 
-      verificationCode: code, 
-      verificationCodeExpires: expires 
+    // Guardar en PendingUser
+    const pendingUser = new PendingUser({
+      nombre: nombre.trim(),
+      email: email.toLowerCase(),
+      contraseña: hash,
+      verificationCode: code,
+      verificationCodeExpires: expires
     });
-    
-    await user.save();
+    await pendingUser.save();
     await enviarCodigo(email, code);
-    
-    // Log de seguridad
-    console.log(`Nuevo usuario registrado: ${email} desde IP: ${req.ip}`);
-    
+    console.log(`Nuevo registro pendiente: ${email} desde IP: ${req.ip}`);
     res.status(201).json({ 
-      message: 'Usuario registrado correctamente. Revisa tu correo para el código de verificación.', 
+      message: 'Registro iniciado. Revisa tu correo para el código de verificación.',
       verificacionPendiente: true 
     });
   } catch (error) {
@@ -232,50 +229,43 @@ exports.login = async (req, res) => {
 exports.verifyCode = async (req, res) => {
   try {
     const { email, code } = req.body;
-    
     if (!email || !code) {
       return res.status(400).json({ error: 'Email y código son obligatorios' });
     }
-
     if (!validator.isEmail(email)) {
       return res.status(400).json({ error: 'Formato de email inválido' });
     }
-
-    // Buscar usuario incluyendo campos de verificación
-    const user = await User.findOne({ email: email.toLowerCase() }).select('+verificationCode +verificationCodeExpires');
-    
-    if (!user || !user.verificationCode || !user.verificationCodeExpires) {
-      return res.status(400).json({ error: 'Código no solicitado o usuario no encontrado' });
+    // Buscar usuario pendiente
+    const pendingUser = await PendingUser.findOne({ email: email.toLowerCase() });
+    if (!pendingUser) {
+      return res.status(400).json({ error: 'No hay registro pendiente para este correo o ya fue verificado' });
     }
-
-    if (user.verificationCode !== code) {
-      // Log de intento fallido de verificación
+    if (pendingUser.verificationCode !== code) {
       console.log(`Intento de verificación fallido: ${email} desde IP: ${req.ip}`);
       return res.status(400).json({ error: 'Código incorrecto' });
     }
-
-    if (user.verificationCodeExpires < new Date()) {
+    if (pendingUser.verificationCodeExpires < new Date()) {
       return res.status(400).json({ error: 'Código expirado' });
     }
-
-    // Limpiar código tras verificación exitosa
-    user.verificationCode = undefined;
-    user.verificationCodeExpires = undefined;
+    // Crear usuario definitivo
+    const user = new User({
+      nombre: pendingUser.nombre,
+      email: pendingUser.email,
+      contraseña: pendingUser.contraseña
+    });
     await user.save();
-
+    // Eliminar registro temporal
+    await PendingUser.deleteOne({ _id: pendingUser._id });
     // Generar JWT
     const token = generarJWT(user);
-    
-    // Log de verificación exitosa
-    console.log(`Verificación exitosa: ${email} desde IP: ${req.ip}`);
-    
-    res.json({ 
-      message: 'Verificación exitosa', 
-      user: { 
-        id: user._id, 
-        nombre: user.nombre, 
-        email: user.email, 
-        role: user.role 
+    console.log(`Verificación exitosa y usuario creado: ${email} desde IP: ${req.ip}`);
+    res.json({
+      message: 'Verificación exitosa. Usuario creado.',
+      user: {
+        id: user._id,
+        nombre: user.nombre,
+        email: user.email,
+        role: user.role
       },
       token: token
     });
