@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Container, Row, Col, Card, Button, Form } from 'react-bootstrap';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import FallingLines from '../components/FallingLines';
 import './Productos.css';
 import type { Product } from '../services/productService';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import cartService from '../services/cartService';
 
 interface ProductosProps {
   products: Product[];
@@ -15,7 +17,14 @@ const Productos: React.FC<ProductosProps> = ({ products }) => {
   const [sortBy, setSortBy] = useState<string>('default');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [priceRange, setPriceRange] = useState<{ min: string; max: string }>({ min: '', max: '' });
+  const [addingToCart, setAddingToCart] = useState<string | null>(null);
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
+
+  // Hacer scroll hacia arriba cuando se carga la página
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
 
   // Filtrar productos por búsqueda, categoría y precio
   const filteredProducts = products
@@ -60,6 +69,50 @@ const Productos: React.FC<ProductosProps> = ({ products }) => {
     setPriceRange({ min: '', max: '' });
   };
 
+  // Función para agregar al carrito
+  const handleAddToCart = async (e: React.MouseEvent, productId: string) => {
+    e.stopPropagation(); // Evitar que se active el onClick de la tarjeta
+    
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+
+    try {
+      setAddingToCart(productId);
+      await cartService.addToCart(productId, 1);
+      
+      // Mostrar toast de éxito
+      const toast = document.createElement('div');
+      toast.className = 'toast-success';
+      toast.innerHTML = `
+        <div style="
+          position: fixed; top: 20px; right: 20px; 
+          background: #28a745; color: white; padding: 1rem 1.5rem; 
+          border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+          z-index: 10000; animation: slideInRight 0.3s ease;
+          display: flex; align-items: center; gap: 0.5rem;
+        ">
+          <i class="bi bi-check-circle-fill"></i>
+          ¡Producto agregado al box! 🎉
+        </div>
+      `;
+      document.body.appendChild(toast);
+      
+      // Remover toast después de 3 segundos
+      setTimeout(() => {
+        toast.style.animation = 'slideOutRight 0.3s ease';
+        setTimeout(() => document.body.removeChild(toast), 3000);
+      }, 3000);
+      
+    } catch (error) {
+      console.error('Error al agregar al box:', error);
+      alert('Error al agregar al box. Intenta de nuevo.');
+    } finally {
+      setAddingToCart(null);
+    }
+  };
+
   return (
     <Container className="py-5 position-relative">
       <div className="productos-falling-lines">
@@ -84,7 +137,10 @@ const Productos: React.FC<ProductosProps> = ({ products }) => {
             {searchTerm && (
               <button 
                 className="btn btn-link clear-search"
-                onClick={() => setSearchTerm('')}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSearchTerm('');
+                }}
               >
                 <i className="bi bi-x-circle"></i>
               </button>
@@ -214,9 +270,23 @@ const Productos: React.FC<ProductosProps> = ({ products }) => {
                   <div className="price-tag mt-auto mb-3">
                     ${product.precio.toFixed(2)}
                   </div>
-                  <Button variant="primary" className="w-100">
-                    <i className="bi bi-box-seam me-2"></i>
-                    A MI BOX
+                  <Button 
+                    variant="danger" 
+                    className="w-100" 
+                    onClick={(e) => handleAddToCart(e, product._id)}
+                    disabled={addingToCart === product._id}
+                  >
+                    {addingToCart === product._id ? (
+                      <>
+                        <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                        Agregando...
+                      </>
+                    ) : (
+                      <>
+                        <i className="bi bi-box-seam me-2"></i>
+                        A MI BOX
+                      </>
+                    )}
                   </Button>
                 </Card.Body>
               </Card>

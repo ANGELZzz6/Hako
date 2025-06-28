@@ -25,6 +25,10 @@ export interface Product {
   adminRating?: number;
   reviews?: Review[];
   isActive: boolean;
+  isDestacado?: boolean;
+  isOferta?: boolean;
+  precioOferta?: number;
+  porcentajeDescuento?: number;
   fecha_creacion: string;
   fecha_actualizacion: string;
 }
@@ -327,13 +331,94 @@ class ProductService {
 
   // Eliminar reseña
   async deleteReview(productId: string): Promise<void> {
-    const response = await fetch(`${ENDPOINTS.PRODUCTS}/${productId}/reviews`, {
-      method: 'DELETE',
-      headers: this.getAuthHeaders(),
-    });
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Error al eliminar reseña');
+    try {
+      const response = await fetch(`${ENDPOINTS.PRODUCTS}/${productId}/reviews`, {
+        method: 'DELETE',
+        headers: this.getAuthHeaders(),
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Error al eliminar reseña');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      throw error;
+    }
+  }
+
+  // Obtener productos destacados
+  async getDestacados(limit: number = 8): Promise<Product[]> {
+    try {
+      const response = await fetch(`${ENDPOINTS.PRODUCTS}/destacados?limit=${limit}`);
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Error al obtener productos destacados');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error:', error);
+      throw error;
+    }
+  }
+
+  // Obtener productos en oferta
+  async getOfertas(limit: number = 12): Promise<Product[]> {
+    try {
+      const response = await fetch(`${ENDPOINTS.PRODUCTS}/ofertas?limit=${limit}`);
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Error al obtener productos en oferta');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error:', error);
+      throw error;
+    }
+  }
+
+  // Cambiar estado de destacado
+  async toggleDestacado(productId: string): Promise<{ message: string; product: Product }> {
+    try {
+      const response = await fetch(`${ENDPOINTS.PRODUCTS}/admin/${productId}/destacado`, {
+        method: 'PATCH',
+        headers: this.getAuthHeaders(),
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Error al cambiar estado de destacado');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error:', error);
+      throw error;
+    }
+  }
+
+  // Cambiar estado de oferta
+  async toggleOferta(productId: string, data?: { precioOferta?: number; porcentajeDescuento?: number }): Promise<{ message: string; product: Product }> {
+    try {
+      const response = await fetch(`${ENDPOINTS.PRODUCTS}/admin/${productId}/oferta`, {
+        method: 'PATCH',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify(data || {}),
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Error al cambiar estado de oferta');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error:', error);
+      throw error;
     }
   }
 }

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Routes, Route, Link, useLocation } from 'react-router-dom';
+import { Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css'; // Para los íconos como el del carrito
 import { Carousel } from 'react-bootstrap';
@@ -9,6 +9,8 @@ import Productos from './pages/Productos';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import CartPage from './pages/CartPage';
+import CheckoutPage from './pages/CheckoutPage';
+import OrderConfirmationPage from './pages/OrderConfirmationPage';
 import AdminDashboard from './pages/AdminDashboard';
 import UserManagement from './pages/UserManagement';
 import InventoryManagement from './pages/InventoryManagement';
@@ -25,6 +27,8 @@ import cartService from './services/cartService';
 import type { Cart } from './services/cartService';
 import ProductDetail from './pages/ProductDetail';
 import ProfilePage from './pages/ProfilePage';
+import CartManagement from './pages/CartManagement';
+import { useMobileViewport } from './hooks/useMobileViewport';
 
 // Importar fuente Montserrat
 import '@fontsource/montserrat/300.css';
@@ -42,9 +46,13 @@ const App = () => {
   const [cart, setCart] = useState<Cart | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const location = useLocation();
+  const navigate = useNavigate();
   
   // Usar el contexto de autenticación
   const { currentUser, isAuthenticated, logout, isAdmin } = useAuth();
+
+  // Forzar resolución móvil
+  useMobileViewport();
 
   // Efecto para cargar productos
   useEffect(() => {
@@ -134,6 +142,56 @@ const App = () => {
     setCart(null);
   };
 
+  // Función para manejar click en producto (ir a detalle)
+  const handleProductClick = (productId: string) => {
+    navigate(`/productos/${productId}`);
+  };
+
+  // Función para agregar producto al carrito
+  const handleAddToCart = async (e: React.MouseEvent, productId: string) => {
+    e.stopPropagation(); // Evitar que se active el onClick de la tarjeta
+    
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+
+    try {
+      await cartService.addToCart(productId, 1);
+      
+      // Actualizar el carrito
+      const updatedCart = await cartService.getCart();
+      setCart(updatedCart);
+      
+      // Mostrar toast de éxito
+      const toast = document.createElement('div');
+      toast.className = 'toast-success';
+      toast.innerHTML = `
+        <div style="
+          position: fixed; top: 20px; right: 20px; 
+          background: #28a745; color: white; padding: 1rem 1.5rem; 
+          border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+          z-index: 10000; animation: slideInRight 0.3s ease;
+          display: flex; align-items: center; gap: 0.5rem;
+        ">
+          <i class="bi bi-check-circle-fill"></i>
+          ¡Producto agregado al box! 🎉
+        </div>
+      `;
+      document.body.appendChild(toast);
+      
+      // Remover toast después de 3 segundos
+      setTimeout(() => {
+        toast.style.animation = 'slideOutRight 0.3s ease';
+        setTimeout(() => document.body.removeChild(toast), 300);
+      }, 3000);
+      
+    } catch (error) {
+      console.error('Error al agregar al box:', error);
+      alert('Error al agregar al box. Intenta de nuevo.');
+    }
+  };
+
   // Renderizar el contenido según la ruta
   const renderContent = () => {
     if (location.pathname === '/productos') {
@@ -186,7 +244,7 @@ const App = () => {
                 <h1 className="display-4 fade-in">Bienvenido a Hako</h1>
                 <p className="lead fade-in">Descubre nuestros productos exclusivos con los mejores precios</p>
                 <div className="d-flex gap-3 justify-content-center justify-content-md-start mt-4">
-                  <Link to="/productos" className="btn btn-primary btn-lg">
+                  <Link to="/productos" className="btn btn-danger btn-lg">
                     <i className="bi bi-shop me-2"></i>Ver Productos
                   </Link>
                   <a href="#ofertas" className="btn btn-outline-primary btn-lg">
@@ -236,7 +294,7 @@ const App = () => {
                 <div className="d-flex gap-3 justify-content-center justify-content-md-start mt-4">
                   <button 
                     onClick={handleOpenGoogleMaps}
-                    className="btn btn-primary btn-lg">
+                    className="btn btn-danger btn-lg">
                     <i className="bi bi-geo-alt me-2"></i>Consultar zona
                   </button>
                 </div>
@@ -270,7 +328,7 @@ const App = () => {
                     <div className="row g-4">
                       {group.map((product) => (
                         <div className="col-6 col-md-4" key={product._id}>
-                          <div className="card">
+                          <div className="card" style={{ cursor: 'pointer' }} onClick={() => handleProductClick(product._id)}>
                             <img 
                               src={product.imagen_url}
                               className="card-img-top" 
@@ -286,11 +344,11 @@ const App = () => {
                                 ${product.precio.toFixed(2)}
                               </div>
                               <button 
-                                className="btn btn-primary mt-auto"
-                                onClick={() => cartService.addToCart(product._id)}
+                                className="btn btn-danger mt-auto"
+                                onClick={(e) => handleAddToCart(e, product._id)}
                               >
                                 <i className="bi bi-box-seam me-2"></i>
-                                Agregar al Box
+                                A MI BOX
                               </button>
                             </div>
                           </div>
@@ -366,7 +424,7 @@ const App = () => {
                       </Link>
                     </AdminOnly>
                     <button 
-                      className="btn btn-primary"
+                      className="btn btn-danger"
                       onClick={handleLogout}
                     >
                       <i className="bi bi-box-arrow-right me-1"></i>
@@ -402,6 +460,16 @@ const App = () => {
             <CartPage />
           </ProtectedRoute>
         } />
+        <Route path="/checkout" element={
+          <ProtectedRoute>
+            <CheckoutPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/order-confirmation" element={
+          <ProtectedRoute>
+            <OrderConfirmationPage />
+          </ProtectedRoute>
+        } />
         <Route path="/admin" element={
           <ProtectedRoute requireAdmin>
             <AdminDashboard />
@@ -422,8 +490,14 @@ const App = () => {
             <SupportPage />
           </ProtectedRoute>
         } />
+        <Route path="/admin/carts" element={
+          <ProtectedRoute requireAdmin>
+            <CartManagement />
+          </ProtectedRoute>
+        } />
         <Route path="/soporte" element={<SupportPage />} />
         <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/cart-management" element={<CartManagement />} />
       </Routes>
 
       {/* Footer */}

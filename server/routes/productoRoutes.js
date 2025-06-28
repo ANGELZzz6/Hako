@@ -9,7 +9,8 @@ const { auth } = require('../middleware/auth');
 // Rutas públicas
 router.get('/', productController.getAllProducts);
 router.get('/search', productController.searchProducts);
-router.get('/:id', productController.getProductById);
+router.get('/destacados', productController.getDestacados);
+router.get('/ofertas', productController.getOfertas);
 
 // Rutas de reseñas (deben ir ANTES que las rutas de admin)
 router.post('/:id/reviews', auth, productController.addOrEditReview);
@@ -22,5 +23,10 @@ router.post('/admin', productController.createProduct);
 router.put('/admin/:id', productController.updateProduct);
 router.delete('/admin/:id', productController.deleteProduct);
 router.patch('/admin/:id/toggle-status', productController.toggleProductStatus);
+router.patch('/admin/:id/destacado', productController.toggleDestacado);
+router.patch('/admin/:id/oferta', productController.toggleOferta);
+
+// Ruta de producto por ID (debe ir al final)
+router.get('/:id', productController.getProductById);
 
 module.exports = router;

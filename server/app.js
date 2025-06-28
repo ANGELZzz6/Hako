@@ -6,6 +6,7 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const productoRoutes = require('./routes/productoRoutes');
 const userRoutes = require('./routes/userRoutes');
+const cartRoutes = require('./routes/cartRoutes');
 const cors = require('cors');
 const app = express();
 
@@ -63,5 +64,6 @@ app.use(limiter);
 // Rutas
 app.use('/api/products', productoRoutes);
 app.use('/api/users', userRoutes); // Sin rate limiting específico para permitir operaciones CRUD
+app.use('/api/cart', cartRoutes);
 
 module.exports = app;

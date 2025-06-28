@@ -7,9 +7,22 @@ const AdminDashboard = () => {
   return (
     <div className="admin-dashboard">
       <header className="admin-header-bar">
-        <h1 className="admin-header">
-          <span className="logo-japanese">箱</span> <span className="brand-text">hako</span> <span className="develop-text">Develop</span>
-        </h1>
+        <div className="header-content">
+          <div className="header-left">
+            <i className="bi bi-grid-3x3-gap header-icon"></i>
+            <span className="header-title">Dashboard</span>
+          </div>
+          <div className="header-center">
+            <h1 className="admin-header">
+              <span className="logo-japanese">箱</span> <span className="brand-text">hako</span> <span className="develop-text">Develop</span>
+            </h1>
+          </div>
+          <div className="header-right">
+            <Link to="/" className="back-link">
+              <i className="bi bi-arrow-left-circle header-icon"></i>
+            </Link>
+          </div>
+        </div>
       </header>
 
       <main className="admin-main-content">
@@ -33,8 +46,13 @@ const AdminDashboard = () => {
               <p>Support</p>
             </Link>
 
+            {/* Botón de Gestión de Boxes */}
+            <Link to="/admin/carts" className="dashboard-card" style={{ textDecoration: 'none' }}>
+              <i className="bi bi-cart-check icon"></i>
+              <p>Boxes</p>
+            </Link>
+
             {/* Placeholders */}
-            <div className="dashboard-card placeholder"></div>
             <div className="dashboard-card placeholder"></div>
             <div className="dashboard-card placeholder"></div>
           </div>

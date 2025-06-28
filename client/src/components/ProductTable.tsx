@@ -7,9 +7,18 @@ interface ProductTableProps {
   onEdit: (product: Product) => void;
   onDelete: (productId: string) => void;
   onToggleStatus: (productId: string) => void;
+  onToggleDestacado: (productId: string) => void;
+  onToggleOferta: (productId: string) => void;
 }
 
-const ProductTable: React.FC<ProductTableProps> = ({ products, onEdit, onDelete, onToggleStatus }) => {
+const ProductTable: React.FC<ProductTableProps> = ({ 
+  products, 
+  onEdit, 
+  onDelete, 
+  onToggleStatus, 
+  onToggleDestacado, 
+  onToggleOferta 
+}) => {
   return (
     <div className="table-wrapper">
       <div className="mobile-scroll-hint">
@@ -35,6 +44,8 @@ const ProductTable: React.FC<ProductTableProps> = ({ products, onEdit, onDelete,
                 onEdit={onEdit}
                 onDelete={onDelete}
                 onToggleStatus={onToggleStatus}
+                onToggleDestacado={onToggleDestacado}
+                onToggleOferta={onToggleOferta}
               />
             ))}
           </tbody>

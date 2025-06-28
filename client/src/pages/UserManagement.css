@@ -522,4 +522,169 @@
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+/* Estilos específicos para modo landscape en móvil */
+@media (max-width: 768px) and (orientation: landscape) {
+  .user-main-content {
+    padding: 1rem;
+  }
+
+  .user-management-controls {
+    flex-direction: row;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .search-section {
+    flex: 2;
+    min-width: 200px;
+  }
+
+  .add-section {
+    flex: 0 0 auto;
+  }
+
+  .user-management-stats {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .stat-card {
+    padding: 0.75rem;
+  }
+
+  .stat-card i {
+    font-size: 1.5rem;
+  }
+
+  .stat-number {
+    font-size: 1.2rem;
+  }
+
+  .stat-label {
+    font-size: 0.7rem;
+  }
+
+  .table-container {
+    max-height: calc(100vh - 200px);
+    overflow-y: auto;
+  }
+
+  .user-table {
+    min-width: 800px;
+    font-size: 0.8rem;
+  }
+
+  .user-table th,
+  .user-table td {
+    padding: 0.5rem 0.25rem;
+    white-space: nowrap;
+  }
+
+  .user-info {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 120px;
+  }
+
+  .user-avatar {
+    width: 30px;
+    height: 30px;
+  }
+
+  .user-name {
+    font-size: 0.8rem;
+    max-width: 80px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .action-buttons {
+    gap: 0.2rem;
+  }
+
+  .btn-action {
+    width: 28px;
+    height: 28px;
+    font-size: 0.7rem;
+  }
+
+  .status-badge,
+  .role-badge {
+    font-size: 0.7rem;
+    padding: 0.25rem 0.5rem;
+    min-width: 50px;
+  }
+
+  .container {
+    padding: 0 0.25rem;
+  }
+
+  .header-content {
+    flex-direction: row;
+    gap: 0.5rem;
+  }
+
+  .header-left,
+  .header-right {
+    flex: 0 0 auto;
+  }
+
+  .header-center {
+    flex: 1;
+    order: 0;
+  }
+
+  .user-header {
+    font-size: 1.5rem;
+  }
+
+  .header-title {
+    font-size: 1.2rem;
+  }
+
+  .header-icon {
+    font-size: 1.2rem;
+  }
+}
+
+/* Estilos específicos para pantallas muy pequeñas en landscape */
+@media (max-width: 568px) and (orientation: landscape) {
+  .user-management-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .user-table {
+    min-width: 600px;
+    font-size: 0.7rem;
+  }
+
+  .user-table th,
+  .user-table td {
+    padding: 0.25rem 0.15rem;
+  }
+
+  .user-avatar {
+    width: 25px;
+    height: 25px;
+  }
+
+  .user-name {
+    font-size: 0.7rem;
+    max-width: 60px;
+  }
+
+  .btn-action {
+    width: 24px;
+    height: 24px;
+    font-size: 0.6rem;
+  }
+
+  .user-header {
+    font-size: 1.2rem;
+  }
 } 

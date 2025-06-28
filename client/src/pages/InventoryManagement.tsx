@@ -7,9 +7,12 @@ import ProductTable from '../components/ProductTable';
 import EditProductModal from '../components/EditProductModal';
 import productService, { type Product, type UpdateProductData } from '../services/productService';
 
+type FilterType = 'all' | 'destacados' | 'ofertas' | 'destacados-ofertas';
+
 const InventoryManagement = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -34,11 +37,47 @@ const InventoryManagement = () => {
     }
   };
 
-  // Filtrar productos por término de búsqueda
-  const filteredProducts = products.filter(product =>
-    product.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.descripcion.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Filtrar productos por término de búsqueda y filtro activo
+  const filteredProducts = products.filter(product => {
+    const matchesSearch = product.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         product.descripcion.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    if (!matchesSearch) return false;
+
+    switch (activeFilter) {
+      case 'destacados':
+        return product.isDestacado;
+      case 'ofertas':
+        return product.isOferta;
+      case 'destacados-ofertas':
+        return product.isDestacado && product.isOferta;
+      default:
+        return true;
+    }
+  });
+
+  // Obtener estadísticas de productos filtrados
+  const getFilteredStats = () => {
+    const filtered = products.filter(product => {
+      switch (activeFilter) {
+        case 'destacados':
+          return product.isDestacado;
+        case 'ofertas':
+          return product.isOferta;
+        case 'destacados-ofertas':
+          return product.isDestacado && product.isOferta;
+        default:
+          return true;
+      }
+    });
+
+    return {
+      total: filtered.length,
+      activos: filtered.filter(p => p.isActive).length,
+      inactivos: filtered.filter(p => !p.isActive).length,
+      sinStock: filtered.filter(p => p.stock === 0).length
+    };
+  };
 
   // Manejar edición de producto
   const handleEdit = (product: Product) => {
@@ -90,6 +129,26 @@ const InventoryManagement = () => {
     }
   };
 
+  // Manejar cambio de estado de destacado
+  const handleToggleDestacado = async (productId: string) => {
+    try {
+      await productService.toggleDestacado(productId);
+      await loadProducts(); // Recargar productos
+    } catch (err: any) {
+      setError(err.message || 'Error al cambiar estado de destacado');
+    }
+  };
+
+  // Manejar cambio de estado de oferta
+  const handleToggleOferta = async (productId: string) => {
+    try {
+      await productService.toggleOferta(productId);
+      await loadProducts(); // Recargar productos
+    } catch (err: any) {
+      setError(err.message || 'Error al cambiar estado de oferta');
+    }
+  };
+
   // Cerrar modal
   const handleCloseModal = () => {
     setIsModalOpen(false);
@@ -103,6 +162,8 @@ const InventoryManagement = () => {
     setIsCreating(true);
     setIsModalOpen(true);
   };
+
+  const filteredStats = getFilteredStats();
 
   return (
     <div className="inventory-management">
@@ -130,18 +191,22 @@ const InventoryManagement = () => {
       <main className="inventory-main-content">
         <div className="container">
           <div className="inventory-controls">
-            <SearchBar
-              searchTerm={searchTerm}
-              onSearchChange={setSearchTerm}
-              placeholder="Buscar productos..."
-            />
-            <button 
-              className="btn btn-primary add-product-btn"
-              onClick={handleAddProduct}
-            >
-              <i className="bi bi-plus-circle"></i>
-              Agregar Producto
-            </button>
+            <div className="search-section">
+              <SearchBar
+                searchTerm={searchTerm}
+                onSearchChange={setSearchTerm}
+                placeholder="Buscar productos..."
+              />
+            </div>
+            <div className="add-section">
+              <button 
+                className="btn btn-primary add-product-btn"
+                onClick={handleAddProduct}
+              >
+                <i className="bi bi-plus-circle"></i>
+                Agregar Producto
+              </button>
+            </div>
           </div>
 
           {error && (
@@ -161,34 +226,50 @@ const InventoryManagement = () => {
                 <div className="stat-card">
                   <i className="bi bi-box-seam"></i>
                   <div className="stat-info">
-                    <span className="stat-number">{products.length}</span>
-                    <span className="stat-label">Total Productos</span>
+                    <span className="stat-number">{filteredStats.total}</span>
+                    <span className="stat-label">
+                      {activeFilter === 'all' ? 'Total Productos' : 
+                       activeFilter === 'destacados' ? 'Destacados' :
+                       activeFilter === 'ofertas' ? 'Ofertas' : 'Destacados + Ofertas'}
+                    </span>
                   </div>
                 </div>
                 <div className="stat-card">
                   <i className="bi bi-check-circle"></i>
                   <div className="stat-info">
-                    <span className="stat-number">
-                      {products.filter(p => p.isActive).length}
-                    </span>
+                    <span className="stat-number">{filteredStats.activos}</span>
                     <span className="stat-label">Activos</span>
+                  </div>
+                </div>
+                <div className="stat-card">
+                  <i className="bi bi-star-fill"></i>
+                  <div className="stat-info">
+                    <span className="stat-number">
+                      {products.filter(p => p.isDestacado).length}
+                    </span>
+                    <span className="stat-label">Destacados</span>
+                  </div>
+                </div>
+                <div className="stat-card">
+                  <i className="bi bi-tag-fill"></i>
+                  <div className="stat-info">
+                    <span className="stat-number">
+                      {products.filter(p => p.isOferta).length}
+                    </span>
+                    <span className="stat-label">Ofertas</span>
                   </div>
                 </div>
                 <div className="stat-card">
                   <i className="bi bi-x-circle"></i>
                   <div className="stat-info">
-                    <span className="stat-number">
-                      {products.filter(p => !p.isActive).length}
-                    </span>
+                    <span className="stat-number">{filteredStats.inactivos}</span>
                     <span className="stat-label">Inactivos</span>
                   </div>
                 </div>
                 <div className="stat-card">
                   <i className="bi bi-exclamation-triangle"></i>
                   <div className="stat-info">
-                    <span className="stat-number">
-                      {products.filter(p => p.stock === 0).length}
-                    </span>
+                    <span className="stat-number">{filteredStats.sinStock}</span>
                     <span className="stat-label">Sin Stock</span>
                   </div>
                 </div>
@@ -199,6 +280,8 @@ const InventoryManagement = () => {
                 onEdit={handleEdit}
                 onDelete={handleDelete}
                 onToggleStatus={handleToggleStatus}
+                onToggleDestacado={handleToggleDestacado}
+                onToggleOferta={handleToggleOferta}
               />
             </>
           )}

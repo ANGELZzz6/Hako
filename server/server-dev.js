@@ -4,6 +4,7 @@ const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const productoRoutes = require('./routes/productoRoutes');
 const userRoutes = require('./routes/userRoutes');
+const cartRoutes = require('./routes/cartRoutes');
 const { connectDB } = require('./config/db');
 const path = require('path');
 
@@ -47,6 +48,7 @@ app.use(express.json({ limit: '10mb' }));
 // Rutas
 app.use('/api/products', productoRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/cart', cartRoutes);
 
 // Ruta de prueba
 app.get('/', (req, res) => {

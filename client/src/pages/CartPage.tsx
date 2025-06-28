@@ -1,93 +1,94 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import cartService, { type Cart, type CartItem } from '../services/cartService';
 import './CartPage.css';
 
-// Datos de ejemplo
-const mockCart = {
-  items: [
-    {
-      product: {
-        _id: '1',
-        name: 'Nintendo Switch OLED',
-        price: 299.99,
-        oldPrice: 349.99,
-        image: 'https://t4.ftcdn.net/jpg/02/96/39/29/360_F_296392948_f60DmguQMYKrj937BNiLYGlcYbxIqn3L.jpg',
-        store: 'Nintendo Store',
-        shipping: 'Envío gratis'
-      },
-      quantity: 1
-    },
-    {
-      product: {
-        _id: '2',
-        name: 'PlayStation 5',
-        price: 499.99,
-        oldPrice: 599.99,
-        image: 'https://gmedia.playstation.com/is/image/SIEPDC/ps5-product-thumbnail-01-en-14sep21',
-        store: 'Sony Store',
-        shipping: 'Envío gratis'
-      },
-      quantity: 1
-    }
-  ],
-  total: 799.98
-};
-
 const CartPage = () => {
-  const [cart, setCart] = useState(mockCart);
+  const [cart, setCart] = useState<Cart | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState<string | null>(null);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
+  const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
 
-  const handleUpdateQuantity = (productId: string, newQuantity: number) => {
+  // Cargar el carrito
+  useEffect(() => {
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+
+    loadCart();
+  }, [isAuthenticated, navigate]);
+
+  const loadCart = async () => {
+    try {
+      setLoading(true);
+      const cartData = await cartService.getCart();
+      setCart(cartData);
+    } catch (error) {
+      console.error('Error al cargar el box:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateQuantity = async (productId: string, newQuantity: number) => {
     if (newQuantity < 1) return;
     
-    setCart(prevCart => {
-      const updatedItems = prevCart.items.map(item => {
-        if (item.product._id === productId) {
-          return { ...item, quantity: newQuantity };
-        }
-        return item;
-      });
-
-      const newTotal = updatedItems.reduce((total, item) => 
-        total + (item.product.price * item.quantity), 0);
-
-      return {
-        items: updatedItems,
-        total: newTotal
-      };
-    });
+    try {
+      setUpdating(productId);
+      const updatedCart = await cartService.updateCartItem(productId, newQuantity);
+      setCart(updatedCart);
+    } catch (error) {
+      console.error('Error al actualizar cantidad:', error);
+      alert('Error al actualizar la cantidad');
+    } finally {
+      setUpdating(null);
+    }
   };
 
-  const handleRemoveItem = (productId: string) => {
-    setCart(prevCart => {
-      const updatedItems = prevCart.items.filter(
-        item => item.product._id !== productId
-      );
+  const handleRemoveItem = async (productId: string) => {
+    if (!window.confirm('¿Estás seguro de que quieres eliminar este producto del box?')) {
+      return;
+    }
 
-      const newTotal = updatedItems.reduce((total, item) => 
-        total + (item.product.price * item.quantity), 0);
-
-      return {
-        items: updatedItems,
-        total: newTotal
-      };
-    });
-    setSelectedItems(prev => prev.filter(id => id !== productId));
+    try {
+      setUpdating(productId);
+      const updatedCart = await cartService.removeFromCart(productId);
+      setCart(updatedCart);
+      setSelectedItems(prev => prev.filter(id => id !== productId));
+    } catch (error) {
+      console.error('Error al eliminar producto:', error);
+      alert('Error al eliminar el producto');
+    } finally {
+      setUpdating(null);
+    }
   };
 
-  const handleClearCart = () => {
-    setCart({
-      items: [],
-      total: 0
-    });
-    setSelectedItems([]);
+  const handleClearCart = async () => {
+    if (!window.confirm('¿Estás seguro de que quieres vaciar todo el box?')) {
+      return;
+    }
+
+    try {
+      const updatedCart = await cartService.clearCart();
+      setCart(updatedCart);
+      setSelectedItems([]);
+    } catch (error) {
+      console.error('Error al vaciar box:', error);
+      alert('Error al vaciar el box');
+    }
   };
 
   const toggleSelectAll = () => {
+    if (!cart) return;
+    
     if (selectedItems.length === cart.items.length) {
       setSelectedItems([]);
     } else {
-      setSelectedItems(cart.items.map(item => item.product._id));
+      setSelectedItems(cart.items.map(item => item.id_producto._id));
     }
   };
 
@@ -101,15 +102,38 @@ const CartPage = () => {
     });
   };
 
+  const getSelectedTotal = () => {
+    if (!cart) return 0;
+    
+    return cart.items
+      .filter(item => selectedItems.includes(item.id_producto._id))
+      .reduce((total, item) => total + (item.precio_unitario * item.cantidad), 0);
+  };
+
+  if (loading) {
+    return (
+      <div className="cart-container cart-page">
+        <div className="container">
+          <div className="text-center py-5">
+            <div className="spinner-border text-primary" role="status">
+              <span className="visually-hidden">Cargando...</span>
+            </div>
+            <p className="mt-3 text-white">Cargando tu box...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!cart || cart.items.length === 0) {
     return (
-      <div className="cart-container">
+      <div className="cart-container cart-page">
         <div className="container">
-          <div className="empty-cart text-center">
-            <i className="bi bi-box-seam display-1 text-muted"></i>
-            <h2 className="mt-3">Tu Box está vacío</h2>
-            <p className="text-muted">¡Agrega algunos productos para comenzar!</p>
-            <Link to="/productos" className="btn btn-primary mt-3">
+          <div className="empty-cart">
+            <i className="bi bi-box-seam display-1"></i>
+            <h2>Tu Box está vacío</h2>
+            <p>¡Agrega algunos productos para comenzar!</p>
+            <Link to="/productos" className="btn btn-primary">
               <i className="bi bi-shop me-2"></i>
               Ver Productos
             </Link>
@@ -120,84 +144,93 @@ const CartPage = () => {
   }
 
   return (
-    <div className="cart-container">
+    <div className="cart-container cart-page">
       <div className="container">
         <div className="row">
           {/* Columna izquierda - Lista de productos */}
           <div className="col-lg-8">
             <div className="cart-section">
-              <div className="d-flex justify-content-between align-items-center mb-3">
-                <h2 className="cart-title">BOX ({cart.items.length})</h2>
-                <div className="d-flex align-items-center">
+              <div className="d-flex justify-content-between align-items-center mb-4">
+                <h2 className="cart-title">MI BOX ({cart.items.length})</h2>
+                <div className="d-flex align-items-center gap-2">
                   <div 
                     className={`custom-checkbox ${selectedItems.length === cart.items.length ? 'checked' : ''}`}
                     onClick={toggleSelectAll}
                   ></div>
-                  <span>Seleccionar todos</span>
+                  <span className="text-dark">Seleccionar todos</span>
                 </div>
               </div>
 
               <div className="promo-banner">
                 <i className="bi bi-lightning-fill me-2"></i>
-                ChoiceDay: ¡Descuentos especiales en productos seleccionados!
+                ¡Descuentos especiales en productos seleccionados!
               </div>
 
               {cart.items.map((item) => (
-                <div key={item.product._id} className="cart-item">
+                <div key={item.id_producto._id} className="cart-item">
                   <div className="row g-0">
                     <div className="col-md-2">
                       <div 
-                        className={`custom-checkbox ${selectedItems.includes(item.product._id) ? 'checked' : ''}`}
-                        onClick={() => toggleSelectItem(item.product._id)}
+                        className={`custom-checkbox ${selectedItems.includes(item.id_producto._id) ? 'checked' : ''}`}
+                        onClick={() => toggleSelectItem(item.id_producto._id)}
                       ></div>
                       <img
-                        src={item.product.image}
+                        src={item.imagen_producto}
                         className="product-image"
-                        alt={item.product.name}
+                        alt={item.nombre_producto}
+                        onError={(e) => {
+                          e.currentTarget.src = 'https://via.placeholder.com/100x100?text=Sin+Imagen';
+                        }}
                       />
                     </div>
                     <div className="col-md-10">
                       <div className="card-body">
                         <div className="d-flex justify-content-between align-items-start">
                           <div>
-                            <h5 className="product-name">{item.product.name}</h5>
+                            <h5 className="product-name">{item.nombre_producto}</h5>
                             <div className="d-flex align-items-center">
-                              <span className="product-price">${item.product.price.toFixed(2)}</span>
-                              <span className="product-old-price">${item.product.oldPrice.toFixed(2)}</span>
-                            </div>
-                            <div className="store-name">{item.product.store}</div>
-                            <div className="shipping-info">
-                              <i className="bi bi-truck me-1"></i>
-                              {item.product.shipping}
+                              <span className="product-price">
+                                ${item.precio_unitario.toLocaleString('es-CO')}
+                              </span>
                             </div>
                           </div>
                           <div className="action-icons">
-                            <i className="bi bi-heart action-icon"></i>
                             <i 
                               className="bi bi-trash action-icon"
-                              onClick={() => handleRemoveItem(item.product._id)}
+                              onClick={() => handleRemoveItem(item.id_producto._id)}
+                              title="Eliminar producto"
                             ></i>
                           </div>
                         </div>
-                        <div className="d-flex align-items-center mt-3">
+                        <div className="d-flex align-items-center justify-content-between mt-3">
                           <div className="quantity-controls">
                             <button
-                              className="btn btn-outline-secondary btn-sm"
-                              onClick={() => handleUpdateQuantity(item.product._id, item.quantity - 1)}
+                              className="btn btn-outline-secondary"
+                              onClick={() => handleUpdateQuantity(item.id_producto._id, item.cantidad - 1)}
+                              disabled={updating === item.id_producto._id || item.cantidad <= 1}
                             >
                               <i className="bi bi-dash"></i>
                             </button>
-                            <span className="mx-3">{item.quantity}</span>
+                            <span>
+                              {updating === item.id_producto._id ? (
+                                <div className="spinner-border spinner-border-sm" role="status">
+                                  <span className="visually-hidden">Actualizando...</span>
+                                </div>
+                              ) : (
+                                item.cantidad
+                              )}
+                            </span>
                             <button
-                              className="btn btn-outline-secondary btn-sm"
-                              onClick={() => handleUpdateQuantity(item.product._id, item.quantity + 1)}
+                              className="btn btn-outline-secondary"
+                              onClick={() => handleUpdateQuantity(item.id_producto._id, item.cantidad + 1)}
+                              disabled={updating === item.id_producto._id}
                             >
                               <i className="bi bi-plus"></i>
                             </button>
                           </div>
-                          <div className="ms-auto">
-                            <strong>
-                              Total: ${(item.product.price * item.quantity).toFixed(2)}
+                          <div className="text-end">
+                            <strong className="product-price">
+                              Total: ${(item.precio_unitario * item.cantidad).toLocaleString('es-CO')}
                             </strong>
                           </div>
                         </div>
@@ -206,62 +239,61 @@ const CartPage = () => {
                   </div>
                 </div>
               ))}
+
+              <div className="d-flex justify-content-between align-items-center mt-4">
+                <button 
+                  className="btn btn-outline-danger"
+                  onClick={handleClearCart}
+                >
+                  <i className="bi bi-trash me-2"></i>
+                  Vaciar Box
+                </button>
+                <Link to="/productos" className="btn btn-outline-primary">
+                  <i className="bi bi-shop me-2"></i>
+                  Seguir Comprando
+                </Link>
+              </div>
             </div>
           </div>
 
           {/* Columna derecha - Resumen */}
           <div className="col-lg-4">
-            <div className="summary-section">
-              <h3 className="summary-title">Resumen del pedido</h3>
+            <div className="cart-summary">
+              <h4 className="summary-title">Resumen del Box</h4>
               
-              <div className="summary-row">
-                <span>Subtotal ({cart.items.length} artículos)</span>
-                <span>${cart.total.toFixed(2)}</span>
-              </div>
-              <div className="summary-row">
-                <span>Envío</span>
-                <span>Gratis</span>
-              </div>
-              <div className="summary-row">
-                <span>Impuestos</span>
-                <span>${(cart.total * 0.19).toFixed(2)}</span>
+              <div className="summary-item">
+                <span>Subtotal ({cart.items.length} productos):</span>
+                <span>${cart.total.toLocaleString('es-CO')}</span>
               </div>
               
-              <div className="summary-total">
-                <div className="summary-row">
-                  <span>Total</span>
-                  <span>${(cart.total * 1.19).toFixed(2)}</span>
-                </div>
+              <div className="summary-item total">
+                <span>Total:</span>
+                <span>${cart.total.toLocaleString('es-CO')}</span>
               </div>
 
-              <button className="continue-button">
-                Continuar ({selectedItems.length})
+              {selectedItems.length > 0 && (
+                <div className="selected-summary">
+                  <div className="summary-item">
+                    <span>Seleccionados ({selectedItems.length}):</span>
+                    <span>${getSelectedTotal().toLocaleString('es-CO')}</span>
+                  </div>
+                </div>
+              )}
+
+              <button 
+                className="btn btn-primary w-100 mt-4" 
+                disabled={cart.items.length === 0}
+                onClick={() => navigate('/checkout')}
+              >
+                <i className="bi bi-credit-card me-2"></i>
+                Proceder al Pago
               </button>
 
-              <div className="security-section">
-                <div className="security-item">
-                  <i className="bi bi-shield-check"></i>
-                  Pagos seguros y rápidos
-                </div>
-                <div className="security-item">
-                  <i className="bi bi-shield-check"></i>
-                  Productos 100% garantizados
-                </div>
-                <div className="security-item">
-                  <i className="bi bi-shield-check"></i>
-                  Seguridad y privacidad garantizada
-                </div>
-                <div className="security-item">
-                  <i className="bi bi-credit-card"></i>
-                  Pagos 100% seguros
-                </div>
-              </div>
-
-              <div className="payment-methods">
-                <div className="payment-method">Visa</div>
-                <div className="payment-method">MC</div>
-                <div className="payment-method">JCB</div>
-                <div className="payment-method">AMEX</div>
+              <div className="secure-info">
+                <i className="bi bi-shield-check text-success me-2"></i>
+                <small className="text-muted">
+                  Pago seguro con encriptación SSL
+                </small>
               </div>
             </div>
           </div>

@@ -248,9 +248,9 @@ exports.toggleProductStatus = async (req, res) => {
 // Buscar productos
 exports.searchProducts = async (req, res) => {
   try {
-    const { q = '', limit = 10 } = req.query;
-
-    if (!q.trim()) {
+    const { q } = req.query;
+    
+    if (!q || q.trim().length === 0) {
       return res.status(400).json({ error: 'Término de búsqueda requerido' });
     }
 
@@ -259,18 +259,133 @@ exports.searchProducts = async (req, res) => {
         { isActive: true },
         {
           $or: [
-            { nombre: { $regex: q, $options: 'i' } },
-            { descripcion: { $regex: q, $options: 'i' } }
+            { nombre: { $regex: q.trim(), $options: 'i' } },
+            { descripcion: { $regex: q.trim(), $options: 'i' } }
           ]
         }
       ]
-    })
-    .limit(parseInt(limit))
-    .sort({ fecha_creacion: -1 });
+    }).sort({ fecha_creacion: -1 });
 
-    res.json({ products, total: products.length });
+    res.json(products);
   } catch (error) {
     console.error('Error buscando productos:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
+// Obtener productos destacados
+exports.getDestacados = async (req, res) => {
+  try {
+    const { limit = 8 } = req.query;
+    
+    const products = await Product.find({
+      isActive: true,
+      isDestacado: true
+    })
+    .sort({ fecha_creacion: -1 })
+    .limit(parseInt(limit));
+
+    res.json(products);
+  } catch (error) {
+    console.error('Error obteniendo productos destacados:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
+// Obtener productos en oferta
+exports.getOfertas = async (req, res) => {
+  try {
+    const { limit = 12 } = req.query;
+    
+    const products = await Product.find({
+      isActive: true,
+      isOferta: true
+    })
+    .sort({ fecha_creacion: -1 })
+    .limit(parseInt(limit));
+
+    res.json(products);
+  } catch (error) {
+    console.error('Error obteniendo productos en oferta:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
+// Actualizar estado de destacado
+exports.toggleDestacado = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!validator.isMongoId(id)) {
+      return res.status(400).json({ error: 'ID de producto inválido' });
+    }
+
+    const product = await Product.findById(id);
+    if (!product) {
+      return res.status(404).json({ error: 'Producto no encontrado' });
+    }
+
+    product.isDestacado = !product.isDestacado;
+    await product.save();
+
+    const statusText = product.isDestacado ? 'marcado como destacado' : 'removido de destacados';
+    console.log(`Producto ${statusText}: ${product.nombre} por admin desde IP: ${req.ip}`);
+    
+    res.json({ 
+      message: `Producto ${statusText} correctamente`, 
+      product 
+    });
+  } catch (error) {
+    console.error('Error cambiando estado de destacado:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
+// Actualizar estado de oferta
+exports.toggleOferta = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { precioOferta, porcentajeDescuento } = req.body;
+
+    if (!validator.isMongoId(id)) {
+      return res.status(400).json({ error: 'ID de producto inválido' });
+    }
+
+    const product = await Product.findById(id);
+    if (!product) {
+      return res.status(404).json({ error: 'Producto no encontrado' });
+    }
+
+    product.isOferta = !product.isOferta;
+    
+    if (product.isOferta) {
+      if (precioOferta !== undefined) {
+        product.precioOferta = parseFloat(precioOferta);
+      }
+      if (porcentajeDescuento !== undefined) {
+        product.porcentajeDescuento = parseFloat(porcentajeDescuento);
+      }
+    } else {
+      // Si se desactiva la oferta, limpiar los campos
+      product.precioOferta = undefined;
+      product.porcentajeDescuento = undefined;
+    }
+
+    await product.save();
+
+    const statusText = product.isOferta ? 'marcado como oferta' : 'removido de ofertas';
+    console.log(`Producto ${statusText}: ${product.nombre} por admin desde IP: ${req.ip}`);
+    
+    res.json({ 
+      message: `Producto ${statusText} correctamente`, 
+      product 
+    });
+  } catch (error) {
+    console.error('Error cambiando estado de oferta:', error);
+    if (error.name === 'ValidationError') {
+      const errors = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json({ error: errors.join(', ') });
+    }
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 };

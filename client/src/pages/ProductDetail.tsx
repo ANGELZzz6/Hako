@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import productService, { type Product, type Review } from '../services/productService';
+import cartService from '../services/cartService';
 import { useAuth } from '../contexts/AuthContext';
+import { useMobileViewport } from '../hooks/useMobileViewport';
 import './ProductDetail.css';
 
 const estrellas = (valor: number) => (
@@ -191,6 +193,11 @@ const ProductDetail: React.FC = () => {
   const [adminRating, setAdminRating] = useState(4.5); // ejemplo
   const [showReviews, setShowReviews] = useState(false);
   const [related, setRelated] = useState<Product[]>([]);
+  const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
+
+  // Forzar resolución móvil
+  useMobileViewport();
 
   const refreshProduct = async () => {
     if (!id) return;
@@ -210,6 +217,11 @@ const ProductDetail: React.FC = () => {
 
   useEffect(() => { refreshProduct(); }, [id]);
 
+  // Hacer scroll hacia arriba cuando se carga la página
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [id]);
+
   useEffect(() => {
     // Productos relacionados (puedes mejorar el criterio)
     const fetchRelated = async () => {
@@ -222,13 +234,18 @@ const ProductDetail: React.FC = () => {
   }, [id]);
 
   const handleAddToBox = async () => {
-    setAddingToBox(true);
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+
+    if (!product) return;
+
     try {
-      // Simular delay para mostrar feedback
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      // TODO: Implementar lógica del carrito
+      setAddingToBox(true);
+      await cartService.addToCart(product._id, 1);
       
-      // Crear toast de éxito
+      // Mostrar toast de éxito
       const toast = document.createElement('div');
       toast.className = 'toast-success';
       toast.innerHTML = `
@@ -252,7 +269,8 @@ const ProductDetail: React.FC = () => {
       }, 3000);
       
     } catch (error) {
-      alert('Error al agregar al box');
+      console.error('Error al agregar al box:', error);
+      alert('Error al agregar al box. Intenta de nuevo.');
     } finally {
       setAddingToBox(false);
     }
@@ -288,6 +306,17 @@ const ProductDetail: React.FC = () => {
 
   return (
     <div className="container py-5 product-detail-container">
+      {/* Flecha para regresar */}
+      <div className="mb-4">
+        <button 
+          className="btn btn-outline-secondary"
+          onClick={() => navigate('/productos')}
+        >
+          <i className="bi bi-arrow-left me-2"></i>
+          Volver a Productos
+        </button>
+      </div>
+      
       <div className="row g-4">
         {/* Imágenes */}
         <div className="col-md-6">
@@ -323,7 +352,7 @@ const ProductDetail: React.FC = () => {
               <li style={{color:'#2ecc40'}}><i className="bi bi-arrow-repeat me-2"></i>Reembolso por artículo defectuoso</li>
             </ul>
           </div>
-          <button className="btn btn-lg btn-primary w-100 mt-3" disabled={addingToBox} onClick={handleAddToBox}>
+          <button className="btn btn-lg btn-danger w-100 mt-3" disabled={addingToBox} onClick={handleAddToBox}>
             {addingToBox ? (
               <>
                 <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>

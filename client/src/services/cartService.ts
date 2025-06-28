@@ -2,19 +2,30 @@ import { ENDPOINTS } from '../config/api';
 import authService from './authService';
 
 export interface CartItem {
-  product: {
+  id_producto: {
     _id: string;
-    name: string;
-    price: number;
-    image: string;
+    nombre: string;
+    precio: number;
+    imagen_url: string;
+    descripcion?: string;
   };
-  quantity: number;
+  cantidad: number;
+  precio_unitario: number;
+  nombre_producto: string;
+  imagen_producto: string;
 }
 
 export interface Cart {
   _id: string;
+  id_usuario: string | {
+    _id: string;
+    nombre: string;
+    email: string;
+  };
   items: CartItem[];
   total: number;
+  creado_en: string;
+  actualizado_en: string;
 }
 
 class CartService {
@@ -31,7 +42,7 @@ class CartService {
       const response = await fetch(ENDPOINTS.CART, {
         headers: this.getHeaders(),
       });
-      if (!response.ok) throw new Error('Error al obtener el carrito');
+      if (!response.ok) throw new Error('Error al obtener el box');
       return await response.json();
     } catch (error) {
       console.error('Error:', error);
@@ -46,7 +57,7 @@ class CartService {
         headers: this.getHeaders(),
         body: JSON.stringify({ productId, quantity }),
       });
-      if (!response.ok) throw new Error('Error al agregar al carrito');
+      if (!response.ok) throw new Error('Error al agregar al box');
       return await response.json();
     } catch (error) {
       console.error('Error:', error);
@@ -61,7 +72,7 @@ class CartService {
         headers: this.getHeaders(),
         body: JSON.stringify({ quantity }),
       });
-      if (!response.ok) throw new Error('Error al actualizar el carrito');
+      if (!response.ok) throw new Error('Error al actualizar el box');
       return await response.json();
     } catch (error) {
       console.error('Error:', error);
@@ -75,7 +86,7 @@ class CartService {
         method: 'DELETE',
         headers: this.getHeaders(),
       });
-      if (!response.ok) throw new Error('Error al eliminar del carrito');
+      if (!response.ok) throw new Error('Error al eliminar del box');
       return await response.json();
     } catch (error) {
       console.error('Error:', error);
@@ -89,7 +100,39 @@ class CartService {
         method: 'DELETE',
         headers: this.getHeaders(),
       });
-      if (!response.ok) throw new Error('Error al vaciar el carrito');
+      if (!response.ok) throw new Error('Error al vaciar el box');
+      return await response.json();
+    } catch (error) {
+      console.error('Error:', error);
+      throw error;
+    }
+  }
+
+  // Métodos para administradores
+  async getAllCarts(): Promise<Cart[]> {
+    try {
+      const response = await fetch(`${ENDPOINTS.CART}/admin/all`, {
+        headers: this.getHeaders(),
+      });
+      if (!response.ok) throw new Error('Error al obtener todos los boxes');
+      return await response.json();
+    } catch (error) {
+      console.error('Error:', error);
+      throw error;
+    }
+  }
+
+  async getCartStats(): Promise<{
+    totalCarts: number;
+    activeCarts: number;
+    totalItems: number;
+    totalValue: number;
+  }> {
+    try {
+      const response = await fetch(`${ENDPOINTS.CART}/admin/stats`, {
+        headers: this.getHeaders(),
+      });
+      if (!response.ok) throw new Error('Error al obtener estadísticas');
       return await response.json();
     } catch (error) {
       console.error('Error:', error);

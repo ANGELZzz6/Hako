@@ -63,6 +63,36 @@ const productSchema = new mongoose.Schema({
     isActive: {
         type: Boolean,
         default: true
+    },
+    isDestacado: {
+        type: Boolean,
+        default: false,
+        description: 'Indica si el producto aparece en la sección de productos destacados'
+    },
+    isOferta: {
+        type: Boolean,
+        default: false,
+        description: 'Indica si el producto está en oferta'
+    },
+    precioOferta: {
+        type: Number,
+        min: [0, 'El precio de oferta no puede ser negativo'],
+        validate: {
+            validator: function(v) {
+                if (this.isOferta && v >= this.precio) {
+                    return false;
+                }
+                return true;
+            },
+            message: 'El precio de oferta debe ser menor al precio original'
+        },
+        description: 'Precio especial cuando el producto está en oferta'
+    },
+    porcentajeDescuento: {
+        type: Number,
+        min: [0, 'El porcentaje de descuento no puede ser negativo'],
+        max: [100, 'El porcentaje de descuento no puede exceder 100%'],
+        description: 'Porcentaje de descuento aplicado al producto'
     }
 }, {
     timestamps: { 
@@ -75,6 +105,10 @@ const productSchema = new mongoose.Schema({
 productSchema.index({ nombre: 1 });
 productSchema.index({ isActive: 1 });
 productSchema.index({ precio: 1 });
+productSchema.index({ isDestacado: 1 });
+productSchema.index({ isOferta: 1 });
+productSchema.index({ isActive: 1, isDestacado: 1 });
+productSchema.index({ isActive: 1, isOferta: 1 });
 
 // Método para verificar si hay stock disponible
 productSchema.methods.hasStock = function(quantity = 1) {
@@ -94,6 +128,27 @@ productSchema.methods.reduceStock = function(quantity = 1) {
 productSchema.methods.addStock = function(quantity = 1) {
     this.stock += quantity;
     return this.stock;
+};
+
+// Método para obtener el precio final (con oferta si aplica)
+productSchema.methods.getPrecioFinal = function() {
+    if (this.isOferta && this.precioOferta && this.precioOferta < this.precio) {
+        return this.precioOferta;
+    }
+    return this.precio;
+};
+
+// Método para calcular el porcentaje de descuento
+productSchema.methods.getPorcentajeDescuento = function() {
+    if (this.isOferta && this.precioOferta && this.precioOferta < this.precio) {
+        return Math.round(((this.precio - this.precioOferta) / this.precio) * 100);
+    }
+    return this.porcentajeDescuento || 0;
+};
+
+// Método para verificar si el producto tiene descuento activo
+productSchema.methods.tieneDescuento = function() {
+    return this.isOferta && this.precioOferta && this.precioOferta < this.precio;
 };
 
 module.exports = mongoose.model('Product', productSchema, 'productos'); 
