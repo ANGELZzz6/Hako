@@ -260,6 +260,7 @@ const Productos: React.FC<ProductosProps> = ({ products }) => {
                   src={product.imagen_url} 
                   alt={product.nombre}
                   className="product-image"
+                  style={{ width: '100%', height: '180px', objectFit: 'cover', objectPosition: 'center' }}
                   onError={(e) => {
                     e.currentTarget.src = 'https://via.placeholder.com/300x200?text=Sin+Imagen';
                   }}
@@ -268,26 +269,28 @@ const Productos: React.FC<ProductosProps> = ({ products }) => {
                   <Card.Title>{product.nombre}</Card.Title>
                   <Card.Text>{product.descripcion}</Card.Text>
                   <div className="price-tag mt-auto mb-3">
-                    ${product.precio.toFixed(2)}
+                    {product.precio.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 })} <span style={{fontSize: '0.9em', fontWeight: 400}}>COP</span>
                   </div>
-                  <Button 
-                    variant="danger" 
-                    className="w-100" 
-                    onClick={(e) => handleAddToCart(e, product._id)}
-                    disabled={addingToCart === product._id}
-                  >
-                    {addingToCart === product._id ? (
-                      <>
-                        <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                        Agregando...
-                      </>
-                    ) : (
-                      <>
-                        <i className="bi bi-box-seam me-2"></i>
-                        A MI BOX
-                      </>
-                    )}
-                  </Button>
+                  <div className="d-none d-md-block">
+                    <Button 
+                      variant="danger" 
+                      className="w-100" 
+                      onClick={(e) => handleAddToCart(e, product._id)}
+                      disabled={addingToCart === product._id}
+                    >
+                      {addingToCart === product._id ? (
+                        <>
+                          <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                          Agregando...
+                        </>
+                      ) : (
+                        <>
+                          <i className="bi bi-box-seam me-2"></i>
+                          A MI BOX
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </Card.Body>
               </Card>
             </Col>

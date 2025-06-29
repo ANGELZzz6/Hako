@@ -990,6 +990,8 @@ footer a:hover {
 .pill-input:focus {
   border-color: #d25d4d; /* Highlight color on focus */
   box-shadow: 0 0 0 0.25rem rgba(210, 93, 77, 0.25); /* Matching shadow */
+  background-color: #fff !important;
+  color: inherit;
 }
 
 .btn-custom-red {

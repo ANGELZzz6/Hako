@@ -191,6 +191,8 @@
   border-color: var(--profile-primary);
   box-shadow: 0 0 0 0.2rem rgba(219, 85, 78, 0.25);
   outline: none;
+  background-color: #fff !important;
+  color: inherit;
 }
 
 .form-control:disabled,

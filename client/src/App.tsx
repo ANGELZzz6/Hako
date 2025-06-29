@@ -341,7 +341,7 @@ const App = () => {
                               <h5 className="card-title">{product.nombre}</h5>
                               <p className="card-text">{product.descripcion}</p>
                               <div className="price-tag">
-                                ${product.precio.toFixed(2)}
+                                {product.precio.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 })} <span style={{fontSize: '0.9em', fontWeight: 400}}>COP</span>
                               </div>
                               <button 
                                 className="btn btn-danger mt-auto"
@@ -436,7 +436,7 @@ const App = () => {
                   </div>
                 ) : (
                   <>
-                    <Link to="/login" className="btn btn-primary">
+                    <Link to="/login" className="btn" style={{ backgroundColor: 'var(--primary-color)', color: '#fff', border: 'none' }}>
                       <i className="bi bi-person me-1"></i>
                       Iniciar Sesión
                     </Link>

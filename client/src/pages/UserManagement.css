@@ -687,4 +687,24 @@
   .user-header {
     font-size: 1.2rem;
   }
+}
+
+@media (max-width: 767px) {
+  .header-content {
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    text-align: center !important;
+    gap: 0.5rem;
+  }
+  .header-left, .header-center, .header-right {
+    justify-content: center !important;
+    align-items: center !important;
+    width: 100% !important;
+    text-align: center !important;
+    margin-bottom: 0.2rem;
+  }
+  .user-header {
+    font-size: 2.2rem !important;
+  }
 } 
