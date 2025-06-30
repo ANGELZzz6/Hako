@@ -4,10 +4,16 @@
 const express = require('express');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+console.log('Antes de require productoRoutes');
 const productoRoutes = require('./routes/productoRoutes');
+console.log('Después de require productoRoutes');
 const userRoutes = require('./routes/userRoutes');
+console.log('Antes de require userRoutes');
 const cartRoutes = require('./routes/cartRoutes');
+console.log('Antes de require cartRoutes');
 const cors = require('cors');
+const supportRoutes = require('./routes/supportRoutes');
+console.log('Antes de require soporte');
 const app = express();
 
 // Configuración de CORS más permisiva para Google OAuth
@@ -65,5 +71,8 @@ app.use(limiter);
 app.use('/api/products', productoRoutes);
 app.use('/api/users', userRoutes); // Sin rate limiting específico para permitir operaciones CRUD
 app.use('/api/cart', cartRoutes);
+console.log('Montando rutas de soporte en /api/support');
+app.use('/api/support', supportRoutes);
+console.log('Rutas de soporte montadas');
 
 module.exports = app;

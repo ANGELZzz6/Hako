@@ -269,26 +269,20 @@ const Productos: React.FC<ProductosProps> = ({ products }) => {
                   <Card.Title>{product.nombre}</Card.Title>
                   <Card.Text>{product.descripcion}</Card.Text>
                   <div className="price-tag mt-auto mb-3">
-                    {product.precio.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 })} <span style={{fontSize: '0.9em', fontWeight: 400}}>COP</span>
+                    <span style={{fontSize: '0.95em', fontWeight: 400, marginRight: 4}}>COP</span>
+                    {product.precio.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}
                   </div>
                   <div className="d-none d-md-block">
                     <Button 
                       variant="danger" 
                       className="w-100" 
-                      onClick={(e) => handleAddToCart(e, product._id)}
-                      disabled={addingToCart === product._id}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/productos/${product._id}`);
+                      }}
                     >
-                      {addingToCart === product._id ? (
-                        <>
-                          <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                          Agregando...
-                        </>
-                      ) : (
-                        <>
-                          <i className="bi bi-box-seam me-2"></i>
-                          A MI BOX
-                        </>
-                      )}
+                      <i className="bi bi-box-seam me-2"></i>
+                      A MI BOX
                     </Button>
                   </div>
                 </Card.Body>

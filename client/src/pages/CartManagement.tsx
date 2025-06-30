@@ -196,12 +196,11 @@ const CartManagement: React.FC = () => {
                       <td>
                         <div>
                           <strong>
-                            {typeof cart.id_usuario === 'string' 
-                              ? cart.id_usuario 
-                              : cart.id_usuario.nombre
-                            }
+                            {typeof cart.id_usuario === 'object' && cart.id_usuario !== null
+                              ? cart.id_usuario.nombre
+                              : cart.id_usuario}
                           </strong>
-                          {typeof cart.id_usuario === 'object' && (
+                          {typeof cart.id_usuario === 'object' && cart.id_usuario !== null && (
                             <div>
                               <small className="text-muted">{cart.id_usuario.email}</small>
                             </div>
@@ -254,11 +253,11 @@ const CartManagement: React.FC = () => {
                   </div>
                   <div className="mb-3">
                     <strong>Usuario:</strong> {
-                      typeof selectedCart.id_usuario === 'string' 
-                        ? selectedCart.id_usuario 
-                        : selectedCart.id_usuario.nombre
+                      typeof selectedCart.id_usuario === 'object' && selectedCart.id_usuario !== null
+                        ? selectedCart.id_usuario.nombre
+                        : selectedCart.id_usuario
                     }
-                    {typeof selectedCart.id_usuario === 'object' && (
+                    {typeof selectedCart.id_usuario === 'object' && selectedCart.id_usuario !== null && (
                       <div>
                         <small className="text-muted">{selectedCart.id_usuario.email}</small>
                       </div>

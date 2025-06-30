@@ -5,6 +5,7 @@ export const ENDPOINTS = {
   AUTH: `${API_URL}/users`,
   CART: `${API_URL}/cart`,
   ORDERS: `${API_URL}/orders`,
+  SUPPORT: `${API_URL}/support`,
 };
 
 export default API_URL; 

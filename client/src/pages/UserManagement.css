@@ -166,15 +166,22 @@
 /* Botones de acción */
 .action-buttons {
   display: flex;
-  gap: 0.5rem;
+  flex-direction: row;
+  gap: 0.2rem;
   justify-content: flex-start;
   align-items: center;
   min-height: 36px;
+  flex-wrap: wrap;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .btn-action {
-  width: 36px;
-  height: 36px;
+  flex: 1 1 28px;
+  min-width: 28px;
+  max-width: 32px;
+  width: 32px;
+  height: 32px;
   border: none;
   border-radius: 6px;
   display: flex;
@@ -183,7 +190,8 @@
   cursor: pointer;
   transition: all 0.3s ease;
   font-size: 0.9rem;
-  flex-shrink: 0;
+  box-sizing: border-box;
+  padding: 0;
 }
 
 .btn-edit {
@@ -367,7 +375,6 @@
   .container {
     max-width: 100%;
     padding: 0 0.5rem;
-    overflow-x: hidden;
   }
   
   .table-wrapper {
@@ -378,31 +385,21 @@
   /* Tabla responsiva para móviles */
   .table-container {
     overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch;
     border-radius: 8px;
-    position: relative;
-    background: linear-gradient(to right, white 30%, rgba(255, 255, 255, 0)),
-                linear-gradient(to left, white 30%, rgba(255, 255, 255, 0));
-    background-position: left center, right center;
-    background-repeat: no-repeat;
-    background-size: 20px 100%, 20px 100%;
-    background-attachment: local, local;
-    max-width: 100%;
-    border: 2px solid #007bff; /* Debug: borde azul para verificar */
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    width: 100vw !important;
+    min-width: 600px;
+    max-width: none;
   }
   
   .mobile-scroll-hint {
     display: block;
   }
   
-  .table-container {
-    border-radius: 0 0 8px 8px;
-  }
-  
   .user-table {
-    min-width: 700px !important; /* Ancho mínimo más grande para forzar scroll */
-    font-size: 0.85rem;
-    width: 100%;
+    min-width: 600px !important;
+    width: max-content !important;
+    display: block;
   }
   
   .user-table th,
@@ -432,15 +429,18 @@
   }
   
   .action-buttons {
-    flex-direction: row;
-    gap: 0.25rem;
-    min-width: 120px;
+    flex-direction: column;
+    gap: 0.3rem;
+    width: 100%;
+    align-items: stretch;
   }
   
   .btn-action {
-    width: 28px;
-    height: 28px;
-    font-size: 0.75rem;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+    justify-content: center;
   }
   
   .status-badge,
@@ -448,6 +448,10 @@
     font-size: 0.7rem;
     padding: 0.2rem 0.5rem;
     min-width: 50px;
+  }
+  
+  .btn-delete {
+    margin-bottom: 0.4rem !important;
   }
 }
 
@@ -457,9 +461,7 @@
   }
   
   .user-table {
-    min-width: 600px !important;
-    font-size: 0.8rem;
-    width: 100%;
+    min-width: 500px !important;
   }
   
   .user-table th,
@@ -502,26 +504,36 @@
 
 /* Table wrapper y mensaje de scroll */
 .table-wrapper {
-  position: relative;
+  width: 100%;
+  overflow-x: auto;
+  padding-bottom: 1rem;
 }
 
 .mobile-scroll-hint {
   display: none;
-  text-align: center;
-  padding: 0.5rem;
-  background: linear-gradient(90deg, #f8f9fa, #e9ecef, #f8f9fa);
-  border-radius: 8px 8px 0 0;
-  border: 1px solid #e9ecef;
-  border-bottom: none;
-  font-size: 0.8rem;
-  color: #6c757d;
-  font-weight: 500;
 }
 
-.mobile-scroll-hint span {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
+@media (max-width: 900px) {
+  .table-container {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    display: block;
+    width: 100%;
+    min-width: 350px;
+    border-radius: 12px;
+  }
+  .user-table {
+    min-width: 600px;
+    width: 100%;
+    display: block;
+  }
+  .mobile-scroll-hint {
+    display: block !important;
+    text-align: center;
+    color: #d32f2f;
+    font-size: 0.95rem;
+    margin-bottom: 0.5rem;
+  }
 }
 
 /* Estilos específicos para modo landscape en móvil */
@@ -568,13 +580,16 @@
   }
 
   .table-container {
-    max-height: calc(100vh - 200px);
-    overflow-y: auto;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    width: 100vw !important;
+    min-width: 600px;
+    max-width: none;
   }
-
   .user-table {
-    min-width: 800px;
-    font-size: 0.8rem;
+    min-width: 600px !important;
+    width: max-content !important;
+    display: block;
   }
 
   .user-table th,
@@ -707,4 +722,33 @@
   .user-header {
     font-size: 2.2rem !important;
   }
+}
+
+@media (min-width: 769px) {
+  .action-buttons {
+    flex-direction: row !important;
+    gap: 0.3rem !important;
+    align-items: center !important;
+    width: auto !important;
+  }
+  .btn-action, .btn-delete {
+    margin-bottom: 0 !important;
+    width: 36px;
+    min-width: 36px;
+    max-width: 36px;
+  }
+}
+
+.user-table td.action-buttons {
+  max-width: 110px;
+  width: 1%;
+  overflow: visible;
+  word-break: break-word;
+  padding: 0.5rem 0.2rem;
+  box-sizing: border-box;
+}
+
+.container {
+  max-width: 100%;
+  padding: 0 0.5rem;
 } 

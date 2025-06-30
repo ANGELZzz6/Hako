@@ -5,6 +5,7 @@ const rateLimit = require('express-rate-limit');
 const productoRoutes = require('./routes/productoRoutes');
 const userRoutes = require('./routes/userRoutes');
 const cartRoutes = require('./routes/cartRoutes');
+const supportRoutes = require('./routes/supportRoutes');
 const { connectDB } = require('./config/db');
 const path = require('path');
 
@@ -49,6 +50,9 @@ app.use(express.json({ limit: '10mb' }));
 app.use('/api/products', productoRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/cart', cartRoutes);
+console.log('Montando rutas de soporte en /api/support');
+app.use('/api/support', supportRoutes);
+console.log('Rutas de soporte montadas');
 
 // Ruta de prueba
 app.get('/', (req, res) => {

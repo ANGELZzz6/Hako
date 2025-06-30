@@ -29,6 +29,7 @@ import ProductDetail from './pages/ProductDetail';
 import ProfilePage from './pages/ProfilePage';
 import CartManagement from './pages/CartManagement';
 import { useMobileViewport } from './hooks/useMobileViewport';
+import AdminSupportPage from './pages/AdminSupport';
 
 // Importar fuente Montserrat
 import '@fontsource/montserrat/300.css';
@@ -487,7 +488,7 @@ const App = () => {
         } />
         <Route path="/admin/support" element={
           <ProtectedRoute requireAdmin>
-            <SupportPage />
+            <AdminSupportPage />
           </ProtectedRoute>
         } />
         <Route path="/admin/carts" element={

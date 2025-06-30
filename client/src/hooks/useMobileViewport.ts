@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 
 export const useMobileViewport = () => {
+  const location = useLocation();
   useEffect(() => {
     // Función para forzar el viewport móvil
     const forceMobileViewport = () => {
@@ -37,5 +39,5 @@ export const useMobileViewport = () => {
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('orientationchange', handleOrientationChange);
     };
-  }, []);
+  }, [location.pathname]);
 }; 

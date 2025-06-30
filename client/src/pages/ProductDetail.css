@@ -38,9 +38,13 @@
   box-shadow: 0 2px 8px rgba(211, 47, 47, 0.2);
 }
 .stars {
-  color: #f7b731;
-  font-size: 1.3rem;
+  white-space: nowrap;
+  display: inline-block;
   vertical-align: middle;
+  color: #FFD600 !important;
+}
+.product-detail-container .stars + .ms-2 {
+  margin-left: 0 !important;
 }
 .price {
   font-size: 2rem;
@@ -128,6 +132,39 @@
     max-width: 98vw;
     padding: 1rem 0.3rem;
   }
+  .reseñas-popup .close-btn {
+    background: none !important;
+    font-size: 1.7rem !important;
+    padding: 0.2rem !important;
+    min-width: unset;
+    min-height: unset;
+    width: auto;
+    height: auto;
+    border-radius: 50%;
+    margin-right: 0.5rem !important;
+    color: #dc3545 !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .reseñas-popup .btn-primary {
+    background: #db554e !important;
+    border-color: #db554e !important;
+    color: #fff !important;
+  }
+  .reseñas-popup .btn-primary:hover, .reseñas-popup .btn-primary:focus {
+    background: #c04c3e !important;
+    border-color: #c04c3e !important;
+    color: #fff !important;
+  }
+  .product-detail-container .badge.bg-success {
+    font-size: 0.75rem !important;
+    padding: 0.3em 0.7em !important;
+    white-space: nowrap;
+  }
+  .product-detail-container .stars {
+    font-size: 1.1rem !important;
+  }
 }
 @keyframes fadeIn {
   from { opacity: 0; }
@@ -201,4 +238,14 @@
   color: var(--text-color) !important;
   flex: 1;
   margin-right: 10px;
+}
+.btn-outline-secondary.reviews-btn {
+  border: 1.5px solid #bdbdbd !important;
+  background: transparent !important;
+  color: var(--text-color) !important;
+}
+.btn-outline-secondary.reviews-btn:hover, .btn-outline-secondary.reviews-btn:focus {
+  background: #ededed !important;
+  color: #111 !important;
+  border-color: #bdbdbd !important;
 } 

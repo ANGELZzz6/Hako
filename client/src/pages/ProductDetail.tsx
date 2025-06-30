@@ -105,6 +105,7 @@ const ReseñasPopup: React.FC<{
           <div className="mb-3 text-center">
             <span className="fw-bold">Media de usuarios: </span>
             {estrellas(avg)} <span className="ms-2">{avg.toFixed(1)}</span>
+            <br />
             <span className="text-muted ms-2 reviews-count">({reviews.length} reseña{reviews.length!==1?'s':''})</span>
           </div>
           {isAuthenticated ? (
@@ -335,14 +336,15 @@ const ProductDetail: React.FC = () => {
           <div className="d-flex align-items-center mb-2">
             <span className="badge bg-success me-2">Producto comprobado por Hako ✅</span>
             {estrellas(adminRating)}
-            <span className="ms-2">{adminRating.toFixed(1)}</span>
           </div>
-          <button className="btn btn-outline-secondary mb-3" onClick={() => setShowReviews(true)}>
+          <button className="btn btn-outline-secondary reviews-btn mb-3" onClick={() => setShowReviews(true)}>
             <i className="bi bi-chat-left-text me-2"></i>Ver reseñas
           </button>
           <p className="mb-3 product-description">{product.descripcion || 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque euismod, nisi eu consectetur.'}</p>
           <div className="price mb-4">
-            <span className="fs-3 fw-bold text-primary">{product.precio.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</span>
+            <span className="fs-3 fw-bold text-primary">
+              {product.precio.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })} <span style={{fontSize: '1rem', fontWeight: 400}}>COP</span>
+            </span>
           </div>
           <div className="secure-section mb-4">
             <h5 className="secure-title">Pagos seguros y Hako Services</h5>
@@ -374,7 +376,7 @@ const ProductDetail: React.FC = () => {
         <div className="row g-3">
           {related.map(p => (
             <div className="col-6 col-md-4 col-lg-2" key={p._id}>
-              <div className="card h-100 product-card" style={{ cursor: 'pointer' }} onClick={() => window.location.href = `/productos/${p._id}`}>
+              <div className="card h-100 product-card" style={{ cursor: 'pointer' }} onClick={() => navigate(`/productos/${p._id}`)}>
                 <img src={p.imagen_url} alt={p.nombre} className="card-img-top" style={{height:100,objectFit:'cover'}} onError={e => {e.currentTarget.src='https://via.placeholder.com/100x100?text=Sin+Imagen'}} />
                 <div className="card-body p-2">
                   <div className="card-title mb-1" style={{fontSize:'1rem'}}>{p.nombre}</div>

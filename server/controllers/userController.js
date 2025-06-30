@@ -1,19 +1,12 @@
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
-const nodemailer = require('nodemailer');
+// const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 const validator = require('validator');
 const jwt = require('jsonwebtoken');
 const { OAuth2Client } = require('google-auth-library');
 const PendingUser = require('../models/PendingUser');
-
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
+const transporter = require('../config/nodemailer');
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '529191388743-v1gull31du3pi8aovi34d8srt7424kva.apps.googleusercontent.com';
 const client = new OAuth2Client(GOOGLE_CLIENT_ID);
