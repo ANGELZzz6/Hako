@@ -91,9 +91,87 @@ export const changeStatus = async (id: string, status: string) => {
   return await response.json();
 };
 
+export const deleteTicket = async (id: string) => {
+  const response = await fetch(`${ENDPOINTS.SUPPORT}/${id}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+    credentials: 'include',
+  });
+  if (!response.ok) {
+    let errorMessage = 'Error al eliminar ticket de soporte';
+    try {
+      const errorData = await response.json();
+      errorMessage = errorData.error || errorMessage;
+    } catch {
+      const textError = await response.text();
+      errorMessage = textError || errorMessage;
+    }
+    throw new Error(errorMessage);
+  }
+  return await response.json();
+};
+
+export const getAdmins = async () => {
+  const response = await fetch(`${ENDPOINTS.AUTH}/admins`, {
+    headers: getAuthHeaders(),
+    credentials: 'include',
+  });
+  if (!response.ok) throw new Error('Error al obtener admins');
+  return await response.json();
+};
+
+export const addInternalNote = async (id: string, note: string) => {
+  const response = await fetch(`${ENDPOINTS.SUPPORT}/${id}/internal-note`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ note }),
+    credentials: 'include',
+  });
+  if (!response.ok) throw new Error('Error al agregar nota interna');
+  return await response.json();
+};
+
+export const assignResponsable = async (id: string, responsable: string) => {
+  const response = await fetch(`${ENDPOINTS.SUPPORT}/${id}/responsable`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ responsable }),
+    credentials: 'include',
+  });
+  if (!response.ok) throw new Error('Error al asignar responsable');
+  return await response.json();
+};
+
+export const closeByUser = async (id: string) => {
+  const response = await fetch(`${ENDPOINTS.SUPPORT}/${id}/close-by-user`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(),
+    credentials: 'include',
+  });
+  if (!response.ok) throw new Error('Error al cerrar ticket');
+  return await response.json();
+};
+
+export const rateTicket = async (id: string, stars: number, comment: string) => {
+  const response = await fetch(`${ENDPOINTS.SUPPORT}/${id}/rating`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ stars, comment }),
+    credentials: 'include',
+  });
+  if (!response.ok) throw new Error('Error al enviar valoración');
+  return await response.json();
+};
+
 export default {
   createTicket,
   getTickets,
   replyTicket,
   changeStatus,
+  deleteTicket,
+  getAdmins,
+  addInternalNote,
+  assignResponsable,
+  closeByUser,
+  rateTicket,
 }; 

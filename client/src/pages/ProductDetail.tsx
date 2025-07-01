@@ -5,6 +5,7 @@ import cartService from '../services/cartService';
 import { useAuth } from '../contexts/AuthContext';
 import { useMobileViewport } from '../hooks/useMobileViewport';
 import './ProductDetail.css';
+import ProductVariantModal from '../components/ProductVariantModal';
 
 const estrellas = (valor: number) => (
   <span className="stars">
@@ -196,6 +197,9 @@ const ProductDetail: React.FC = () => {
   const [related, setRelated] = useState<Product[]>([]);
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
+  const [showVariantModal, setShowVariantModal] = useState(false);
+  const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
+  const [quantity, setQuantity] = useState(1);
 
   // Forzar resolución móvil
   useMobileViewport();
@@ -242,6 +246,13 @@ const ProductDetail: React.FC = () => {
 
     if (!product) return;
 
+    // Si el producto tiene variantes habilitadas, mostrar el modal
+    if (product.variants && product.variants.enabled) {
+      console.log('[DETALLE] Producto con variantes detectado:', product);
+      setShowVariantModal(true);
+      return;
+    }
+
     try {
       setAddingToBox(true);
       await cartService.addToCart(product._id, 1);
@@ -271,6 +282,46 @@ const ProductDetail: React.FC = () => {
       
     } catch (error) {
       console.error('Error al agregar al box:', error);
+      alert('Error al agregar al box. Intenta de nuevo.');
+    } finally {
+      setAddingToBox(false);
+    }
+  };
+
+  // Manejar la adición al carrito desde el modal de variantes
+  const handleAddToCartWithVariants = async (selectedVariants: Record<string, string>, quantity: number) => {
+    if (!product) return;
+    try {
+      setAddingToBox(true);
+      console.log('[DETALLE] Agregando al box con variantes:', selectedVariants, 'Cantidad:', quantity);
+      await cartService.addToCartWithVariants({
+        productId: product._id,
+        quantity,
+        variants: selectedVariants
+      });
+      setShowVariantModal(false);
+      // Mostrar toast de éxito
+      const toast = document.createElement('div');
+      toast.className = 'toast-success';
+      toast.innerHTML = `
+        <div style="
+          position: fixed; top: 20px; right: 20px; 
+          background: #28a745; color: white; padding: 1rem 1.5rem; 
+          border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+          z-index: 10000; animation: slideInRight 0.3s ease;
+          display: flex; align-items: center; gap: 0.5rem;
+        ">
+          <i class="bi bi-check-circle-fill"></i>
+          ¡Producto agregado al box! 🎉
+        </div>
+      `;
+      document.body.appendChild(toast);
+      setTimeout(() => {
+        toast.style.animation = 'slideOutRight 0.3s ease';
+        setTimeout(() => document.body.removeChild(toast), 3000);
+      }, 3000);
+    } catch (error) {
+      console.error('Error al agregar al box con variantes:', error);
       alert('Error al agregar al box. Intenta de nuevo.');
     } finally {
       setAddingToBox(false);
@@ -354,11 +405,19 @@ const ProductDetail: React.FC = () => {
               <li style={{color:'#2ecc40'}}><i className="bi bi-arrow-repeat me-2"></i>Reembolso por artículo defectuoso</li>
             </ul>
           </div>
-          <button className="btn btn-lg btn-danger w-100 mt-3" disabled={addingToBox} onClick={handleAddToBox}>
+          <button 
+            className="btn btn-lg btn-danger w-100 mt-3" 
+            disabled={addingToBox || product.stock === 0} 
+            onClick={handleAddToBox}
+          >
             {addingToBox ? (
               <>
                 <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
                 Agregando al box...
+              </>
+            ) : product.stock === 0 ? (
+              <>
+                <i className="bi bi-x-octagon me-2"></i>Producto agotado
               </>
             ) : (
               <>
@@ -387,6 +446,15 @@ const ProductDetail: React.FC = () => {
           ))}
         </div>
       </div>
+      {/* Modal de variantes */}
+      {product && product.variants && product.variants.enabled && (
+        <ProductVariantModal
+          show={showVariantModal}
+          onHide={() => setShowVariantModal(false)}
+          product={product}
+          onAddToCart={handleAddToCartWithVariants}
+        />
+      )}
     </div>
   );
 };

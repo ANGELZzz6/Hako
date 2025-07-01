@@ -188,6 +188,15 @@ const CartPage = () => {
                         <div className="d-flex justify-content-between align-items-start">
                           <div>
                             <h5 className="product-name">{item.nombre_producto}</h5>
+                            {item.variants && Object.keys(item.variants).length > 0 && (
+                              <div className="cart-variants mb-2">
+                                {Object.entries(item.variants).map(([attr, value]) => (
+                                  <span key={attr} className="badge bg-info text-dark me-2 mb-1" style={{fontSize: '0.95em'}}>
+                                    {attr}: {value}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                             <div className="d-flex align-items-center">
                               <span className="product-price">
                                 ${item.precio_unitario.toLocaleString('es-CO')}

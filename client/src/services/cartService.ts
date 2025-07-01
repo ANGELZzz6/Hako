@@ -13,6 +13,7 @@ export interface CartItem {
   precio_unitario: number;
   nombre_producto: string;
   imagen_producto: string;
+  variants?: Record<string, string>;
 }
 
 export interface Cart {
@@ -56,6 +57,25 @@ class CartService {
         method: 'POST',
         headers: this.getHeaders(),
         body: JSON.stringify({ productId, quantity }),
+      });
+      if (!response.ok) throw new Error('Error al agregar al box');
+      return await response.json();
+    } catch (error) {
+      console.error('Error:', error);
+      throw error;
+    }
+  }
+
+  async addToCartWithVariants(cartItem: {
+    productId: string;
+    quantity: number;
+    variants: Record<string, string>;
+  }): Promise<Cart> {
+    try {
+      const response = await fetch(ENDPOINTS.CART, {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify(cartItem),
       });
       if (!response.ok) throw new Error('Error al agregar al box');
       return await response.json();

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Container, Row, Col, Card, Button, Form } from 'react-bootstrap';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import FallingLines from '../components/FallingLines';
+import ProductVariantModal from '../components/ProductVariantModal';
 import './Productos.css';
 import type { Product } from '../services/productService';
 import { useNavigate } from 'react-router-dom';
@@ -18,6 +19,8 @@ const Productos: React.FC<ProductosProps> = ({ products }) => {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [priceRange, setPriceRange] = useState<{ min: string; max: string }>({ min: '', max: '' });
   const [addingToCart, setAddingToCart] = useState<string | null>(null);
+  const [showVariantModal, setShowVariantModal] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
 
@@ -78,6 +81,18 @@ const Productos: React.FC<ProductosProps> = ({ products }) => {
       return;
     }
 
+    const product = products.find(p => p._id === productId);
+    if (!product) return;
+
+    // Si el producto tiene variantes habilitadas, mostrar el modal
+    if (product.variants && product.variants.enabled) {
+      console.log('[USUARIO] Producto con variantes detectado:', product);
+      setSelectedProduct(product);
+      setShowVariantModal(true);
+      console.log('[USUARIO] Modal de variantes abierto:', product.nombre);
+      return;
+    }
+
     try {
       setAddingToCart(productId);
       await cartService.addToCart(productId, 1);
@@ -100,6 +115,52 @@ const Productos: React.FC<ProductosProps> = ({ products }) => {
       document.body.appendChild(toast);
       
       // Remover toast después de 3 segundos
+      setTimeout(() => {
+        toast.style.animation = 'slideOutRight 0.3s ease';
+        setTimeout(() => document.body.removeChild(toast), 3000);
+      }, 3000);
+      
+    } catch (error) {
+      console.error('Error al agregar al box:', error);
+      alert('Error al agregar al box. Intenta de nuevo.');
+    } finally {
+      setAddingToCart(null);
+    }
+  };
+
+  // Función para manejar la adición al carrito desde el modal de variantes
+  const handleAddToCartWithVariants = async (selectedVariants: Record<string, string>, quantity: number) => {
+    if (!selectedProduct) return;
+
+    try {
+      setAddingToCart(selectedProduct._id);
+      
+      // Crear un objeto con las variantes seleccionadas para enviar al backend
+      const cartItem = {
+        productId: selectedProduct._id,
+        quantity,
+        variants: selectedVariants
+      };
+
+      await cartService.addToCartWithVariants(cartItem);
+      
+      // Mostrar toast de éxito
+      const toast = document.createElement('div');
+      toast.className = 'toast-success';
+      toast.innerHTML = `
+        <div style="
+          position: fixed; top: 20px; right: 20px; 
+          background: #28a745; color: white; padding: 1rem 1.5rem; 
+          border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+          z-index: 10000; animation: slideInRight 0.3s ease;
+          display: flex; align-items: center; gap: 0.5rem;
+        ">
+          <i class="bi bi-check-circle-fill"></i>
+          ¡Producto agregado al box! 🎉
+        </div>
+      `;
+      document.body.appendChild(toast);
+      
       setTimeout(() => {
         toast.style.animation = 'slideOutRight 0.3s ease';
         setTimeout(() => document.body.removeChild(toast), 3000);
@@ -307,6 +368,19 @@ const Productos: React.FC<ProductosProps> = ({ products }) => {
           </Col>
         )}
       </Row>
+
+      {/* Modal de variantes */}
+      {selectedProduct && (
+        <ProductVariantModal
+          show={showVariantModal}
+          onHide={() => {
+            setShowVariantModal(false);
+            setSelectedProduct(null);
+          }}
+          product={selectedProduct}
+          onAddToCart={handleAddToCartWithVariants}
+        />
+      )}
     </Container>
   );
 };

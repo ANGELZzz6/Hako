@@ -60,7 +60,7 @@ const App = () => {
     const loadProducts = async () => {
       try {
         const data = await productService.getAllProducts();
-        setProducts(data);
+        setProducts(data.filter((p: Product) => p.isActive));
       } catch (error) {
         console.error('Error al cargar productos:', error);
       }
@@ -328,7 +328,7 @@ const App = () => {
                   <div className="container">
                     <div className="row g-4">
                       {group.map((product) => (
-                        <div className="col-6 col-md-4" key={product._id}>
+                        <div className="col-6 col-md-3" key={product._id}>
                           <div className="card" style={{ cursor: 'pointer' }} onClick={() => handleProductClick(product._id)}>
                             <img 
                               src={product.imagen_url}
@@ -346,7 +346,7 @@ const App = () => {
                               </div>
                               <button 
                                 className="btn btn-danger mt-auto"
-                                onClick={(e) => handleAddToCart(e, product._id)}
+                                style={{ pointerEvents: 'none', opacity: 0.85 }}
                               >
                                 <i className="bi bi-box-seam me-2"></i>
                                 A MI BOX

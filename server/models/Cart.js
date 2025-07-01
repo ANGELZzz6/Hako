@@ -23,6 +23,11 @@ const item_carrito_schema = new mongoose.Schema({
   imagen_producto: {
     type: String,
     required: true
+  },
+  variants: {
+    type: Map,
+    of: String,
+    default: undefined
   }
 });
 

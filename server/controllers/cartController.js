@@ -31,12 +31,64 @@ const getCart = async (req, res) => {
 const addToCart = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { productId, quantity = 1 } = req.body;
+    const { productId, quantity = 1, variants = {} } = req.body;
     
     // Validar que el producto existe
     const product = await Product.findById(productId);
     if (!product) {
       return res.status(404).json({ message: 'Producto no encontrado' });
+    }
+    
+    // Validar variantes si el producto las tiene habilitadas
+    let finalPrice = product.precio;
+    let variantDescription = '';
+    
+    if (product.variants && product.variants.enabled) {
+      // Verificar que se proporcionaron todas las variantes requeridas
+      for (const attribute of product.variants.attributes) {
+        if (attribute.required && !variants[attribute.name]) {
+          return res.status(400).json({ 
+            message: `La variante '${attribute.name}' es obligatoria` 
+          });
+        }
+        
+        if (variants[attribute.name]) {
+          // Buscar la opción seleccionada
+          const selectedOption = attribute.options.find(opt => opt.value === variants[attribute.name]);
+          if (!selectedOption) {
+            return res.status(400).json({ 
+              message: `Opción '${variants[attribute.name]}' no válida para '${attribute.name}'` 
+            });
+          }
+          
+          if (!selectedOption.isActive) {
+            return res.status(400).json({ 
+              message: `La opción '${variants[attribute.name]}' no está disponible` 
+            });
+          }
+          
+          // Verificar stock
+          if (selectedOption.stock < quantity) {
+            return res.status(400).json({ 
+              message: `Stock insuficiente para la variante '${variants[attribute.name]}'` 
+            });
+          }
+          
+          // Agregar precio adicional
+          finalPrice += selectedOption.price;
+          variantDescription += `${attribute.name}: ${variants[attribute.name]}, `;
+        }
+      }
+      
+      // Remover la última coma y espacio
+      if (variantDescription) {
+        variantDescription = variantDescription.slice(0, -2);
+      }
+    } else {
+      // Para productos sin variantes, verificar stock general
+      if (product.stock < quantity) {
+        return res.status(400).json({ message: 'Stock insuficiente' });
+      }
     }
     
     // Buscar o crear carrito
@@ -49,9 +101,18 @@ const addToCart = async (req, res) => {
       });
     }
     
+    // Crear un identificador único para el item (producto + variantes)
+    const itemKey = productId + (variantDescription ? `_${variantDescription}` : '');
+    
     // Verificar si el producto ya está en el carrito
     const existingItemIndex = cart.items.findIndex(
-      item => item.id_producto.toString() === productId
+      item => {
+        const itemVariantDesc = item.variants ? Object.entries(item.variants)
+          .map(([key, value]) => `${key}: ${value}`)
+          .join(', ') : '';
+        const currentItemKey = item.id_producto.toString() + (itemVariantDesc ? `_${itemVariantDesc}` : '');
+        return currentItemKey === itemKey;
+      }
     );
     
     if (existingItemIndex > -1) {
@@ -62,9 +123,10 @@ const addToCart = async (req, res) => {
       cart.items.push({
         id_producto: productId,
         cantidad: quantity,
-        precio_unitario: product.precio,
+        precio_unitario: finalPrice,
         nombre_producto: product.nombre,
-        imagen_producto: product.imagen_url
+        imagen_producto: product.imagen_url,
+        variants: Object.keys(variants).length > 0 ? variants : undefined
       });
     }
     

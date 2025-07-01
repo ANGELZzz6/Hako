@@ -14,6 +14,24 @@ export interface Review {
   fecha: string;
 }
 
+export interface VariantOption {
+  value: string;
+  price: number;
+  stock: number;
+  isActive: boolean;
+}
+
+export interface VariantAttribute {
+  name: string;
+  required: boolean;
+  options: VariantOption[];
+}
+
+export interface ProductVariants {
+  enabled: boolean;
+  attributes: VariantAttribute[];
+}
+
 export interface Product {
   _id: string;
   nombre: string;
@@ -29,6 +47,7 @@ export interface Product {
   isOferta?: boolean;
   precioOferta?: number;
   porcentajeDescuento?: number;
+  variants?: ProductVariants;
   fecha_creacion: string;
   fecha_actualizacion: string;
 }

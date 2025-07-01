@@ -59,6 +59,19 @@ const ProductRow: React.FC<ProductRowProps> = ({ product, onEdit, onDelete, onTo
     }).format(price);
   };
 
+  // Calcula el stock total de variantes si existen
+  const getTotalVariantStock = () => {
+    if (!product.variants || !product.variants.enabled || !product.variants.attributes.length) return null;
+    let total = 0;
+    product.variants.attributes.forEach(attr => {
+      attr.options.forEach(opt => {
+        if (opt.isActive) total += Number(opt.stock) || 0;
+      });
+    });
+    return total;
+  };
+  const variantStock = getTotalVariantStock();
+
   return (
     <tr className={`product-row ${product.isDestacado ? 'destacado-row' : ''} ${product.isOferta ? 'oferta-row' : ''}`}>
       <td>
@@ -92,9 +105,16 @@ const ProductRow: React.FC<ProductRowProps> = ({ product, onEdit, onDelete, onTo
         </div>
       </td>
       <td>
-        <span className={`stock-badge ${product.stock > 0 ? 'in-stock' : 'out-of-stock'}`}>
-          {product.stock}
-        </span>
+        {variantStock !== null ? (
+          <span className={`stock-badge ${variantStock > 0 ? 'in-stock' : 'out-of-stock'}`} title="Stock total de variantes activas" style={{ display: 'inline-flex', alignItems: 'center', minWidth: 32, justifyContent: 'center', gap: 4 }}>
+            <span style={{ fontWeight: 600 }}>{variantStock}</span>
+            <i className="bi bi-collection" title="Stock de variantes" style={{ fontSize: '1em', marginLeft: 4, verticalAlign: 'middle' }}></i>
+          </span>
+        ) : (
+          <span className={`stock-badge ${product.stock > 0 ? 'in-stock' : 'out-of-stock'}`}>
+            {product.stock}
+          </span>
+        )}
       </td>
       <td>{formatDate(product.fecha_creacion)}</td>
       <td>{getStatusBadge(product.isActive)}</td>

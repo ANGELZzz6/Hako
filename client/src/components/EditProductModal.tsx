@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import type { Product, UpdateProductData } from '../services/productService';
+import type { Product, UpdateProductData, ProductVariants } from '../services/productService';
+import ProductVariantManager from './ProductVariantManager';
 import './EditProductModal.css';
 
 interface EditProductModalProps {
@@ -39,6 +40,10 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ product, isOpen, is
     adminRating: 0,
     images: []
   });
+  const [variants, setVariants] = useState<ProductVariants>({
+    enabled: false,
+    attributes: []
+  });
   const [newImage, setNewImage] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -55,6 +60,7 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ product, isOpen, is
         adminRating: product.adminRating ?? 0,
         images: ((product.images && product.images.length > 0 ? [...product.images] : [product.imagen_url]).filter(img => typeof img === 'string' && !!img)) as string[]
       });
+      setVariants(product.variants || { enabled: false, attributes: [] });
     } else {
       setFormData({
         nombre: '',
@@ -66,6 +72,7 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ product, isOpen, is
         adminRating: 0,
         images: []
       });
+      setVariants({ enabled: false, attributes: [] });
     }
     setNewImage('');
   }, [product]);
@@ -76,8 +83,13 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ product, isOpen, is
     setLoading(true);
     try {
       // Asegurar que imagen_url sea la primera de images
-      const images = formData.images && formData.images.length > 0 ? formData.images : [formData.imagen_url];
-      await onSave({ ...formData, imagen_url: images[0], images });
+      const images = (formData.images && formData.images.length > 0
+        ? formData.images.filter((img): img is string => typeof img === 'string' && !!img)
+        : [formData.imagen_url]
+      ).filter((img): img is string => typeof img === 'string' && !!img);
+      const dataToSend = { ...formData, imagen_url: images[0], images, variants };
+      console.log('[ADMIN] Guardando producto:', dataToSend);
+      await onSave(dataToSend);
       onClose();
     } catch (err: any) {
       setError(err.message || `Error al ${isCreating ? 'crear' : 'actualizar'} producto`);
@@ -117,6 +129,19 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ product, isOpen, is
     });
   };
 
+  // Calcular stock total de variantes si están activas
+  const getTotalVariantStock = () => {
+    if (!variants.enabled || !variants.attributes.length) return null;
+    let total = 0;
+    variants.attributes.forEach(attr => {
+      attr.options.forEach(opt => {
+        if (opt.isActive) total += Number(opt.stock) || 0;
+      });
+    });
+    return total;
+  };
+  const variantStock = getTotalVariantStock();
+
   if (!isOpen) return null;
 
   return (
@@ -144,7 +169,20 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ product, isOpen, is
             </div>
             <div className="form-group">
               <label htmlFor="stock">Stock</label>
-              <input type="number" id="stock" name="stock" value={formData.stock} onChange={handleChange} required className="form-control" min="0" />
+              <input
+                type="number"
+                id="stock"
+                name="stock"
+                value={variantStock !== null ? variantStock : formData.stock}
+                onChange={handleChange}
+                required
+                className="form-control"
+                min="0"
+                disabled={variantStock !== null}
+              />
+              {variantStock !== null && (
+                <small className="text-muted">Stock total calculado a partir de las variantes activas.</small>
+              )}
             </div>
           </div>
           <div className="form-group">
@@ -178,6 +216,10 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ product, isOpen, is
               Producto Activo
             </label>
           </div>
+          <ProductVariantManager
+            variants={variants}
+            onChange={setVariants}
+          />
           {error && (<div className="alert alert-danger">{error}</div>)}
           <div className="modal-actions">
             <button type="button" onClick={onClose} className="btn btn-secondary" disabled={loading}>Cancelar</button>

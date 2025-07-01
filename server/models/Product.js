@@ -93,6 +93,51 @@ const productSchema = new mongoose.Schema({
         min: [0, 'El porcentaje de descuento no puede ser negativo'],
         max: [100, 'El porcentaje de descuento no puede exceder 100%'],
         description: 'Porcentaje de descuento aplicado al producto'
+    },
+    variants: {
+        enabled: {
+            type: Boolean,
+            default: false,
+            description: 'Indica si el producto tiene variantes personalizables'
+        },
+        attributes: [{
+            name: {
+                type: String,
+                required: true,
+                trim: true,
+                description: 'Nombre del atributo (ej: Talla, Color, Tela)'
+            },
+            required: {
+                type: Boolean,
+                default: true,
+                description: 'Indica si este atributo es obligatorio'
+            },
+            options: [{
+                value: {
+                    type: String,
+                    required: true,
+                    trim: true,
+                    description: 'Valor de la opción (ej: XL, Rojo, Algodón)'
+                },
+                price: {
+                    type: Number,
+                    default: 0,
+                    min: [0, 'El precio adicional no puede ser negativo'],
+                    description: 'Precio adicional por esta opción (0 = precio base)'
+                },
+                stock: {
+                    type: Number,
+                    default: 0,
+                    min: [0, 'El stock no puede ser negativo'],
+                    description: 'Stock específico para esta variante'
+                },
+                isActive: {
+                    type: Boolean,
+                    default: true,
+                    description: 'Indica si esta opción está disponible'
+                }
+            }]
+        }]
     }
 }, {
     timestamps: { 

@@ -80,7 +80,7 @@ exports.getProductById = async (req, res) => {
 // Crear nuevo producto
 exports.createProduct = async (req, res) => {
   try {
-    const { nombre, descripcion, precio, stock, imagen_url } = req.body;
+    const { nombre, descripcion, precio, stock, imagen_url, variants } = req.body;
 
     // Validaciones
     if (!nombre || !descripcion || precio === undefined || stock === undefined || !imagen_url) {
@@ -99,12 +99,24 @@ exports.createProduct = async (req, res) => {
       return res.status(400).json({ error: 'El stock no puede ser negativo' });
     }
 
+    // Validar variantes si se proporcionan
+    if (variants && typeof variants === 'object') {
+      if (typeof variants.enabled !== 'boolean') {
+        return res.status(400).json({ error: 'El campo enabled de variantes debe ser un booleano' });
+      }
+      
+      if (variants.enabled && (!Array.isArray(variants.attributes) || variants.attributes.length === 0)) {
+        return res.status(400).json({ error: 'Si las variantes están habilitadas, debe haber al menos un atributo' });
+      }
+    }
+
     const product = new Product({
       nombre: nombre.trim(),
       descripcion: descripcion.trim(),
       precio: parseFloat(precio),
       stock: parseInt(stock),
-      imagen_url
+      imagen_url,
+      variants: variants || { enabled: false, attributes: [] }
     });
 
     await product.save();
@@ -128,7 +140,7 @@ exports.createProduct = async (req, res) => {
 exports.updateProduct = async (req, res) => {
   try {
     const { id } = req.params;
-    const { nombre, descripcion, precio, stock, imagen_url, isActive, adminRating, images } = req.body;
+    const { nombre, descripcion, precio, stock, imagen_url, isActive, adminRating, images, variants } = req.body;
 
     if (!validator.isMongoId(id)) {
       return res.status(400).json({ error: 'ID de producto inválido' });
@@ -159,6 +171,17 @@ exports.updateProduct = async (req, res) => {
       return res.status(400).json({ error: 'Todas las imágenes deben ser URLs válidas' });
     }
 
+    // Validar variantes si se proporcionan
+    if (variants && typeof variants === 'object') {
+      if (typeof variants.enabled !== 'boolean') {
+        return res.status(400).json({ error: 'El campo enabled de variantes debe ser un booleano' });
+      }
+      
+      if (variants.enabled && (!Array.isArray(variants.attributes) || variants.attributes.length === 0)) {
+        return res.status(400).json({ error: 'Si las variantes están habilitadas, debe haber al menos un atributo' });
+      }
+    }
+
     const updateData = {};
     if (nombre) updateData.nombre = nombre.trim();
     if (descripcion) updateData.descripcion = descripcion.trim();
@@ -168,6 +191,7 @@ exports.updateProduct = async (req, res) => {
     if (isActive !== undefined) updateData.isActive = isActive;
     if (adminRating !== undefined) updateData.adminRating = adminRating;
     if (images) updateData.images = images;
+    if (variants !== undefined) updateData.variants = variants;
 
     const product = await Product.findByIdAndUpdate(
       id,

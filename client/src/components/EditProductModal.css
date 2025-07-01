@@ -1,12 +1,34 @@
 /* Extender estilos del modal base */
 .product-modal {
-  max-width: 600px;
+  max-width: 900px;
+  width: 90vw;
 }
 
 .product-modal .form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
+  align-items: end;
+}
+
+.product-modal .form-group {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  margin-bottom: 0;
+}
+
+.product-modal .form-group label {
+  margin-bottom: 6px;
+  font-weight: 500;
+  font-size: 1rem;
+}
+
+.product-modal .form-control {
+  min-height: 40px;
+  font-size: 1rem;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0;
 }
 
 .product-modal textarea.form-control {

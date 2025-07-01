@@ -495,4 +495,14 @@ exports.validateToken = async (req, res) => {
     console.error('Error validando token:', error);
     res.status(500).json({ error: 'Error interno del servidor' });
   }
+};
+
+// Obtener todos los admins
+exports.getAdmins = async (req, res) => {
+  try {
+    const admins = await User.find({ role: 'admin' }, '_id nombre email');
+    res.json(admins);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 }; 
