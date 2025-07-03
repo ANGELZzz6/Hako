@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import '../App.css'; // Asegúrate de que los estilos generales se apliquen
 import { useAuth } from '../contexts/AuthContext';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { GoogleLogin } from '@react-oauth/google';
 
 const LoginPage = () => {
@@ -102,7 +102,7 @@ const LoginPage = () => {
           </div>
         </form>
         <div className="text-center mt-3">
-          <p><a href="#">Se me olvido mi contraseña</a></p>
+          <p><Link to="/forgot-password">Se me olvido mi contraseña</Link></p>
           <p>¿No tienes cuenta? <a href="/signup">Crear cuenta</a></p>
         </div>
       </div>

@@ -5,9 +5,10 @@ import FallingLines from '../components/FallingLines';
 import ProductVariantModal from '../components/ProductVariantModal';
 import './Productos.css';
 import type { Product } from '../services/productService';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import cartService from '../services/cartService';
+import { useCart } from '../contexts/CartContext';
 
 interface ProductosProps {
   products: Product[];
@@ -15,7 +16,7 @@ interface ProductosProps {
 
 const Productos: React.FC<ProductosProps> = ({ products }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('todos');
-  const [sortBy, setSortBy] = useState<string>('default');
+  const [sortAndFilter, setSortAndFilter] = useState<string>('default');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [priceRange, setPriceRange] = useState<{ min: string; max: string }>({ min: '', max: '' });
   const [addingToCart, setAddingToCart] = useState<string | null>(null);
@@ -23,11 +24,15 @@ const Productos: React.FC<ProductosProps> = ({ products }) => {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
+  const { refreshCart } = useCart();
 
   // Hacer scroll hacia arriba cuando se carga la página
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
+
+  // Obtener categorías únicas
+  const categories = ['todos', ...Array.from(new Set(products.map(p => p.categoria).filter(Boolean)))];
 
   // Filtrar productos por búsqueda, categoría y precio
   const filteredProducts = products
@@ -36,18 +41,19 @@ const Productos: React.FC<ProductosProps> = ({ products }) => {
       const matchesSearch = searchTerm === '' || 
         product.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
         product.descripcion.toLowerCase().includes(searchTerm.toLowerCase());
-      
       // Filtro por categoría
-      const matchesCategory = selectedCategory === 'todos' || product.isActive;
-      
+      const matchesCategory = selectedCategory === 'todos' || product.categoria === selectedCategory;
       // Filtro por rango de precio
       const matchesPrice = (!priceRange.min || product.precio >= parseFloat(priceRange.min)) &&
                           (!priceRange.max || product.precio <= parseFloat(priceRange.max));
-      
-      return matchesSearch && matchesCategory && matchesPrice;
+      // Filtro por tipo (oferta/destacado)
+      let matchesType = true;
+      if (sortAndFilter === 'oferta') matchesType = product.isOferta;
+      if (sortAndFilter === 'destacado') matchesType = product.isDestacado;
+      return matchesSearch && matchesCategory && matchesPrice && matchesType;
     })
     .sort((a, b) => {
-      switch (sortBy) {
+      switch (sortAndFilter) {
         case 'price-asc':
           return a.precio - b.precio;
         case 'price-desc':
@@ -61,14 +67,11 @@ const Productos: React.FC<ProductosProps> = ({ products }) => {
       }
     });
 
-  // Obtener categorías únicas
-  const categories = ['todos'];
-
   // Limpiar filtros
   const clearFilters = () => {
     setSearchTerm('');
     setSelectedCategory('todos');
-    setSortBy('default');
+    setSortAndFilter('default');
     setPriceRange({ min: '', max: '' });
   };
 
@@ -131,18 +134,16 @@ const Productos: React.FC<ProductosProps> = ({ products }) => {
   // Función para manejar la adición al carrito desde el modal de variantes
   const handleAddToCartWithVariants = async (selectedVariants: Record<string, string>, quantity: number) => {
     if (!selectedProduct) return;
-
     try {
       setAddingToCart(selectedProduct._id);
-      
-      // Crear un objeto con las variantes seleccionadas para enviar al backend
       const cartItem = {
         productId: selectedProduct._id,
         quantity,
         variants: selectedVariants
       };
-
       await cartService.addToCartWithVariants(cartItem);
+      await refreshCart(); // Actualiza el carrito global
+      setShowVariantModal(false);
       
       // Mostrar toast de éxito
       const toast = document.createElement('div');
@@ -207,6 +208,14 @@ const Productos: React.FC<ProductosProps> = ({ products }) => {
               </button>
             )}
           </div>
+          {isAuthenticated && (
+            <div style={{ color: '#d32f2f', fontSize: '0.98rem', marginTop: 4 }}>
+              ¿No encontraste lo que buscabas?{' '}
+              <Link to="/sugerencias" style={{ color: '#d32f2f', textDecoration: 'underline', fontWeight: 500 }}>
+                Ayúdanos a mejorar
+              </Link>
+            </div>
+          )}
         </div>
 
         {/* Resultados de búsqueda */}
@@ -246,11 +255,11 @@ const Productos: React.FC<ProductosProps> = ({ products }) => {
           <Form.Group>
             <Form.Label>
               <i className="bi bi-sort-down me-2"></i>
-              Ordenar por
+              Ordenar y filtrar
             </Form.Label>
             <Form.Select 
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
+              value={sortAndFilter}
+              onChange={e => setSortAndFilter(e.target.value)}
               className="filter-select"
             >
               <option value="default">Predeterminado</option>
@@ -258,6 +267,8 @@ const Productos: React.FC<ProductosProps> = ({ products }) => {
               <option value="price-desc">Precio: Mayor a Menor</option>
               <option value="name-asc">Nombre: A-Z</option>
               <option value="name-desc">Nombre: Z-A</option>
+              <option value="oferta">Solo ofertas</option>
+              <option value="destacado">Solo destacados</option>
             </Form.Select>
           </Form.Group>
         </Col>
@@ -298,7 +309,7 @@ const Productos: React.FC<ProductosProps> = ({ products }) => {
       </Row>
 
       {/* Botón limpiar filtros */}
-      {(searchTerm || selectedCategory !== 'todos' || sortBy !== 'default' || priceRange.min || priceRange.max) && (
+      {(searchTerm || selectedCategory !== 'todos' || sortAndFilter !== 'default' || priceRange.min || priceRange.max) && (
         <div className="text-center mb-4">
           <button 
             className="btn btn-outline-secondary clear-filters-btn"
@@ -315,7 +326,19 @@ const Productos: React.FC<ProductosProps> = ({ products }) => {
         {filteredProducts.length > 0 ? (
           filteredProducts.map((product) => (
             <Col key={product._id} xs={4} sm={6} md={4} lg={3} className="px-1">
-              <Card className="h-100 product-card" style={{ cursor: 'pointer' }} onClick={() => navigate(`/productos/${product._id}`)}>
+              <Card className="h-100 product-card" style={{ cursor: 'pointer', position: 'relative' }} onClick={() => navigate(`/productos/${product._id}`)}>
+                {/* Cinta de oferta */}
+                {product.isOferta && (
+                  <div className="oferta-ribbon">
+                    <i className="bi bi-tag-fill me-1"></i>¡Oferta!
+                  </div>
+                )}
+                {/* Cinta de destacado */}
+                {product.isDestacado && (
+                  <div className="destacado-ribbon">
+                    <i className="bi bi-star-fill me-1"></i>Destacado
+                  </div>
+                )}
                 <Card.Img 
                   variant="top" 
                   src={product.imagen_url} 

@@ -7,6 +7,7 @@ import OverlayTrigger from 'react-bootstrap/OverlayTrigger';
 import Tooltip from 'react-bootstrap/Tooltip';
 // @ts-ignore
 import { saveAs } from 'file-saver'; // Recuerda instalarlo: npm install file-saver
+import productService from '../services/productService';
 
 interface Ticket {
   _id: string;
@@ -41,12 +42,14 @@ const AdminSupportPage = () => {
   const [responsableFilter, setResponsableFilter] = useState('todos');
   const [internalNote, setInternalNote] = useState('');
   const [internalNoteLoading, setInternalNoteLoading] = useState(false);
+  const [sugerencias, setSugerencias] = useState<any[]>([]);
 
   useEffect(() => {
     if (isAdmin) {
       fetchTickets();
       getAdmins().then(setAdmins).catch(() => setAdmins([]));
     }
+    productService.getAllSuggestions().then(setSugerencias).catch(() => setSugerencias([]));
   }, [isAdmin]);
 
   const fetchTickets = async () => {
@@ -210,6 +213,34 @@ const AdminSupportPage = () => {
     const csvContent = [header, ...rows].map((r: string[]) => r.map((field: string) => '"' + String(field).replace(/"/g, '""') + '"').join(',')).join('\r\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     saveAs(blob, `tickets_soporte_${new Date().toISOString().slice(0,10)}.csv`);
+  }
+
+  const handleDeleteSuggestion = async (id: string) => {
+    if (!window.confirm('¿Eliminar esta sugerencia?')) return;
+    try {
+      await productService.deleteSuggestion(id);
+      setSugerencias(sugerencias => sugerencias.filter(s => s._id !== id));
+      showToast('Sugerencia eliminada.', 'success');
+    } catch (err: any) {
+      showToast(err.message || 'Error al eliminar sugerencia.', 'error');
+    }
+  };
+
+  // Función robusta para extraer URLs pegadas
+  function extraerTodasLasURLsPegadas(texto: string): string[] {
+    const indices = [];
+    const regex = /https?:\/\//g;
+    let match;
+    while ((match = regex.exec(texto)) !== null) {
+      indices.push(match.index);
+    }
+    const urls = [];
+    for (let i = 0; i < indices.length; i++) {
+      const start = indices[i];
+      const end = indices[i + 1] !== undefined ? indices[i + 1] : texto.length;
+      urls.push(texto.substring(start, end).trim());
+    }
+    return urls.filter(Boolean);
   }
 
   if (!isAdmin) {
@@ -408,6 +439,31 @@ const AdminSupportPage = () => {
               </div>
             </div>
           )}
+          <section className="admin-sugerencias-section" style={{ marginTop: 40 }}>
+            <h2 style={{ color: '#d32f2f', fontSize: '1.4rem', marginBottom: 16 }}>Sugerencias de usuarios</h2>
+            {sugerencias.length === 0 ? (
+              <div className="alert alert-info">No hay sugerencias aún.</div>
+            ) : (
+              <div className="sugerencias-list" style={{ maxHeight: 350, overflowY: 'auto', background: '#fff', borderRadius: 8, boxShadow: '0 2px 8px #0001', padding: 16 }}>
+                {sugerencias.map((s, idx) => (
+                  <div key={s._id || idx} style={{ borderBottom: '1px solid #eee', marginBottom: 12, paddingBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontWeight: 600 }}>{s.nombre} <span style={{ color: '#888', fontWeight: 400 }}>({s.email})</span></div>
+                      <div style={{ fontSize: 13, color: '#888' }}>{new Date(s.fecha).toLocaleString()}</div>
+                      <ul style={{ margin: '6px 0 0 0', paddingLeft: 18 }}>
+                        {s.urls.reduce((acc: string[], url: string) => acc.concat(extraerTodasLasURLsPegadas(url)), []).map((url: string, i: number) => (
+                          <li key={i}><a href={url} target="_blank" rel="noopener noreferrer">{url}</a></li>
+                        ))}
+                      </ul>
+                    </div>
+                    <button onClick={() => handleDeleteSuggestion(s._id)} style={{ background: 'none', border: 'none', color: '#d32f2f', fontSize: 20, cursor: 'pointer' }} title="Eliminar sugerencia">
+                      <i className="bi bi-trash"></i>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
         </div>
       </main>
     </div>

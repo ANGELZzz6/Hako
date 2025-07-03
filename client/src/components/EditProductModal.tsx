@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import type { Product, UpdateProductData, ProductVariants } from '../services/productService';
 import ProductVariantManager from './ProductVariantManager';
 import './EditProductModal.css';
+import productService from '../services/productService';
+import CategoryManagerModal from './CategoryManagerModal';
 
 interface EditProductModalProps {
   product: Product | null;
@@ -47,6 +49,11 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ product, isOpen, is
   const [newImage, setNewImage] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [categorias, setCategorias] = useState<string[]>([]);
+  const [categoriaInput, setCategoriaInput] = useState('');
+
+  const capitalizeFirst = (str: string) => str.charAt(0).toUpperCase() + str.slice(1);
 
   useEffect(() => {
     if (product) {
@@ -75,6 +82,18 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ product, isOpen, is
       setVariants({ enabled: false, attributes: [] });
     }
     setNewImage('');
+  }, [product]);
+
+  useEffect(() => {
+    productService.getAllCategories().then(setCategorias).catch(() => setCategorias([]));
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (product && product.categoria) {
+      setCategoriaInput(product.categoria);
+    } else {
+      setCategoriaInput('');
+    }
   }, [product]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -127,6 +146,39 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ product, isOpen, is
       }
       return prev;
     });
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if ((formData.images?.length ?? 0) >= MAX_IMAGES) {
+      setError('No puedes subir más de ' + MAX_IMAGES + ' imágenes.');
+      return;
+    }
+    setUploading(true);
+    setError('');
+    try {
+      const url = await productService.uploadProductImage(file);
+      setFormData(prev => ({ ...prev, images: [...(prev.images || []), url] }));
+    } catch (err: any) {
+      setError('Error al subir la imagen.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleCategoriaChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const value = capitalizeFirst(e.target.value.trim());
+    // Normalizar para comparar (sin espacios y minúsculas)
+    const normalized = value.toLowerCase();
+    const match = categorias.find(cat => cat.trim().toLowerCase() === normalized);
+    if (match) {
+      setCategoriaInput(match);
+      setFormData(prev => ({ ...prev, categoria: match }));
+    } else {
+      setCategoriaInput(value);
+      setFormData(prev => ({ ...prev, categoria: value }));
+    }
   };
 
   // Calcular stock total de variantes si están activas
@@ -199,15 +251,58 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ product, isOpen, is
                 </div>
               ))}
             </div>
-            <div className="d-flex gap-2">
+            <div className="d-flex gap-2 mb-2">
               <input type="url" className="form-control" placeholder="https://ejemplo.com/imagen.jpg" value={newImage} onChange={e=>setNewImage(e.target.value)} />
               <button type="button" className="btn btn-primary" onClick={handleAddImage} disabled={!newImage || (formData.images?.length ?? 0) >= MAX_IMAGES}>Agregar</button>
+            </div>
+            <div className="d-flex gap-2 mb-2">
+              <input type="file" accept="image/*" onChange={handleFileChange} disabled={uploading || (formData.images?.length ?? 0) >= MAX_IMAGES} />
+              {uploading && <span>Subiendo...</span>}
             </div>
             <small className="text-muted">Haz clic en una imagen para ponerla como principal.</small>
           </div>
           <div className="form-group">
             <label htmlFor="imagen_url">URL de la Imagen Principal</label>
             <input type="url" id="imagen_url" name="imagen_url" value={formData.imagen_url} onChange={handleChange} required className="form-control" placeholder="https://ejemplo.com/imagen.jpg" />
+          </div>
+          <div className="form-group">
+            <label htmlFor="categoria">Categoría</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                list="categoria-list"
+                id="categoria"
+                name="categoria"
+                className="form-control"
+                style={{ flex: 2 }}
+                value={categoriaInput}
+                onChange={handleCategoriaChange}
+                required
+                placeholder="Ej: Electrónica, Hogar, Ropa..."
+                autoComplete="off"
+              />
+              <select
+                className="form-select"
+                style={{ flex: 1, minWidth: 120 }}
+                value={categorias.includes(categoriaInput) ? categoriaInput : ''}
+                onChange={handleCategoriaChange}
+              >
+                <option value="">Seleccionar</option>
+                {categorias.map((cat, idx) => (
+                  <option value={cat} key={idx}>{cat}</option>
+                ))}
+              </select>
+            </div>
+            <datalist id="categoria-list">
+              {categorias.map((cat, idx) => (
+                <option value={cat} key={idx} />
+              ))}
+            </datalist>
+            <small className="text-muted">
+              Selecciona una categoría existente, usa el selector o escribe una nueva. No se permiten duplicados.
+            </small>
+            <div style={{ marginTop: 4, textAlign: 'left' }}>
+              <CategoryManagerModal />
+            </div>
           </div>
           <div className="form-group checkbox-group">
             <label className="checkbox-label">

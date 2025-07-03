@@ -6,6 +6,7 @@ const productoRoutes = require('./routes/productoRoutes');
 const userRoutes = require('./routes/userRoutes');
 const cartRoutes = require('./routes/cartRoutes');
 const supportRoutes = require('./routes/supportRoutes');
+const paymentRoutes = require('./routes/paymentRoutes');
 const { connectDB } = require('./config/db');
 const path = require('path');
 
@@ -53,6 +54,9 @@ app.use('/api/cart', cartRoutes);
 console.log('Montando rutas de soporte en /api/support');
 app.use('/api/support', supportRoutes);
 console.log('Rutas de soporte montadas');
+console.log('Antes de montar rutas de pago');
+app.use('/api/payment', paymentRoutes);
+console.log('Rutas de pago montadas en /api/payment');
 
 // Ruta de prueba
 app.get('/', (req, res) => {

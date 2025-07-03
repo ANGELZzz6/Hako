@@ -5,6 +5,12 @@ export interface User {
   nombre: string;
   email: string;
   role: 'user' | 'admin';
+  telefono?: string;
+  direccion?: string;
+  fechaNacimiento?: string;
+  genero?: string;
+  bio?: string;
+  authProvider?: 'local' | 'google';
 }
 
 export interface AuthResponse {
@@ -53,13 +59,7 @@ class AuthService {
       // Guardar token y usuario si existen
       if (data.token && data.user) {
         this.setToken(data.token);
-        const safeUser = {
-          id: data.user.id,
-          nombre: data.user.nombre,
-          email: data.user.email,
-          role: data.user.role
-        };
-        localStorage.setItem('user', JSON.stringify(safeUser));
+        localStorage.setItem('user', JSON.stringify(data.user));
       }
       return data;
     } catch (error) {
@@ -104,14 +104,7 @@ class AuthService {
       // Guardar token y usuario solo tras verificación exitosa
       if (data.token && data.user) {
         this.setToken(data.token);
-        // Guardar solo información no sensible del usuario
-        const safeUser = {
-          id: data.user.id,
-          nombre: data.user.nombre,
-          email: data.user.email,
-          role: data.user.role
-        };
-        localStorage.setItem('user', JSON.stringify(safeUser));
+        localStorage.setItem('user', JSON.stringify(data.user));
       }
       
       return data;
@@ -174,13 +167,7 @@ class AuthService {
         const data = await response.json();
         // Actualizar la información del usuario si es necesario
         if (data.user) {
-          const safeUser = {
-            id: data.user.id,
-            nombre: data.user.nombre,
-            email: data.user.email,
-            role: data.user.role
-          };
-          localStorage.setItem('user', JSON.stringify(safeUser));
+          localStorage.setItem('user', JSON.stringify(data.user));
         }
         return true;
       } else {
@@ -224,19 +211,38 @@ class AuthService {
       if (!response.ok) throw new Error(data.error || 'Error en el inicio de sesión con Google');
       if (data.token && data.user) {
         this.setToken(data.token);
-        const safeUser = {
-          id: data.user.id,
-          nombre: data.user.nombre,
-          email: data.user.email,
-          role: data.user.role
-        };
-        localStorage.setItem('user', JSON.stringify(safeUser));
+        localStorage.setItem('user', JSON.stringify(data.user));
       }
       return data;
     } catch (error) {
       console.error('Error:', error);
       throw error;
     }
+  }
+
+  async forgotPassword(email: string) {
+    const response = await fetch(`${ENDPOINTS.AUTH}/forgot-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    if (!response.ok) {
+      throw new Error('Error al solicitar recuperación de contraseña');
+    }
+    return response.json();
+  }
+
+  async resetPassword(token: string, nueva: string) {
+    const response = await fetch(`${ENDPOINTS.AUTH}/reset-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, nueva })
+    });
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.error || 'Error al restablecer la contraseña');
+    }
+    return response.json();
   }
 }
 

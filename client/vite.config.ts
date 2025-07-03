@@ -12,11 +12,7 @@ export default defineConfig({
       'Cross-Origin-Embedder-Policy': 'unsafe-none'
     },
     proxy: {
-      '/api': {
-        target: 'http://localhost:5000',
-        changeOrigin: true,
-        secure: false,
-      },
+      '/api': 'http://localhost:5000'
     },
   }
 })

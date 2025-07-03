@@ -1,5 +1,11 @@
 const Product = require('../models/Product');
 const validator = require('validator');
+const cloudinary = require('../config/cloudinary');
+const multer = require('multer');
+const upload = multer({ storage: multer.memoryStorage() });
+const Suggestion = require('../models/Suggestion');
+const transporter = require('../config/nodemailer');
+const User = require('../models/User');
 
 // Obtener todos los productos
 exports.getAllProducts = async (req, res) => {
@@ -80,10 +86,10 @@ exports.getProductById = async (req, res) => {
 // Crear nuevo producto
 exports.createProduct = async (req, res) => {
   try {
-    const { nombre, descripcion, precio, stock, imagen_url, variants } = req.body;
+    const { nombre, descripcion, precio, stock, imagen_url, variants, categoria } = req.body;
 
     // Validaciones
-    if (!nombre || !descripcion || precio === undefined || stock === undefined || !imagen_url) {
+    if (!nombre || !descripcion || precio === undefined || stock === undefined || !imagen_url || !categoria) {
       return res.status(400).json({ error: 'Todos los campos son obligatorios' });
     }
 
@@ -116,6 +122,7 @@ exports.createProduct = async (req, res) => {
       precio: parseFloat(precio),
       stock: parseInt(stock),
       imagen_url,
+      categoria: categoria.trim(),
       variants: variants || { enabled: false, attributes: [] }
     });
 
@@ -140,7 +147,7 @@ exports.createProduct = async (req, res) => {
 exports.updateProduct = async (req, res) => {
   try {
     const { id } = req.params;
-    const { nombre, descripcion, precio, stock, imagen_url, isActive, adminRating, images, variants } = req.body;
+    const { nombre, descripcion, precio, stock, imagen_url, isActive, adminRating, images, variants, categoria } = req.body;
 
     if (!validator.isMongoId(id)) {
       return res.status(400).json({ error: 'ID de producto inválido' });
@@ -192,6 +199,7 @@ exports.updateProduct = async (req, res) => {
     if (adminRating !== undefined) updateData.adminRating = adminRating;
     if (images) updateData.images = images;
     if (variants !== undefined) updateData.variants = variants;
+    if (categoria) updateData.categoria = categoria.trim();
 
     const product = await Product.findByIdAndUpdate(
       id,
@@ -476,6 +484,151 @@ exports.deleteReview = async (req, res) => {
     res.json({ message: 'Reseña eliminada correctamente' });
   } catch (error) {
     console.error('Error eliminando reseña:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
+// Subir imagen de producto a Cloudinary
+exports.uploadProductImage = [
+  upload.single('image'),
+  async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'No se envió ninguna imagen.' });
+      }
+      // Subir a Cloudinary
+      const result = await cloudinary.uploader.upload_stream({
+        folder: 'hako_productos',
+        resource_type: 'image',
+      }, (error, result) => {
+        if (error) {
+          console.error('Error subiendo a Cloudinary:', error);
+          return res.status(500).json({ error: 'Error al subir la imagen.' });
+        }
+        return res.json({ url: result.secure_url });
+      });
+      // Escribir el buffer en el stream
+      result.end(req.file.buffer);
+    } catch (error) {
+      console.error('Error en uploadProductImage:', error);
+      res.status(500).json({ error: 'Error interno del servidor' });
+    }
+  }
+];
+
+// Obtener todas las categorías distintas
+exports.getAllCategories = async (req, res) => {
+  try {
+    const categorias = await Product.distinct('categoria');
+    res.json(categorias);
+  } catch (error) {
+    console.error('Error obteniendo categorías:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
+// Obtener productos por categoría
+exports.getProductsByCategory = async (req, res) => {
+  try {
+    const { categoria } = req.params;
+    if (!categoria) return res.status(400).json({ error: 'Categoría requerida' });
+    const productos = await Product.find({ categoria });
+    res.json(productos);
+  } catch (error) {
+    console.error('Error obteniendo productos por categoría:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
+// Recibir sugerencias de productos
+exports.createSuggestion = async (req, res) => {
+  try {
+    let { urls } = req.body;
+    if (!urls || !Array.isArray(urls) || urls.length === 0) {
+      return res.status(400).json({ error: 'Debes enviar al menos una URL.' });
+    }
+    // Limitar la cantidad de URLs por sugerencia
+    if (Array.isArray(urls) && urls.length > 5) {
+      return res.status(400).json({ error: 'Solo puedes sugerir hasta 5 productos por envío.' });
+    }
+    // Filtrar y limpiar URLs válidas (soporta URLs pegadas)
+    const urlRegex = /(https?:\/\/[\w\-\.\/?#&=;%:+,~@!$'*()\[\]]+)/g;
+    let matches = [];
+    for (const u of urls) {
+      let m;
+      while ((m = urlRegex.exec(u)) !== null) {
+        matches.push(m[1].trim());
+      }
+    }
+    matches = Array.from(new Set(matches));
+    if (matches.length === 0) {
+      return res.status(400).json({ error: 'No se detectaron URLs válidas.' });
+    }
+    const user = req.user;
+    const suggestion = await Suggestion.create({
+      urls: matches,
+      userId: user.id,
+      nombre: user.nombre,
+      email: user.email
+    });
+
+    // Enviar correo de agradecimiento al usuario
+    try {
+      await transporter.sendMail({
+        to: user.email,
+        subject: '¡Gracias por tu sugerencia de producto! - Hako',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f9f9f9; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); padding: 32px 24px;">
+            <div style="text-align: center; margin-bottom: 24px;">
+              <img src="https://i.imgur.com/0y0y0y0.png" alt="Hako Logo" style="height: 48px; margin-bottom: 8px;"/>
+              <h2 style="color: #d32f2f; margin: 0;">¡Gracias por tu sugerencia!</h2>
+            </div>
+            <p style="font-size: 17px; color: #222;">Hola <b>${user.nombre}</b>,</p>
+            <p style="font-size: 16px; color: #444;">Hemos recibido tu sugerencia de producto y la tendremos en cuenta para futuras incorporaciones en Hako.</p>
+            <div style="background: #fff; border-radius: 8px; padding: 16px 20px; margin: 24px 0; border-left: 4px solid #d32f2f;">
+              <p style="margin: 0 0 8px 0; font-size: 15px;"><b>Productos sugeridos:</b></p>
+              <ul style="margin: 0; padding-left: 18px; color: #555;">
+                ${matches.map(url => `<li>${url}</li>`).join('')}
+              </ul>
+            </div>
+            <p style="font-size: 15px; color: #444;">¡Gracias por ayudarnos a mejorar Hako!</p>
+            <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0 16px 0;"/>
+            <footer style="font-size: 13px; color: #888; text-align: center;">
+              <p>¿Tienes dudas? Contáctanos en <a href="mailto:soporte@hako.com" style="color: #d32f2f; text-decoration: none;">soporte@hako.com</a></p>
+              <p>Equipo Hako &copy; ${new Date().getFullYear()}</p>
+            </footer>
+          </div>
+        `
+      });
+    } catch (err) {
+      console.error('Error enviando correo de agradecimiento de sugerencia:', err);
+    }
+    res.status(201).json({ message: 'Sugerencia enviada', suggestion });
+  } catch (error) {
+    console.error('Error creando sugerencia:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
+// Obtener todas las sugerencias (admin)
+exports.getAllSuggestions = async (req, res) => {
+  try {
+    const sugerencias = await Suggestion.find().sort({ fecha: -1 });
+    res.json(sugerencias);
+  } catch (error) {
+    console.error('Error obteniendo sugerencias:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
+// Eliminar sugerencia por ID (admin)
+exports.deleteSuggestion = async (req, res) => {
+  try {
+    const { id } = req.params;
+    await Suggestion.findByIdAndDelete(id);
+    res.json({ message: 'Sugerencia eliminada' });
+  } catch (error) {
+    console.error('Error eliminando sugerencia:', error);
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 }; 

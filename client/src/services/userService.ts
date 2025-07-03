@@ -3,12 +3,18 @@ import authService from './authService';
 
 export interface User {
   _id: string;
+  id?: string;
   nombre: string;
   email: string;
   role: 'user' | 'admin';
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  telefono?: string;
+  direccion?: string;
+  fechaNacimiento?: string;
+  genero?: string;
+  bio?: string;
 }
 
 export interface CreateUserData {
@@ -22,6 +28,11 @@ export interface UpdateUserData {
   email?: string;
   role?: 'user' | 'admin';
   isActive?: boolean;
+  telefono?: string;
+  direccion?: string;
+  fechaNacimiento?: string;
+  genero?: string;
+  bio?: string;
 }
 
 class UserService {
@@ -169,6 +180,22 @@ class UserService {
       }
       
       return await response.json();
+    } catch (error) {
+      console.error('Error:', error);
+      throw error;
+    }
+  }
+
+  async changePassword(actual: string, nueva: string): Promise<{ message: string }> {
+    try {
+      const response = await fetch(`${ENDPOINTS.AUTH}/change-password`, {
+        method: 'POST',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify({ actual, nueva })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Error al cambiar la contraseña');
+      return data;
     } catch (error) {
       console.error('Error:', error);
       throw error;

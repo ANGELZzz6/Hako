@@ -2,7 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import './SupportManagement.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import { useAuth } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import supportService, { closeByUser, rateTicket } from '../services/supportService';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 interface Ticket {
   _id: string;
@@ -17,7 +19,8 @@ interface Ticket {
 }
 
 const SupportPage = () => {
-  const { currentUser, isAdmin } = useAuth();
+  const { currentUser, isAdmin, isLoading } = useAuth();
+  const navigate = useNavigate();
   const [form, setForm] = useState({ asunto: '', mensaje: '' });
   const [enviado, setEnviado] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -42,6 +45,17 @@ const SupportPage = () => {
   const [replyAttachment, setReplyAttachment] = useState<File | null>(null);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const replyAttachmentInputRef = useRef<HTMLInputElement>(null);
+
+  // Redirigir si no está autenticado (cuando termine de cargar)
+  React.useEffect(() => {
+    if (!isLoading && !currentUser) {
+      navigate('/login', { replace: true });
+    }
+  }, [currentUser, isLoading, navigate]);
+
+  if (isLoading || !currentUser) {
+    return <LoadingSpinner message="Verificando autenticación..." />;
+  }
 
   // Cargar tickets si es admin
   useEffect(() => {

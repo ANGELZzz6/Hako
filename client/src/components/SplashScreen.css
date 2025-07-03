@@ -1,0 +1,92 @@
+.splash-overlay {
+  position: fixed;
+  inset: 0;
+  background: #fff;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: clip-path 1.2s cubic-bezier(0.77,0,0.175,1);
+  clip-path: circle(0% at 50% 50%);
+  pointer-events: all;
+}
+.splash-overlay.animate {
+  clip-path: circle(120vw at 50% 50%);
+  transition: clip-path 1.2s cubic-bezier(0.77,0,0.175,1);
+  pointer-events: none;
+}
+.splash-logo-bar {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 24px;
+  font-family: 'Montserrat', 'Noto Sans JP', sans-serif;
+  font-size: 4rem;
+  font-weight: 800;
+  letter-spacing: 2px;
+  color: #222;
+  user-select: none;
+}
+.logo-japanese {
+  font-size: 5rem;
+  color: #d32f2f;
+  font-family: 'Noto Sans JP', 'Montserrat', sans-serif;
+  margin-right: 12px;
+}
+.splash-overlay2 {
+  position: fixed;
+  inset: 0;
+  background: #fff;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.7s cubic-bezier(0.77,0,0.175,1), opacity 0.7s;
+  opacity: 1;
+  cursor: pointer;
+}
+.splash-overlay2.fade-out {
+  opacity: 0;
+  pointer-events: none;
+}
+.splash-logo-bar2 {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 24px;
+  font-family: 'Montserrat', 'Noto Sans JP', sans-serif;
+  font-size: 4rem;
+  font-weight: 800;
+  letter-spacing: 2px;
+  color: #222;
+  user-select: none;
+  opacity: 0;
+  transform: scale(0.95);
+  transition: opacity 0.7s, transform 0.7s;
+}
+.splash-logo-bar2.visible {
+  opacity: 1;
+  transform: scale(1);
+  animation: heartbeat 1.2s infinite;
+}
+.splash-logo-bar2.fade-out {
+  opacity: 0;
+  transform: scale(0.9);
+  transition: opacity 0.7s, transform 0.7s;
+  animation: none;
+}
+@keyframes heartbeat {
+  0% { transform: scale(1); }
+  10% { transform: scale(1.08); }
+  20% { transform: scale(0.98); }
+  30% { transform: scale(1.05); }
+  40% { transform: scale(0.97); }
+  50% { transform: scale(1); }
+  100% { transform: scale(1); }
+}
+.splash-logo-bar2 .brand-text {
+  font-size: 3.5rem;
+  color: #222;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 700;
+} 

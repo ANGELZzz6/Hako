@@ -29,10 +29,11 @@ const userSchema = new mongoose.Schema({
     },
     contraseña: {
         type: String,
-        required: [true, 'La contraseña es obligatoria'],
+        required: [function() { return this.authProvider !== 'google'; }, 'La contraseña es obligatoria'],
         minlength: [8, 'La contraseña debe tener al menos 8 caracteres'],
         validate: {
             validator: function(v) {
+                if (this.authProvider === 'google' && (!v || v === '')) return true;
                 return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{8,}$/.test(v);
             },
             message: 'La contraseña debe contener al menos una mayúscula, una minúscula, un número y un símbolo'
@@ -68,6 +69,46 @@ const userSchema = new mongoose.Schema({
     },
     lockUntil: {
         type: Date,
+        default: null
+    },
+    telefono: {
+        type: String,
+        trim: true,
+        default: ''
+    },
+    direccion: {
+        type: String,
+        trim: true,
+        default: ''
+    },
+    fechaNacimiento: {
+        type: Date,
+        default: null
+    },
+    genero: {
+        type: String,
+        enum: ['masculino', 'femenino', 'otro', ''],
+        default: ''
+    },
+    bio: {
+        type: String,
+        trim: true,
+        maxlength: 300,
+        default: ''
+    },
+    authProvider: {
+        type: String,
+        enum: ['local', 'google'],
+        default: 'local'
+    },
+    resetPasswordToken: {
+        type: String,
+        select: false,
+        default: null
+    },
+    resetPasswordExpires: {
+        type: Date,
+        select: false,
         default: null
     }
 }, {

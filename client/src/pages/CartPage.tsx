@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import cartService, { type Cart, type CartItem } from '../services/cartService';
+import paymentService from '../services/paymentService';
 import './CartPage.css';
 
 const CartPage = () => {
@@ -9,7 +10,8 @@ const CartPage = () => {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
-  const { isAuthenticated } = useAuth();
+  const [processing, setProcessing] = useState(false);
+  const { isAuthenticated, currentUser } = useAuth();
   const navigate = useNavigate();
 
   // Cargar el carrito
@@ -108,6 +110,31 @@ const CartPage = () => {
     return cart.items
       .filter(item => selectedItems.includes(item.id_producto._id))
       .reduce((total, item) => total + (item.precio_unitario * item.cantidad), 0);
+  };
+
+  const handleProcessPayment = async () => {
+    if (!currentUser) {
+      alert('Debes estar logueado para realizar el pago');
+      return;
+    }
+
+    try {
+      setProcessing(true);
+      const items = cart!.items.map(item => ({
+        title: item.nombre_producto,
+        quantity: item.cantidad,
+        unit_price: item.precio_unitario,
+        picture_url: item.imagen_producto
+      }));
+      
+      const pref = await paymentService.createPreference(items, { email: currentUser.email });
+      window.location.href = pref.init_point;
+    } catch (error) {
+      console.error('Error al procesar el pago:', error);
+      alert('Error al procesar el pago. Por favor intenta de nuevo.');
+    } finally {
+      setProcessing(false);
+    }
   };
 
   if (loading) {
@@ -291,11 +318,22 @@ const CartPage = () => {
 
               <button 
                 className="btn btn-primary w-100 mt-4" 
-                disabled={cart.items.length === 0}
-                onClick={() => navigate('/checkout')}
+                disabled={cart.items.length === 0 || processing}
+                onClick={handleProcessPayment}
               >
-                <i className="bi bi-credit-card me-2"></i>
-                Proceder al Pago
+                {processing ? (
+                  <>
+                    <div className="spinner-border spinner-border-sm me-2" role="status">
+                      <span className="visually-hidden">Procesando...</span>
+                    </div>
+                    Procesando Pago...
+                  </>
+                ) : (
+                  <>
+                    <i className="bi bi-credit-card me-2"></i>
+                    Proceder al Pago - ${cart.total.toLocaleString('es-CO')}
+                  </>
+                )}
               </button>
 
               <div className="secure-info">

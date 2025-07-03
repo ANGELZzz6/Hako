@@ -50,6 +50,7 @@ export interface Product {
   variants?: ProductVariants;
   fecha_creacion: string;
   fecha_actualizacion: string;
+  categoria: string;
 }
 
 export interface CreateProductData {
@@ -58,6 +59,7 @@ export interface CreateProductData {
   precio: number;
   stock: number;
   imagen_url: string;
+  categoria: string;
 }
 
 export interface UpdateProductData {
@@ -69,6 +71,7 @@ export interface UpdateProductData {
   isActive?: boolean;
   images?: string[];
   adminRating?: number;
+  categoria?: string;
 }
 
 export interface ProductSearchParams {
@@ -439,6 +442,49 @@ class ProductService {
       console.error('Error:', error);
       throw error;
     }
+  }
+
+  // Subir imagen del producto
+  async uploadProductImage(file: File): Promise<string> {
+    const formData = new FormData();
+    formData.append('image', file);
+    const response = await fetch(`${ENDPOINTS.PRODUCTS}/admin/upload-image`, {
+      method: 'POST',
+      body: formData
+    });
+    if (!response.ok) {
+      throw new Error('Error al subir la imagen');
+    }
+    const data = await response.json();
+    return data.url;
+  }
+
+  async getAllCategories(): Promise<string[]> {
+    const response = await fetch(`${ENDPOINTS.PRODUCTS}/admin/categorias`);
+    if (!response.ok) throw new Error('Error al obtener categorías');
+    return await response.json();
+  }
+
+  async getProductsByCategory(categoria: string): Promise<Product[]> {
+    const response = await fetch(`${ENDPOINTS.PRODUCTS}/admin/categorias/${encodeURIComponent(categoria)}/productos`);
+    if (!response.ok) throw new Error('Error al obtener productos de la categoría');
+    return await response.json();
+  }
+
+  async getAllSuggestions(): Promise<any[]> {
+    const response = await fetch(`${ENDPOINTS.PRODUCTS}/admin/sugerencias`, {
+      headers: this.getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error('Error al obtener sugerencias');
+    return await response.json();
+  }
+
+  async deleteSuggestion(id: string): Promise<void> {
+    const response = await fetch(`${ENDPOINTS.PRODUCTS}/admin/sugerencias/${id}`, {
+      method: 'DELETE',
+      headers: this.getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error('Error al eliminar sugerencia');
   }
 }
 

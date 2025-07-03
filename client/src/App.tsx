@@ -9,7 +9,7 @@ import Productos from './pages/Productos';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import CartPage from './pages/CartPage';
-import CheckoutPage from './pages/CheckoutPage';
+
 import OrderConfirmationPage from './pages/OrderConfirmationPage';
 import AdminDashboard from './pages/AdminDashboard';
 import UserManagement from './pages/UserManagement';
@@ -30,6 +30,11 @@ import ProfilePage from './pages/ProfilePage';
 import CartManagement from './pages/CartManagement';
 import { useMobileViewport } from './hooks/useMobileViewport';
 import AdminSupportPage from './pages/AdminSupport';
+import { CartProvider, useCart } from './contexts/CartContext';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
+import SplashScreen from './components/SplashScreen';
+import SugerenciasPage from './pages/SugerenciasPage';
 
 // Importar fuente Montserrat
 import '@fontsource/montserrat/300.css';
@@ -39,12 +44,11 @@ import '@fontsource/montserrat/600.css';
 import '@fontsource/montserrat/700.css';
 import '@fontsource/montserrat/800.css';
 
-const App = () => {
+const AppContent = () => {
   const [isNavCollapsed, setIsNavCollapsed] = useState(true);
   const [isVideoPlaying, setIsVideoPlaying] = useState(true);
   const [isDarkTheme, setIsDarkTheme] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
-  const [cart, setCart] = useState<Cart | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const location = useLocation();
   const navigate = useNavigate();
@@ -54,6 +58,11 @@ const App = () => {
 
   // Forzar resolución móvil
   useMobileViewport();
+
+  // Forzar el contexto de carrito
+  const { cart, refreshCart, setCart } = useCart();
+
+  const [showSplash, setShowSplash] = useState(!isAuthenticated);
 
   // Efecto para cargar productos
   useEffect(() => {
@@ -67,21 +76,6 @@ const App = () => {
     };
     loadProducts();
   }, []);
-
-  // Efecto para cargar el carrito si el usuario está autenticado
-  useEffect(() => {
-    const loadCart = async () => {
-      if (isAuthenticated) {
-        try {
-          const cartData = await cartService.getCart();
-          setCart(cartData);
-        } catch (error) {
-          console.error('Error al cargar el carrito:', error);
-        }
-      }
-    };
-    loadCart();
-  }, [isAuthenticated]);
 
   // Efecto para manejar el tema
   useEffect(() => {
@@ -135,7 +129,9 @@ const App = () => {
     return chunkedArr;
   };
 
-  const productGroups = chunkArray(products, 4);
+  // Filtrar solo productos destacados para la sección de inicio
+  const destacados = products.filter(p => p.isDestacado);
+  const destacadosGroups = chunkArray(destacados, 4);
 
   // Función para manejar el logout
   const handleLogout = () => {
@@ -150,19 +146,14 @@ const App = () => {
 
   // Función para agregar producto al carrito
   const handleAddToCart = async (e: React.MouseEvent, productId: string) => {
-    e.stopPropagation(); // Evitar que se active el onClick de la tarjeta
-    
+    e.stopPropagation();
     if (!isAuthenticated) {
       navigate('/login');
       return;
     }
-
     try {
       await cartService.addToCart(productId, 1);
-      
-      // Actualizar el carrito
-      const updatedCart = await cartService.getCart();
-      setCart(updatedCart);
+      await refreshCart(); // Actualiza el carrito global
       
       // Mostrar toast de éxito
       const toast = document.createElement('div');
@@ -323,7 +314,7 @@ const App = () => {
               indicators={true}
               controls={true}
             >
-              {productGroups.map((group, groupIndex) => (
+              {destacadosGroups.map((group, groupIndex) => (
                 <Carousel.Item key={groupIndex}>
                   <div className="container">
                     <div className="row g-4">
@@ -372,6 +363,10 @@ const App = () => {
 
   const showNavbar = location.pathname !== '/admin' && !location.pathname.startsWith('/admin/');
 
+  if (showSplash && !isAuthenticated) {
+    return <SplashScreen onFinish={() => setShowSplash(false)} />;
+  }
+
   return (
     <>
       {/* Navbar */}
@@ -396,9 +391,6 @@ const App = () => {
                 </li>
                 <li className="nav-item">
                   <Link className="nav-link" to="/productos"><i className="bi bi-grid me-1"></i>Productos</Link>
-                </li>
-                <li className="nav-item">
-                  <a className="nav-link" href="#ofertas"><i className="bi bi-tag me-1"></i>Ofertas</a>
                 </li>
                 <li className="nav-item">
                   <Link className="nav-link" to="/soporte"><i className="bi bi-headset me-1"></i>Soporte</Link>
@@ -461,11 +453,7 @@ const App = () => {
             <CartPage />
           </ProtectedRoute>
         } />
-        <Route path="/checkout" element={
-          <ProtectedRoute>
-            <CheckoutPage />
-          </ProtectedRoute>
-        } />
+
         <Route path="/order-confirmation" element={
           <ProtectedRoute>
             <OrderConfirmationPage />
@@ -499,6 +487,9 @@ const App = () => {
         <Route path="/soporte" element={<SupportPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/cart-management" element={<CartManagement />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
+        <Route path="/sugerencias" element={<SugerenciasPage />} />
       </Routes>
 
       {/* Footer */}
@@ -541,5 +532,11 @@ const App = () => {
     </>
   );
 };
+
+const App = () => (
+  <CartProvider>
+    <AppContent />
+  </CartProvider>
+);
 
 export default App;

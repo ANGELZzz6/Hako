@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useMobileViewport } from '../hooks/useMobileViewport';
 import './ProductDetail.css';
 import ProductVariantModal from '../components/ProductVariantModal';
+import { useCart } from '../contexts/CartContext';
 
 const estrellas = (valor: number) => (
   <span className="stars">
@@ -196,10 +197,10 @@ const ProductDetail: React.FC = () => {
   const [showReviews, setShowReviews] = useState(false);
   const [related, setRelated] = useState<Product[]>([]);
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
   const [showVariantModal, setShowVariantModal] = useState(false);
   const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
   const [quantity, setQuantity] = useState(1);
+  const { refreshCart } = useCart();
 
   // Forzar resolución móvil
   useMobileViewport();
@@ -239,24 +240,15 @@ const ProductDetail: React.FC = () => {
   }, [id]);
 
   const handleAddToBox = async () => {
-    if (!isAuthenticated) {
-      navigate('/login');
-      return;
-    }
-
     if (!product) return;
-
-    // Si el producto tiene variantes habilitadas, mostrar el modal
     if (product.variants && product.variants.enabled) {
-      console.log('[DETALLE] Producto con variantes detectado:', product);
       setShowVariantModal(true);
       return;
     }
-
     try {
       setAddingToBox(true);
       await cartService.addToCart(product._id, 1);
-      
+      await refreshCart();
       // Mostrar toast de éxito
       const toast = document.createElement('div');
       toast.className = 'toast-success';
@@ -293,12 +285,12 @@ const ProductDetail: React.FC = () => {
     if (!product) return;
     try {
       setAddingToBox(true);
-      console.log('[DETALLE] Agregando al box con variantes:', selectedVariants, 'Cantidad:', quantity);
       await cartService.addToCartWithVariants({
         productId: product._id,
         quantity,
         variants: selectedVariants
       });
+      await refreshCart();
       setShowVariantModal(false);
       // Mostrar toast de éxito
       const toast = document.createElement('div');
@@ -372,7 +364,19 @@ const ProductDetail: React.FC = () => {
       <div className="row g-4">
         {/* Imágenes */}
         <div className="col-md-6">
-          <div className="main-img-container mb-3">
+          <div className="main-img-container mb-3" style={{position: 'relative'}}>
+            {/* Cinta de oferta */}
+            {product.isOferta && (
+              <div className="oferta-ribbon" style={{top: 10, left: -10, position: 'absolute'}}>
+                <i className="bi bi-tag-fill me-1"></i>¡Oferta!
+              </div>
+            )}
+            {/* Cinta de destacado */}
+            {product.isDestacado && (
+              <div className="destacado-ribbon" style={{top: 50, left: -10, position: 'absolute', background: '#ffd600', color: '#333'}}>
+                <i className="bi bi-star-fill me-1"></i>Destacado
+              </div>
+            )}
             <img src={mainImg} alt={product.nombre} className="main-img img-fluid rounded shadow" onError={e => {e.currentTarget.src='https://via.placeholder.com/400x300?text=Sin+Imagen'}} />
           </div>
           <div className="extra-imgs d-flex gap-2">

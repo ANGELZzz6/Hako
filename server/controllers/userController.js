@@ -1,5 +1,5 @@
-const User = require('../models/User');
 const bcrypt = require('bcryptjs');
+const User = require('../models/User');
 // const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 const validator = require('validator');
@@ -283,7 +283,7 @@ exports.getAllUsers = async (req, res) => {
 exports.updateUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const { nombre, email, role, isActive } = req.body;
+    const { nombre, email, role, isActive, telefono, direccion, fechaNacimiento, genero, bio } = req.body;
 
     if (!validator.isMongoId(id)) {
       return res.status(400).json({ error: 'ID de usuario inválido' });
@@ -307,11 +307,21 @@ exports.updateUser = async (req, res) => {
       }
     }
 
+    // Permitir solo si es admin o el mismo usuario
+    if (!(req.user.role === 'admin' || String(req.user.id) === String(id))) {
+      return res.status(403).json({ error: 'No tienes permisos para modificar este usuario' });
+    }
+
     const updateData = {};
     if (nombre) updateData.nombre = nombre.trim();
     if (email) updateData.email = email.toLowerCase();
     if (role !== undefined) updateData.role = role;
     if (isActive !== undefined) updateData.isActive = isActive;
+    if (telefono !== undefined) updateData.telefono = telefono;
+    if (direccion !== undefined) updateData.direccion = direccion;
+    if (fechaNacimiento !== undefined) updateData.fechaNacimiento = fechaNacimiento;
+    if (genero !== undefined) updateData.genero = genero;
+    if (bio !== undefined) updateData.bio = bio;
 
     const user = await User.findByIdAndUpdate(
       id,
@@ -415,7 +425,22 @@ exports.getProfile = async (req, res) => {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
     
-    res.json(user);
+    res.json({
+      _id: user._id,
+      id: user._id,
+      nombre: user.nombre,
+      email: user.email,
+      role: user.role,
+      isActive: user.isActive,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+      telefono: user.telefono,
+      direccion: user.direccion,
+      fechaNacimiento: user.fechaNacimiento,
+      genero: user.genero,
+      bio: user.bio,
+      authProvider: user.authProvider || 'local'
+    });
   } catch (error) {
     console.error('Error obteniendo perfil:', error);
     res.status(500).json({ error: 'Error interno del servidor' });
@@ -434,12 +459,14 @@ exports.googleAuth = async (req, res) => {
     if (!user) {
       // Crear usuario nuevo con contraseña segura
       const randomPass = generarContraseñaSegura();
+      const hash = await bcrypt.hash(randomPass, 12);
       user = await User.create({
         nombre: payload.name || 'Usuario Google',
         email: payload.email,
-        contraseña: randomPass,
+        contraseña: hash, // Contraseña segura hasheada
         role: 'user',
-        isActive: true
+        isActive: true,
+        authProvider: 'google'
       });
     }
     // Generar JWT
@@ -450,7 +477,8 @@ exports.googleAuth = async (req, res) => {
         id: user._id,
         nombre: user.nombre,
         email: user.email,
-        role: user.role
+        role: user.role,
+        authProvider: user.authProvider || 'google'
       },
       token: tokenJwt
     });
@@ -488,7 +516,16 @@ exports.validateToken = async (req, res) => {
         id: currentUser._id,
         nombre: currentUser.nombre,
         email: currentUser.email,
-        role: currentUser.role
+        role: currentUser.role,
+        isActive: currentUser.isActive,
+        createdAt: currentUser.createdAt,
+        updatedAt: currentUser.updatedAt,
+        telefono: currentUser.telefono,
+        direccion: currentUser.direccion,
+        fechaNacimiento: currentUser.fechaNacimiento,
+        genero: currentUser.genero,
+        bio: currentUser.bio,
+        authProvider: currentUser.authProvider || 'local'
       }
     });
   } catch (error) {
@@ -504,5 +541,186 @@ exports.getAdmins = async (req, res) => {
     res.json(admins);
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+};
+
+// Cambiar contraseña de usuario autenticado
+exports.changePassword = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { actual, nueva } = req.body;
+    const user = await User.findById(userId).select('+contraseña');
+    if (!user) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+    // Si el usuario es Google, permite establecer o cambiar la contraseña sin pedir la actual
+    if (user.authProvider === 'google') {
+      if (!nueva) {
+        return res.status(400).json({ error: 'Debes proporcionar la nueva contraseña.' });
+      }
+      // Validar nueva contraseña (mínimo 8 caracteres, mayúscula, minúscula, número, símbolo)
+      const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{8,}$/;
+      if (!regex.test(nueva)) {
+        return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula, un número y un símbolo.' });
+      }
+      user.contraseña = await bcrypt.hash(nueva, 12);
+      user.authProvider = 'local'; // Ahora puede iniciar sesión con contraseña
+      await user.save();
+      // Enviar correo de notificación de cambio de contraseña
+      await transporter.sendMail({
+        to: user.email,
+        subject: 'Tu contraseña ha sido cambiada - Hako',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f9f9f9; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); padding: 32px 24px;">
+            <div style="text-align: center; margin-bottom: 24px;">
+              <img src="https://i.imgur.com/0y0y0y0.png" alt="Hako Logo" style="height: 48px; margin-bottom: 8px;"/>
+              <h2 style="color: #d32f2f; margin: 0;">¡Tu contraseña ha sido cambiada!</h2>
+            </div>
+            <p style="font-size: 17px; color: #222;">Hola <b>${user.nombre}</b>,</p>
+            <p style="font-size: 16px; color: #444;">Te informamos que la contraseña de tu cuenta ha sido cambiada correctamente. Si no realizaste este cambio, por favor contacta a soporte de inmediato.</p>
+            <div style="background: #fff; border-radius: 8px; padding: 16px 20px; margin: 24px 0; border-left: 4px solid #d32f2f;">
+              <p style="margin: 0 0 8px 0; font-size: 15px;"><b>Correo:</b> ${user.email}</p>
+              <p style="margin: 0 0 8px 0; font-size: 15px;"><b>Fecha y hora:</b> ${new Date().toLocaleString('es-ES', { timeZone: 'America/Bogota' })}</p>
+            </div>
+            <p style="font-size: 15px; color: #444;">Si no fuiste tú, cambia tu contraseña inmediatamente y avisa a nuestro equipo.</p>
+            <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0 16px 0;"/>
+            <footer style="font-size: 13px; color: #888; text-align: center;">
+              <p>¿Tienes dudas? Contáctanos en <a href="mailto:soporte@hako.com" style="color: #d32f2f; text-decoration: none;">soporte@hako.com</a></p>
+              <p>Equipo Hako &copy; ${new Date().getFullYear()}</p>
+            </footer>
+          </div>
+        `
+      });
+      return res.json({ message: 'Contraseña establecida correctamente.' });
+    }
+    // Para usuarios normales, ambos campos son obligatorios
+    if (!actual || !nueva) {
+      return res.status(400).json({ error: 'Debes proporcionar la contraseña actual y la nueva.' });
+    }
+    // Verificar contraseña actual
+    const match = await bcrypt.compare(actual, user.contraseña);
+    if (!match) {
+      return res.status(400).json({ error: 'La contraseña actual es incorrecta.' });
+    }
+    // Validar nueva contraseña (mínimo 8 caracteres, mayúscula, minúscula, número, símbolo)
+    const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{8,}$/;
+    if (!regex.test(nueva)) {
+      return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula, un número y un símbolo.' });
+    }
+    // Hashear y guardar nueva contraseña
+    user.contraseña = await bcrypt.hash(nueva, 12);
+    await user.save();
+    // Enviar correo de notificación de cambio de contraseña
+    await transporter.sendMail({
+      to: user.email,
+      subject: 'Tu contraseña ha sido cambiada - Hako',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f9f9f9; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); padding: 32px 24px;">
+          <div style="text-align: center; margin-bottom: 24px;">
+            <img src="https://i.imgur.com/0y0y0y0.png" alt="Hako Logo" style="height: 48px; margin-bottom: 8px;"/>
+            <h2 style="color: #d32f2f; margin: 0;">¡Tu contraseña ha sido cambiada!</h2>
+          </div>
+          <p style="font-size: 17px; color: #222;">Hola <b>${user.nombre}</b>,</p>
+          <p style="font-size: 16px; color: #444;">Te informamos que la contraseña de tu cuenta ha sido cambiada correctamente. Si no realizaste este cambio, por favor contacta a soporte de inmediato.</p>
+          <div style="background: #fff; border-radius: 8px; padding: 16px 20px; margin: 24px 0; border-left: 4px solid #d32f2f;">
+            <p style="margin: 0 0 8px 0; font-size: 15px;"><b>Correo:</b> ${user.email}</p>
+            <p style="margin: 0 0 8px 0; font-size: 15px;"><b>Fecha y hora:</b> ${new Date().toLocaleString('es-ES', { timeZone: 'America/Bogota' })}</p>
+          </div>
+          <p style="font-size: 15px; color: #444;">Si no fuiste tú, cambia tu contraseña inmediatamente y avisa a nuestro equipo.</p>
+          <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0 16px 0;"/>
+          <footer style="font-size: 13px; color: #888; text-align: center;">
+            <p>¿Tienes dudas? Contáctanos en <a href="mailto:soporte@hako.com" style="color: #d32f2f; text-decoration: none;">soporte@hako.com</a></p>
+            <p>Equipo Hako &copy; ${new Date().getFullYear()}</p>
+          </footer>
+        </div>
+      `
+    });
+    res.json({ message: 'Contraseña actualizada correctamente.' });
+  } catch (error) {
+    console.error('Error cambiando contraseña:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
+// Recuperación de contraseña: solicitar reseteo
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'Debes proporcionar un correo electrónico.' });
+    }
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) {
+      // No revelar si el usuario existe o no
+      return res.json({ message: 'Si el correo está registrado, recibirás un email con instrucciones.' });
+    }
+    // Generar token seguro
+    const token = crypto.randomBytes(32).toString('hex');
+    user.resetPasswordToken = token;
+    user.resetPasswordExpires = Date.now() + 60 * 60 * 1000; // 1 hora
+    await user.save();
+    // Enviar correo
+    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password/${token}`;
+    await transporter.sendMail({
+      to: user.email,
+      subject: 'Recupera tu contraseña - Hako',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f9f9f9; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); padding: 32px 24px;">
+          <div style="text-align: center; margin-bottom: 24px;">
+            <img src="https://i.imgur.com/0y0y0y0.png" alt="Hako Logo" style="height: 48px; margin-bottom: 8px;"/>
+            <h2 style="color: #d32f2f; margin: 0;">Recupera tu contraseña</h2>
+          </div>
+          <p style="font-size: 17px; color: #222;">Hola <b>${user.nombre}</b>,</p>
+          <p style="font-size: 16px; color: #444;">Recibimos una solicitud para restablecer la contraseña de tu cuenta. Si no fuiste tú, ignora este mensaje.</p>
+          <div style="background: #fff; border-radius: 8px; padding: 16px 20px; margin: 24px 0; border-left: 4px solid #d32f2f;">
+            <p style="margin: 0 0 8px 0; font-size: 15px;">Para restablecer tu contraseña, haz clic en el siguiente botón:</p>
+            <a href="${resetUrl}" style="display: inline-block; background: linear-gradient(135deg, #db554e, #c04c3e); color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 12px;">Restablecer contraseña</a>
+            <p style="margin: 16px 0 0 0; font-size: 14px; color: #888;">Este enlace expirará en 1 hora.</p>
+          </div>
+          <p style="font-size: 15px; color: #444;">Si no solicitaste este cambio, puedes ignorar este mensaje.</p>
+          <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0 16px 0;"/>
+          <footer style="font-size: 13px; color: #888; text-align: center;">
+            <p>¿Tienes dudas? Contáctanos en <a href="mailto:soporte@hako.com" style="color: #d32f2f; text-decoration: none;">soporte@hako.com</a></p>
+            <p>Equipo Hako &copy; ${new Date().getFullYear()}</p>
+          </footer>
+        </div>
+      `
+    });
+    res.json({ message: 'Si el correo está registrado, recibirás un email con instrucciones.' });
+  } catch (error) {
+    console.error('Error en forgotPassword:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
+// Recuperación de contraseña: restablecer
+exports.resetPassword = async (req, res) => {
+  try {
+    const { token, nueva } = req.body;
+    if (!token || !nueva) {
+      return res.status(400).json({ error: 'Token y nueva contraseña son obligatorios.' });
+    }
+    // Buscar usuario con token válido y no expirado
+    const user = await User.findOne({
+      resetPasswordToken: token,
+      resetPasswordExpires: { $gt: Date.now() }
+    }).select('+contraseña');
+    if (!user) {
+      return res.status(400).json({ error: 'El enlace de recuperación es inválido o ha expirado.' });
+    }
+    // Validar nueva contraseña (mínimo 8 caracteres, mayúscula, minúscula, número, símbolo)
+    const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{8,}$/;
+    if (!regex.test(nueva)) {
+      return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula, un número y un símbolo.' });
+    }
+    user.contraseña = await bcrypt.hash(nueva, 12);
+    user.resetPasswordToken = null;
+    user.resetPasswordExpires = null;
+    user.authProvider = 'local';
+    await user.save();
+    res.json({ message: 'Contraseña restablecida correctamente. Ya puedes iniciar sesión.' });
+  } catch (error) {
+    console.error('Error en resetPassword:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 }; 

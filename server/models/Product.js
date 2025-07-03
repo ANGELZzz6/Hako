@@ -94,6 +94,11 @@ const productSchema = new mongoose.Schema({
         max: [100, 'El porcentaje de descuento no puede exceder 100%'],
         description: 'Porcentaje de descuento aplicado al producto'
     },
+    categoria: {
+        type: String,
+        required: [true, 'La categoría es obligatoria'],
+        trim: true,
+    },
     variants: {
         enabled: {
             type: Boolean,

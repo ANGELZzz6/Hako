@@ -3,6 +3,10 @@ import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import './ProfilePage.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
+import userService from '../services/userService';
+import authService from '../services/authService';
+import LoadingSpinner from '../components/LoadingSpinner';
+import { Modal, Button } from 'react-bootstrap';
 
 interface ProfileData {
   nombre: string;
@@ -12,15 +16,23 @@ interface ProfileData {
   fechaNacimiento?: string;
   genero?: string;
   bio?: string;
+  createdAt: string;
 }
 
 const ProfilePage: React.FC = () => {
-  const { currentUser, isAuthenticated } = useAuth();
+  const { currentUser, isAuthenticated, isLoading } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [isEditing, setIsEditing] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState('');
+  const [passwordLoading, setPasswordLoading] = useState(false);
   
   const [profileData, setProfileData] = useState<ProfileData>({
     nombre: '',
@@ -29,27 +41,39 @@ const ProfilePage: React.FC = () => {
     direccion: '',
     fechaNacimiento: '',
     genero: '',
-    bio: ''
+    bio: '',
+    createdAt: ''
   });
 
+  const isGoogleNoPassword = currentUser?.authProvider === 'google';
+
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!isLoading && !isAuthenticated) {
       navigate('/login');
       return;
     }
-
-    if (currentUser) {
-      setProfileData({
-        nombre: currentUser.nombre || '',
-        email: currentUser.email || '',
-        telefono: '',
-        direccion: '',
-        fechaNacimiento: '',
-        genero: '',
-        bio: ''
-      });
-    }
-  }, [currentUser, isAuthenticated, navigate]);
+    const fetchProfile = async () => {
+      if (currentUser) {
+        try {
+          let userFromDb = await userService.getUserById(currentUser.id);
+          if (!userFromDb.id && userFromDb._id) userFromDb.id = userFromDb._id;
+          setProfileData({
+            nombre: userFromDb.nombre || '',
+            email: userFromDb.email || '',
+            telefono: userFromDb.telefono || '',
+            direccion: userFromDb.direccion || '',
+            fechaNacimiento: userFromDb.fechaNacimiento ? new Date(userFromDb.fechaNacimiento).toISOString().slice(0, 10) : '',
+            genero: userFromDb.genero || '',
+            bio: userFromDb.bio || '',
+            createdAt: userFromDb.createdAt || ''
+          });
+        } catch (err) {
+          setError('No se pudo cargar el perfil');
+        }
+      }
+    };
+    fetchProfile();
+  }, [currentUser, isAuthenticated, isLoading, navigate]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -66,13 +90,13 @@ const ProfilePage: React.FC = () => {
     setMessage('');
 
     try {
-      // Simular actualización (aquí iría la llamada real al backend)
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      if (!currentUser) throw new Error('Usuario no autenticado');
+      const result = await userService.updateUser(currentUser.id, profileData);
+      const updatedUser = await userService.getUserById(currentUser.id);
+      if (!updatedUser.id && updatedUser._id) updatedUser.id = updatedUser._id;
+      localStorage.setItem('user', JSON.stringify(updatedUser));
       setMessage('¡Perfil actualizado exitosamente! 💕');
       setIsEditing(false);
-      
-      // Limpiar mensaje después de 3 segundos
       setTimeout(() => setMessage(''), 3000);
     } catch (err: any) {
       setError(err.message || 'Error al actualizar perfil');
@@ -90,15 +114,71 @@ const ProfilePage: React.FC = () => {
         direccion: '',
         fechaNacimiento: '',
         genero: '',
-        bio: ''
+        bio: '',
+        createdAt: ''
       });
     }
     setIsEditing(false);
     setError('');
   };
 
-  if (!isAuthenticated) {
-    return null;
+  const handleOpenPasswordModal = () => {
+    setShowPasswordModal(true);
+    setCurrentPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setPasswordError('');
+    setPasswordSuccess('');
+  };
+
+  const handleClosePasswordModal = () => {
+    setShowPasswordModal(false);
+    setCurrentPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setPasswordError('');
+    setPasswordSuccess('');
+    setPasswordLoading(false);
+  };
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordError('');
+    setPasswordSuccess('');
+    setPasswordLoading(true);
+    if (!isGoogleNoPassword && (!currentPassword || !newPassword || !confirmPassword)) {
+      setPasswordError('Por favor, completa todos los campos.');
+      setPasswordLoading(false);
+      return;
+    }
+    if (isGoogleNoPassword && (!newPassword || !confirmPassword)) {
+      setPasswordError('Por favor, completa todos los campos.');
+      setPasswordLoading(false);
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError('Las nuevas contraseñas no coinciden.');
+      setPasswordLoading(false);
+      return;
+    }
+    if (newPassword.length < 8) {
+      setPasswordError('La nueva contraseña debe tener al menos 8 caracteres.');
+      setPasswordLoading(false);
+      return;
+    }
+    try {
+      const result = await userService.changePassword(isGoogleNoPassword ? '' : currentPassword, newPassword);
+      setPasswordSuccess(result.message || (isGoogleNoPassword ? '¡Contraseña establecida exitosamente!' : '¡Contraseña cambiada exitosamente!'));
+      setPasswordLoading(false);
+      setTimeout(() => handleClosePasswordModal(), 1500);
+    } catch (err: any) {
+      setPasswordError(err.message || 'Error al cambiar la contraseña');
+      setPasswordLoading(false);
+    }
+  };
+
+  if (isLoading || !isAuthenticated) {
+    return <LoadingSpinner message="Verificando autenticación..." />;
   }
 
   return (
@@ -110,12 +190,12 @@ const ProfilePage: React.FC = () => {
             <i className="bi bi-person-circle"></i>
           </div>
           <div className="profile-info">
-            <h1 className="profile-name">{currentUser?.nombre}</h1>
-            <p className="profile-email">{currentUser?.email}</p>
+            <h1 className="profile-name">{profileData.nombre}</h1>
+            <p className="profile-email">{profileData.email}</p>
             <div className="profile-stats">
               <span className="stat">
                 <i className="bi bi-calendar-check"></i>
-                Miembro desde {new Date().toLocaleDateString()}
+                Miembro desde {profileData.createdAt ? new Date(profileData.createdAt).toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''}
               </span>
             </div>
           </div>
@@ -323,7 +403,7 @@ const ProfilePage: React.FC = () => {
             Seguridad
           </h3>
           <div className="security-options">
-            <button className="btn btn-outline-primary">
+            <button className="btn btn-outline-primary" onClick={handleOpenPasswordModal}>
               <i className="bi bi-key me-2"></i>
               Cambiar Contraseña
             </button>
@@ -331,12 +411,66 @@ const ProfilePage: React.FC = () => {
               <i className="bi bi-bell me-2"></i>
               Notificaciones
             </button>
-            <button className="btn btn-outline-info">
-              <i className="bi bi-gear me-2"></i>
-              Configuración
-            </button>
           </div>
         </div>
+
+        {/* Modal de cambio de contraseña */}
+        <Modal show={showPasswordModal} onHide={handleClosePasswordModal} centered>
+          <Modal.Header closeButton>
+            <Modal.Title>{isGoogleNoPassword ? 'Establecer Contraseña' : 'Cambiar Contraseña'}</Modal.Title>
+          </Modal.Header>
+          <form onSubmit={handlePasswordChange}>
+            <Modal.Body>
+              {passwordError && <div className="alert alert-danger py-1">{passwordError}</div>}
+              {passwordSuccess && <div className="alert alert-success py-1">{passwordSuccess}</div>}
+              {!isGoogleNoPassword && (
+                <div className="mb-3">
+                  <label className="form-label">Contraseña actual</label>
+                  <input
+                    type="password"
+                    className="form-control"
+                    value={currentPassword}
+                    onChange={e => setCurrentPassword(e.target.value)}
+                    required
+                    autoFocus
+                  />
+                </div>
+              )}
+              <div className="mb-3">
+                <label className="form-label">Nueva contraseña</label>
+                <input
+                  type="password"
+                  className="form-control"
+                  value={newPassword}
+                  onChange={e => setNewPassword(e.target.value)}
+                  required
+                  autoFocus={isGoogleNoPassword}
+                />
+              </div>
+              <div className="mb-3">
+                <label className="form-label">Confirmar nueva contraseña</label>
+                <input
+                  type="password"
+                  className="form-control"
+                  value={confirmPassword}
+                  onChange={e => setConfirmPassword(e.target.value)}
+                  required
+                />
+              </div>
+            </Modal.Body>
+            <Modal.Footer>
+              <Button variant="secondary" onClick={handleClosePasswordModal} disabled={passwordLoading}>
+                Cancelar
+              </Button>
+              <Button variant="primary" type="submit" disabled={passwordLoading}>
+                {passwordLoading ? (
+                  <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+                ) : null}
+                {isGoogleNoPassword ? 'Establecer contraseña' : 'Cambiar contraseña'}
+              </Button>
+            </Modal.Footer>
+          </form>
+        </Modal>
       </div>
     </div>
   );

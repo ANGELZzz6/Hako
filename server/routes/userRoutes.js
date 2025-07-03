@@ -26,7 +26,7 @@ router.get('/validate-token', auth, userController.validateToken);
 
 // Rutas de gestión de usuarios (para administrador) - requieren autenticación y permisos de admin
 router.get('/all', auth, requireAdmin, userController.getAllUsers);
-router.put('/:id', auth, requireAdmin, userController.updateUser);
+router.put('/:id', auth, userController.updateUser);
 router.delete('/:id', auth, requireAdmin, userController.deleteUser);
 router.patch('/:id/toggle-status', auth, requireAdmin, userController.toggleUserStatus);
 
@@ -35,5 +35,12 @@ router.get('/profile/:id', auth, userController.getProfile);
 
 // Obtener todos los admins
 router.get('/admins', auth, adminAuth, userController.getAdmins);
+
+// Nueva ruta para cambiar la contraseña
+router.post('/change-password', auth, userController.changePassword);
+
+// Recuperación de contraseña
+router.post('/forgot-password', userController.forgotPassword);
+router.post('/reset-password', userController.resetPassword);
 
 module.exports = router; 
