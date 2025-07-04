@@ -5,6 +5,7 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const productoRoutes = require('./routes/productoRoutes');
 const userRoutes = require('./routes/userRoutes');
+const paymentRoutes = require('./routes/paymentRoutes');
 const { connectDB } = require('./config/db');
 const path = require('path');
 
@@ -53,6 +54,9 @@ app.use(express.json({ limit: '10mb' }));
 // Rutas
 app.use('/api/products', productoRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/payment', paymentRoutes);
+
+console.log('✅ Rutas de pago montadas en /api/payment');
 
 // Ruta de prueba
 app.get('/', (req, res) => {

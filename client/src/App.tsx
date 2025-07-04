@@ -10,7 +10,7 @@ import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import CartPage from './pages/CartPage';
 
-import OrderConfirmationPage from './pages/OrderConfirmationPage';
+import PaymentSuccessPage from './pages/PaymentSuccessPage';
 import AdminDashboard from './pages/AdminDashboard';
 import UserManagement from './pages/UserManagement';
 import InventoryManagement from './pages/InventoryManagement';
@@ -35,6 +35,9 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import SplashScreen from './components/SplashScreen';
 import SugerenciasPage from './pages/SugerenciasPage';
+import PaymentFailurePage from './pages/PaymentFailurePage';
+import PaymentPendingPage from './pages/PaymentPendingPage';
+import CheckoutPage from './pages/CheckoutPage';
 
 // Importar fuente Montserrat
 import '@fontsource/montserrat/300.css';
@@ -49,6 +52,7 @@ const AppContent = () => {
   const [isVideoPlaying, setIsVideoPlaying] = useState(true);
   const [isDarkTheme, setIsDarkTheme] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
+  const [showPaymentSuccess, setShowPaymentSuccess] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const location = useLocation();
   const navigate = useNavigate();
@@ -83,6 +87,28 @@ const AppContent = () => {
     if (savedTheme === 'dark') {
       setIsDarkTheme(true);
       document.documentElement.setAttribute('data-theme', 'dark');
+    }
+  }, []);
+
+  // Efecto para detectar si el usuario viene de un pago exitoso
+  useEffect(() => {
+    // Verificar si viene de Mercado Pago (detectar por referrer o parámetros de URL)
+    const referrer = document.referrer;
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    console.log('Referrer:', referrer);
+    console.log('URL Params:', Object.fromEntries(urlParams.entries()));
+    
+    if (referrer.includes('mercadopago.com') || 
+        referrer.includes('mercadolibre.com') ||
+        urlParams.get('payment_status') === 'success' ||
+        urlParams.get('status') === 'success' ||
+        urlParams.get('collection_status') === 'approved') {
+      
+      console.log('Pago exitoso detectado, mostrando página de confirmación');
+      setShowPaymentSuccess(true);
+      // Limpiar la URL
+      window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
 
@@ -186,6 +212,11 @@ const AppContent = () => {
 
   // Renderizar el contenido según la ruta
   const renderContent = () => {
+    // Si el usuario viene de un pago exitoso, mostrar la página de confirmación
+    if (showPaymentSuccess) {
+      return <PaymentSuccessPage />;
+    }
+
     if (location.pathname === '/productos') {
       return <Productos products={products} />;
     }
@@ -454,11 +485,11 @@ const AppContent = () => {
           </ProtectedRoute>
         } />
 
-        <Route path="/order-confirmation" element={
-          <ProtectedRoute>
-            <OrderConfirmationPage />
-          </ProtectedRoute>
-        } />
+        <Route path="/payment-success" element={
+  <ProtectedRoute>
+    <PaymentSuccessPage />
+  </ProtectedRoute>
+} />
         <Route path="/admin" element={
           <ProtectedRoute requireAdmin>
             <AdminDashboard />
@@ -490,6 +521,9 @@ const AppContent = () => {
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
         <Route path="/sugerencias" element={<SugerenciasPage />} />
+        <Route path="/payment-failure" element={<PaymentFailurePage />} />
+        <Route path="/payment-pending" element={<PaymentPendingPage />} />
+        <Route path="/checkout" element={<CheckoutPage />} />
       </Routes>
 
       {/* Footer */}

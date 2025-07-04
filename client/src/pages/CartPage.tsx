@@ -127,8 +127,12 @@ const CartPage = () => {
         picture_url: item.imagen_producto
       }));
       
-      const pref = await paymentService.createPreference(items, { email: currentUser.email });
-      window.location.href = pref.init_point;
+      navigate('/checkout', { state: { items, payer: {
+        email: currentUser.email,
+        name: currentUser.nombre || 'Nombre',
+        surname: currentUser.apellido || 'Apellido',
+        identification: { type: 'CC', number: '12345678' }
+      } } });
     } catch (error) {
       console.error('Error al procesar el pago:', error);
       alert('Error al procesar el pago. Por favor intenta de nuevo.');

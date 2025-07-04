@@ -7,6 +7,7 @@ interface CartContextType {
   cart: Cart | null;
   refreshCart: () => Promise<void>;
   setCart: React.Dispatch<React.SetStateAction<Cart | null>>;
+  clearCart: () => Promise<void>;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -28,13 +29,24 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const clearCart = async () => {
+    if (isAuthenticated) {
+      try {
+        await cartService.clearCart();
+        setCart(null);
+      } catch (error) {
+        console.error('Error al vaciar el carrito:', error);
+      }
+    }
+  };
+
   useEffect(() => {
     refreshCart();
     // eslint-disable-next-line
   }, [isAuthenticated]);
 
   return (
-    <CartContext.Provider value={{ cart, refreshCart, setCart }}>
+    <CartContext.Provider value={{ cart, refreshCart, setCart, clearCart }}>
       {children}
     </CartContext.Provider>
   );

@@ -1,0 +1,126 @@
+.checkout-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 2rem 0;
+}
+
+.payment-methods-selection {
+  background: white;
+  border-radius: 15px;
+  padding: 2rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  margin-bottom: 2rem;
+}
+
+.payment-method-card {
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  height: 100%;
+}
+
+.payment-method-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+  border-color: #007bff;
+}
+
+.payment-method-card:active {
+  transform: translateY(-2px);
+}
+
+.payment-method-card .card-body {
+  padding: 2rem 1rem;
+}
+
+.payment-method-card h5 {
+  color: #333;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.payment-method-card p {
+  color: #666;
+  font-size: 0.9rem;
+  margin-bottom: 0;
+}
+
+.checkout-page h2 {
+  color: white;
+  text-align: center;
+  margin-bottom: 2rem;
+  font-weight: 700;
+}
+
+.checkout-page h4 {
+  color: #333;
+  margin-bottom: 1.5rem;
+  font-weight: 600;
+}
+
+.alert {
+  border-radius: 10px;
+  border: none;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+.btn-outline-secondary {
+  border-radius: 8px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.btn-outline-secondary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+.btn-success {
+  border-radius: 8px;
+  font-weight: 600;
+  padding: 0.75rem 2rem;
+  transition: all 0.3s ease;
+}
+
+.btn-success:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(40, 167, 69, 0.3);
+}
+
+.card {
+  border-radius: 12px;
+  border: none;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+}
+
+.card-body {
+  padding: 2rem;
+}
+
+pre {
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+  font-size: 0.8rem;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .checkout-page {
+    padding: 1rem 0;
+  }
+  
+  .payment-methods-selection {
+    padding: 1.5rem;
+  }
+  
+  .payment-method-card .card-body {
+    padding: 1.5rem 1rem;
+  }
+  
+  .col-md-4 {
+    margin-bottom: 1rem;
+  }
+} 
