@@ -117,20 +117,25 @@ const CartPage = () => {
       alert('Debes estar logueado para realizar el pago');
       return;
     }
-
+    if (selectedItems.length === 0) {
+      alert('Selecciona al menos un producto para proceder al pago.');
+      return;
+    }
     try {
       setProcessing(true);
-      const items = cart!.items.map(item => ({
-        title: item.nombre_producto,
-        quantity: item.cantidad,
-        unit_price: item.precio_unitario,
-        picture_url: item.imagen_producto
-      }));
-      
+      const items = cart!.items
+        .filter(item => selectedItems.includes(item.id_producto._id))
+        .map(item => ({
+          id: item.id_producto._id, // Incluir el ID del producto
+          title: item.nombre_producto,
+          quantity: item.cantidad,
+          unit_price: item.precio_unitario,
+          picture_url: item.imagen_producto
+        }));
       navigate('/checkout', { state: { items, payer: {
         email: currentUser.email,
         name: currentUser.nombre || 'Nombre',
-        surname: currentUser.apellido || 'Apellido',
+        surname: '',
         identification: { type: 'CC', number: '12345678' }
       } } });
     } catch (error) {
@@ -301,28 +306,35 @@ const CartPage = () => {
             <div className="cart-summary">
               <h4 className="summary-title">Resumen del Box</h4>
               
-              <div className="summary-item">
-                <span>Subtotal ({cart.items.length} productos):</span>
-                <span>${cart.total.toLocaleString('es-CO')}</span>
-              </div>
-              
               <div className="summary-item total">
                 <span>Total:</span>
-                <span>${cart.total.toLocaleString('es-CO')}</span>
+                <span>${getSelectedTotal().toLocaleString('es-CO')}</span>
               </div>
 
               {selectedItems.length > 0 && (
-                <div className="selected-summary">
-                  <div className="summary-item">
+                <div className="selected-summary custom-selected-summary">
+                  <div className="summary-item mb-2">
                     <span>Seleccionados ({selectedItems.length}):</span>
                     <span>${getSelectedTotal().toLocaleString('es-CO')}</span>
+                  </div>
+                  <div className="selected-products-list mt-2">
+                    <ul className="list-group">
+                      {cart.items.filter(item => selectedItems.includes(item.id_producto._id)).map(item => (
+                        <li key={item.id_producto._id} className="list-group-item d-flex justify-content-between align-items-center">
+                          <span>
+                            <strong>{item.nombre_producto}</strong> x{item.cantidad}
+                          </span>
+                          <span>${(item.precio_unitario * item.cantidad).toLocaleString('es-CO')}</span>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 </div>
               )}
 
               <button 
                 className="btn btn-primary w-100 mt-4" 
-                disabled={cart.items.length === 0 || processing}
+                disabled={selectedItems.length === 0 || processing}
                 onClick={handleProcessPayment}
               >
                 {processing ? (
@@ -335,7 +347,7 @@ const CartPage = () => {
                 ) : (
                   <>
                     <i className="bi bi-credit-card me-2"></i>
-                    Proceder al Pago - ${cart.total.toLocaleString('es-CO')}
+                    Proceder al Pago - ${getSelectedTotal().toLocaleString('es-CO')}
                   </>
                 )}
               </button>

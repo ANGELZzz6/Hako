@@ -723,4 +723,35 @@ exports.resetPassword = async (req, res) => {
     console.error('Error en resetPassword:', error);
     res.status(500).json({ error: 'Error interno del servidor' });
   }
+};
+
+// Guardar una tarjeta de Mercado Pago
+exports.saveCard = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { cardId, lastFour, cardType, issuer } = req.body;
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+    // Evitar duplicados
+    if (user.savedCards.some(card => card.cardId === cardId)) {
+      return res.status(400).json({ error: 'La tarjeta ya está guardada' });
+    }
+    user.savedCards.push({ cardId, lastFour, cardType, issuer });
+    await user.save();
+    res.json({ success: true, savedCards: user.savedCards });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Obtener tarjetas guardadas
+exports.getSavedCards = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+    res.json({ savedCards: user.savedCards });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 }; 

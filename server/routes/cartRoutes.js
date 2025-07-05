@@ -9,6 +9,7 @@ router.get('/', auth, cartController.getCart);
 router.post('/', auth, cartController.addToCart);
 router.put('/item/:productId', auth, cartController.updateCartItem);
 router.delete('/item/:productId', auth, cartController.removeFromCart);
+router.delete('/items', auth, cartController.removeMultipleItems);
 router.delete('/', auth, cartController.clearCart);
 
 // Rutas para administradores

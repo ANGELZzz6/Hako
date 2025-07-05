@@ -110,7 +110,16 @@ const userSchema = new mongoose.Schema({
         type: Date,
         select: false,
         default: null
-    }
+    },
+    savedCards: [
+        {
+            cardId: { type: String, required: true },
+            lastFour: { type: String, required: true },
+            cardType: { type: String, required: true },
+            issuer: { type: String },
+            createdAt: { type: Date, default: Date.now }
+        }
+    ]
 }, {
     timestamps: true
 });

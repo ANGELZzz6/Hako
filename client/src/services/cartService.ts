@@ -114,6 +114,21 @@ class CartService {
     }
   }
 
+  async removeMultipleItems(productIds: string[]): Promise<Cart> {
+    try {
+      const response = await fetch(`${ENDPOINTS.CART}/items`, {
+        method: 'DELETE',
+        headers: this.getHeaders(),
+        body: JSON.stringify({ productIds }),
+      });
+      if (!response.ok) throw new Error('Error al eliminar productos del box');
+      return await response.json();
+    } catch (error) {
+      console.error('Error:', error);
+      throw error;
+    }
+  }
+
   async clearCart(): Promise<Cart> {
     try {
       const response = await fetch(ENDPOINTS.CART, {

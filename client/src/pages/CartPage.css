@@ -527,4 +527,25 @@
 [data-theme="dark"] .secure-info .text-muted,
 [data-theme="dark"] .secure-info small {
   color: #baffd2 !important;
+}
+
+.custom-selected-summary {
+  background: #fff;
+  border: 2px solid #dc3545; /* rojo bootstrap */
+  border-radius: 10px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+.custom-selected-summary .summary-item {
+  font-weight: 500;
+  color: #dc3545;
+}
+.custom-selected-summary .list-group-item {
+  background: #fff;
+  border: none;
+  border-bottom: 1px solid #f1f1f1;
+  color: #333;
+}
+.custom-selected-summary .list-group-item:last-child {
+  border-bottom: none;
 } 

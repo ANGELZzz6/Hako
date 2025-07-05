@@ -11,6 +11,8 @@ import SignupPage from './pages/SignupPage';
 import CartPage from './pages/CartPage';
 
 import PaymentSuccessPage from './pages/PaymentSuccessPage';
+import PaymentResultPage from './pages/PaymentResultPage';
+import PaymentTestPage from './pages/PaymentTestPage';
 import AdminDashboard from './pages/AdminDashboard';
 import UserManagement from './pages/UserManagement';
 import InventoryManagement from './pages/InventoryManagement';
@@ -64,7 +66,7 @@ const AppContent = () => {
   useMobileViewport();
 
   // Forzar el contexto de carrito
-  const { cart, refreshCart, setCart } = useCart();
+  const { cart, refreshCart, setCart, clearCart } = useCart();
 
   const [showSplash, setShowSplash] = useState(!isAuthenticated);
 
@@ -99,6 +101,26 @@ const AppContent = () => {
     console.log('Referrer:', referrer);
     console.log('URL Params:', Object.fromEntries(urlParams.entries()));
     
+    // Si hay parámetros de pago en la URL, redirigir a la página de resultado
+    if (urlParams.get('payment_id') || 
+        urlParams.get('collection_id') || 
+        urlParams.get('status') || 
+        urlParams.get('collection_status')) {
+      
+      console.log('Parámetros de pago detectados, redirigiendo a página de resultado');
+      // Mantener los parámetros de URL al redirigir
+      const currentUrl = window.location.href;
+      const baseUrl = currentUrl.split('?')[0];
+      const params = currentUrl.split('?')[1];
+      
+      if (params) {
+        navigate(`/payment-result?${params}`);
+      } else {
+        navigate('/payment-result');
+      }
+      return;
+    }
+    
     if (referrer.includes('mercadopago.com') || 
         referrer.includes('mercadolibre.com') ||
         urlParams.get('payment_status') === 'success' ||
@@ -110,7 +132,7 @@ const AppContent = () => {
       // Limpiar la URL
       window.history.replaceState({}, document.title, window.location.pathname);
     }
-  }, []);
+  }, [navigate]);
 
   // Función para cambiar el tema
   const toggleTheme = () => {
@@ -162,7 +184,11 @@ const AppContent = () => {
   // Función para manejar el logout
   const handleLogout = () => {
     logout();
-    setCart(null);
+    if (clearCart) {
+      clearCart();
+    } else {
+      setCart(null);
+    }
   };
 
   // Función para manejar click en producto (ir a detalle)
@@ -490,6 +516,16 @@ const AppContent = () => {
     <PaymentSuccessPage />
   </ProtectedRoute>
 } />
+        <Route path="/payment-result" element={
+  <ProtectedRoute>
+    <PaymentResultPage />
+  </ProtectedRoute>
+} />
+        <Route path="/payment-test" element={
+  <ProtectedRoute>
+    <PaymentTestPage />
+  </ProtectedRoute>
+} />
         <Route path="/admin" element={
           <ProtectedRoute requireAdmin>
             <AdminDashboard />
@@ -523,7 +559,7 @@ const AppContent = () => {
         <Route path="/sugerencias" element={<SugerenciasPage />} />
         <Route path="/payment-failure" element={<PaymentFailurePage />} />
         <Route path="/payment-pending" element={<PaymentPendingPage />} />
-        <Route path="/checkout" element={<CheckoutPage />} />
+        <Route path="/checkout" element={<ProtectedRoute><CheckoutPage /></ProtectedRoute>} />
       </Routes>
 
       {/* Footer */}

@@ -2,7 +2,10 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import paymentService from '../services/paymentService';
 import type { MPItem, MPPayer } from '../services/paymentService';
+import cartService from '../services/cartService';
 import './CheckoutPage.css';
+import { useAuth } from '../contexts/AuthContext';
+import { useCart } from '../contexts/CartContext';
 
 const PUBLIC_KEY = 'TEST-6c5eb3a1-e6be-46ef-a350-afa2bf222252'; // Llave pública de prueba
 
@@ -33,26 +36,79 @@ const CheckoutPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { items, payer } = location.state || {};
+  const { currentUser, isAuthenticated } = useAuth();
+  const { refreshCart } = useCart();
+
+  // Función para eliminar productos comprados del carrito
+  const removePurchasedItems = async (purchasedItems: MPItem[]) => {
+    try {
+      const productIds = purchasedItems.map(item => item.id).filter((id): id is string => !!id); // Filtrar IDs válidos
+      if (productIds.length === 0) {
+        console.log('No hay productos para eliminar del carrito');
+        return;
+      }
+      console.log('Eliminando productos comprados:', productIds);
+      await cartService.removeMultipleItems(productIds);
+      await refreshCart(); // Actualizar el carrito en el contexto
+      console.log('Productos eliminados del carrito exitosamente');
+    } catch (error) {
+      console.error('Error al eliminar productos del carrito:', error);
+    }
+  };
+
+  // Función para limpiar el estado del SDK de Mercado Pago
+  const cleanupMercadoPagoSDK = () => {
+    try {
+      // Limpiar cualquier instancia del SDK
+      if ((window as any).mp) {
+        delete (window as any).mp;
+      }
+      
+      // Limpiar cualquier script del SDK
+      const scripts = document.querySelectorAll('script[src*="mercadopago"]');
+      scripts.forEach(script => script.remove());
+      
+      // Limpiar cualquier contenedor de formularios
+      const containers = document.querySelectorAll('#cardFormContainer, #moneyFormContainer');
+      containers.forEach(container => {
+        if (container) {
+          container.innerHTML = '';
+        }
+      });
+      
+      console.log('SDK de Mercado Pago limpiado exitosamente');
+    } catch (error) {
+      console.error('Error al limpiar SDK de Mercado Pago:', error);
+    }
+  };
 
   useEffect(() => {
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+    if (!items || !payer) {
+      navigate('/cart');
+      return;
+    }
+
     (async () => {
       setError(null);
       console.log('CheckoutPage: items', items);
       console.log('CheckoutPage: payer', payer);
       try {
         await loadMercadoPagoSdk();
-        if (!items || !payer) {
-          setError('No hay productos o usuario para procesar el pago.');
-          return;
-        }
-        (window as any).mp = new (window as any).MercadoPago(PUBLIC_KEY, { locale: 'es-CO' });
+        (window as any).mp = new (window as any).MercadoPago(PUBLIC_KEY, { 
+          locale: 'es-CO',
+          advancedFraudPrevention: false
+        });
         handleCreatePreference();
       } catch (err) {
         setError('No se pudo cargar el SDK de Mercado Pago');
       }
     })();
     // eslint-disable-next-line
-  }, [items, payer]);
+  }, [isAuthenticated, items, payer, navigate]);
 
   useEffect(() => {
     if (preferenceId && (window as any).mp && items && selectedMethod) {
@@ -68,14 +124,53 @@ const CheckoutPage = () => {
               preferenceId: preferenceId
             },
             callbacks: {
-              onReady: () => { console.log('Brick de tarjeta listo'); },
+              onReady: () => { 
+                console.log('Brick de tarjeta listo');
+                setError(null);
+              },
               onSubmit: async (cardFormData: any) => {
                 setLoading(true);
                 setError(null);
+                console.log('Datos del formulario de tarjeta:', cardFormData);
                 try {
-                  navigate('/payment-success');
+                  // Usar endpoint de prueba temporalmente
+                  const paymentResult = await paymentService.testProcessPayment({
+                    token: cardFormData.token,
+                    issuer_id: cardFormData.issuer_id,
+                    payment_method_id: cardFormData.payment_method_id,
+                    installments: cardFormData.installments,
+                    transaction_amount: cardFormData.transaction_amount,
+                    description: 'Pago desde Hako',
+                    payer: payer
+                  });
+                  
+                  console.log('Resultado del pago procesado:', paymentResult);
+                  
+                  // Si el pago fue exitoso, eliminar los productos del carrito
+                  if (paymentResult.status === 'approved') {
+                    console.log('Pago aprobado, eliminando productos del carrito...');
+                    await removePurchasedItems(items);
+                  }
+                  
+                  const paymentData = {
+                    status: paymentResult.status,
+                    payment_id: paymentResult.id,
+                    preference_id: preferenceId,
+                    payment_method_id: cardFormData.payment_method_id || 'card',
+                    installments: cardFormData.installments || '1',
+                    issuer_id: cardFormData.issuer_id || '',
+                    status_detail: paymentResult.status_detail
+                  };
+                  
+                  const filteredData = Object.fromEntries(
+                    Object.entries(paymentData).filter(([_, value]) => value !== undefined && value !== null)
+                  );
+                  
+                  const params = new URLSearchParams(filteredData);
+                  navigate(`/payment-result?${params.toString()}`);
                 } catch (err: any) {
-                  setError('Error procesando el pago.');
+                  console.error('Error procesando el pago:', err);
+                  setError('Error procesando el pago. Por favor, intenta nuevamente.');
                 } finally {
                   setLoading(false);
                 }
@@ -94,12 +189,28 @@ const CheckoutPage = () => {
               preferenceId: preferenceId
             },
             callbacks: {
-              onReady: () => { console.log('Brick de efectivo listo'); },
+              onReady: () => { 
+                console.log('Brick de efectivo listo');
+                setError(null);
+              },
               onSubmit: async (moneyData: any) => {
                 setLoading(true);
                 setError(null);
                 try {
-                  navigate('/payment-success');
+                  // Para pagos en efectivo, también eliminar productos del carrito
+                  // ya que el usuario se compromete a pagar
+                  console.log('Pago en efectivo iniciado, eliminando productos del carrito...');
+                  await removePurchasedItems(items);
+                  
+                  // Para pagos en efectivo, redirigir a la página de resultado
+                  const paymentData = {
+                    status: 'pending',
+                    payment_method_id: 'efecty',
+                    preference_id: preferenceId
+                  };
+                  
+                  const params = new URLSearchParams(paymentData);
+                  navigate(`/payment-result?${params.toString()}`);
                 } catch (err: any) {
                   setError('Error procesando el pago.');
                 } finally {
@@ -118,7 +229,14 @@ const CheckoutPage = () => {
         console.error('Error al montar el Brick:', err);
       }
     }
-  }, [preferenceId, navigate, items, selectedMethod]);
+  }, [preferenceId, navigate, items, selectedMethod, payer]);
+
+  // Limpiar el SDK cuando se desmonte el componente
+  useEffect(() => {
+    return () => {
+      cleanupMercadoPagoSDK();
+    };
+  }, []);
 
   const handleCreatePreference = async () => {
     setLoading(true);
@@ -146,6 +264,11 @@ const CheckoutPage = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleBackToMethods = () => {
+    setSelectedMethod(null);
+    setError(null);
   };
 
   return (
@@ -191,25 +314,25 @@ const CheckoutPage = () => {
 
       {selectedMethod === 'card' && (
         <div>
-          <button className="btn btn-outline-secondary mb-3" onClick={() => setSelectedMethod(null)}>
+          <button className="btn btn-outline-secondary mb-3" onClick={handleBackToMethods}>
             <i className="bi bi-arrow-left me-2"></i>Cambiar método
           </button>
-          <div id="cardFormContainer" ref={cardFormRef}></div>
-        </div>
-      )}
-
+          <div id="cardFormContainer" ref={cardFormRef} style={{ minHeight: '200px' }}></div>
+            </div>
+          )}
+          
       {selectedMethod === 'efecty' && (
         <div>
-          <button className="btn btn-outline-secondary mb-3" onClick={() => setSelectedMethod(null)}>
+          <button className="btn btn-outline-secondary mb-3" onClick={handleBackToMethods}>
             <i className="bi bi-arrow-left me-2"></i>Cambiar método
-          </button>
-          <div id="moneyFormContainer" ref={moneyFormRef}></div>
+              </button>
+          <div id="moneyFormContainer" ref={moneyFormRef} style={{ minHeight: '200px' }}></div>
         </div>
       )}
 
       {selectedMethod === 'pse' && (
         <div>
-          <button className="btn btn-outline-secondary mb-3" onClick={() => setSelectedMethod(null)}>
+          <button className="btn btn-outline-secondary mb-3" onClick={handleBackToMethods}>
             <i className="bi bi-arrow-left me-2"></i>Cambiar método
           </button>
           <div className="card">

@@ -204,6 +204,37 @@ const removeFromCart = async (req, res) => {
   }
 };
 
+// Remover múltiples items del carrito
+const removeMultipleItems = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { productIds } = req.body;
+    
+    if (!Array.isArray(productIds)) {
+      return res.status(400).json({ message: 'productIds debe ser un array' });
+    }
+    
+    const cart = await Cart.findOne({ id_usuario: userId });
+    if (!cart) {
+      return res.status(404).json({ message: 'Carrito no encontrado' });
+    }
+    
+    // Filtrar los items que NO están en la lista de productIds a eliminar
+    cart.items = cart.items.filter(
+      item => !productIds.includes(item.id_producto.toString())
+    );
+    
+    await cart.save();
+    
+    await cart.populate('items.id_producto', 'nombre precio imagen_url descripcion');
+    
+    res.json(cart);
+  } catch (error) {
+    console.error('Error al remover múltiples items del carrito:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+};
+
 // Vaciar carrito
 const clearCart = async (req, res) => {
   try {
@@ -271,6 +302,7 @@ module.exports = {
   addToCart,
   updateCartItem,
   removeFromCart,
+  removeMultipleItems,
   clearCart,
   getAllCarts,
   getCartStats

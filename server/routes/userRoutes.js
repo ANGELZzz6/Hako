@@ -43,4 +43,8 @@ router.post('/change-password', auth, userController.changePassword);
 router.post('/forgot-password', userController.forgotPassword);
 router.post('/reset-password', userController.resetPassword);
 
+// Rutas para tarjetas guardadas (requieren autenticación)
+router.post('/save-card', auth, userController.saveCard);
+router.get('/saved-cards', auth, userController.getSavedCards);
+
 module.exports = router; 

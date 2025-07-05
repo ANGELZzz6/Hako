@@ -1,7 +1,10 @@
 .checkout-page {
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 2rem 0;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.06);
+  padding: 2.5rem 2rem;
+  margin-top: 3rem;
 }
 
 .payment-methods-selection {
@@ -47,9 +50,9 @@
 }
 
 .checkout-page h2 {
-  color: white;
+  color: #222;
   text-align: center;
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
   font-weight: 700;
 }
 
@@ -99,6 +102,7 @@
 }
 
 pre {
+  background: #f8f9fa;
   border-radius: 8px;
   border: 1px solid #e9ecef;
   font-size: 0.8rem;
@@ -123,4 +127,62 @@ pre {
   .col-md-4 {
     margin-bottom: 1rem;
   }
+}
+
+/* Mejorar visual de las tarjetas de método de pago */
+.payment-methods-selection .payment-method-card {
+  background: #fff;
+  border: 2px solid #e9ecef;
+  border-radius: 12px;
+  transition: box-shadow 0.2s, border 0.2s;
+  cursor: pointer;
+}
+.payment-methods-selection .payment-method-card:hover, .payment-methods-selection .payment-method-card:focus {
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  border: 2px solid #dc3545;
+}
+
+.payment-methods-selection .row {
+  flex-direction: column;
+  gap: 1.5rem;
+}
+.payment-methods-selection .col-md-4 {
+  width: 100%;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+/* Estilos para el botón de reintentar y mensajes de error */
+.error-message {
+  background-color: #f8d7da;
+  border: 1px solid #f5c6cb;
+  border-radius: 8px;
+  padding: 15px;
+  margin: 15px 0;
+  color: #721c24;
+}
+
+.error-message p {
+  margin: 0 0 10px 0;
+  font-weight: 500;
+}
+
+.retry-button {
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.retry-button:hover {
+  background-color: #c82333;
+}
+
+.retry-button:active {
+  background-color: #bd2130;
 } 

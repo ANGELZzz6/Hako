@@ -1,6 +1,8 @@
 import { ENDPOINTS } from '../config/api';
 import authService from './authService';
 
+const USER_API_URL = '/api/users';
+
 export interface User {
   _id: string;
   id?: string;
@@ -200,6 +202,26 @@ class UserService {
       console.error('Error:', error);
       throw error;
     }
+  }
+
+  async getSavedCards() {
+    const response = await fetch(`${USER_API_URL}/saved-cards`, {
+      headers: this.getAuthHeaders(),
+      credentials: 'include',
+    });
+    if (!response.ok) throw new Error('No se pudieron obtener las tarjetas guardadas');
+    return await response.json();
+  }
+
+  async saveCard(cardData: { cardId: string, lastFour: string, cardType: string, issuer?: string }) {
+    const response = await fetch(`${USER_API_URL}/save-card`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      credentials: 'include',
+      body: JSON.stringify(cardData)
+    });
+    if (!response.ok) throw new Error('No se pudo guardar la tarjeta');
+    return await response.json();
   }
 }
 
