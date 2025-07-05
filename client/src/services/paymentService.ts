@@ -97,7 +97,22 @@ const paymentService = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(paymentData)
     });
-    if (!response.ok) throw new Error('Error al procesar el pago');
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      
+      // Si el servidor devuelve información específica del error de pago
+      if (errorData.status && errorData.status_detail) {
+        return {
+          id: 'ERROR_' + Date.now(),
+          status: errorData.status,
+          status_detail: errorData.status_detail
+        };
+      }
+      
+      throw new Error(errorData.error || 'Error al procesar el pago');
+    }
+    
     return await response.json();
   },
 

@@ -22,6 +22,26 @@ const cleanupMercadoPagoSDK = () => {
       }
     });
     
+    // Limpiar cualquier elemento con clase de Mercado Pago
+    const mpElements = document.querySelectorAll('[class*="mercadopago"], [class*="mp-"]');
+    mpElements.forEach(element => {
+      if (element.parentNode) {
+        element.parentNode.removeChild(element);
+      }
+    });
+    
+    // Limpiar cualquier iframe de Mercado Pago
+    const iframes = document.querySelectorAll('iframe[src*="mercadopago"]');
+    iframes.forEach(iframe => {
+      if (iframe.parentNode) {
+        iframe.parentNode.removeChild(iframe);
+      }
+    });
+    
+    // Limpiar localStorage relacionado con pagos
+    localStorage.removeItem('payment_auto_reload');
+    localStorage.removeItem('mp_');
+    
     console.log('SDK de Mercado Pago limpiado exitosamente');
   } catch (error) {
     console.error('Error al limpiar SDK de Mercado Pago:', error);
@@ -59,39 +79,110 @@ const PaymentResultPage = () => {
     setPaymentResult(result);
     setLoading(false);
 
+    // Verificar si es un pago de prueba (no recargar automáticamente)
+    const isTestPayment = result.payment_id && result.payment_id.startsWith('TEST_');
+    
     // Verificar si ya se recargó automáticamente
     const hasAutoReloaded = localStorage.getItem('payment_auto_reload');
     
-    if (!hasAutoReloaded) {
-      // Limpiar el SDK de Mercado Pago y recargar la página después de 5 segundos
+    // Solo recargar UNA vez para pagos reales (no pruebas)
+    if (!hasAutoReloaded && !isTestPayment) {
       const timer = setTimeout(() => {
         cleanupMercadoPagoSDK();
         // Marcar que ya se recargó automáticamente
         localStorage.setItem('payment_auto_reload', 'true');
         // Recargar la página para limpiar completamente el estado
         window.location.reload();
-      }, 5000); // 5 segundos para que el usuario pueda ver el resultado
+      }, 3000); // 3 segundos para que el usuario pueda ver el resultado
 
       return () => clearTimeout(timer);
-    } else {
-      // Si ya se recargó, limpiar la marca
-      localStorage.removeItem('payment_auto_reload');
     }
   }, [searchParams]);
 
-  const getStatusInfo = (status: string) => {
+  const getStatusInfo = (status: string, statusDetail?: string) => {
+    // Primero verificamos el status_detail específico para casos especiales
+    if (statusDetail) {
+      switch (statusDetail.toUpperCase()) {
+        case 'APRO':
+          return {
+            title: '¡Pago Aprobado!',
+            message: 'Tu pago ha sido procesado exitosamente.',
+            icon: 'bi-check-circle-fill',
+            color: 'success',
+            bgColor: 'bg-success'
+          };
+        case 'OTHE':
+          return {
+            title: 'Pago Rechazado',
+            message: 'Tu pago fue rechazado por un error general. Por favor, intenta nuevamente.',
+            icon: 'bi-x-circle-fill',
+            color: 'danger',
+            bgColor: 'bg-danger'
+          };
+        case 'CONT':
+          return {
+            title: 'Pago Pendiente',
+            message: 'Tu pago está pendiente de confirmación. Te notificaremos cuando se complete.',
+            icon: 'bi-clock-fill',
+            color: 'warning',
+            bgColor: 'bg-warning'
+          };
+        case 'CALL':
+          return {
+            title: 'Pago Rechazado',
+            message: 'Tu pago fue rechazado y requiere validación para autorizar. Contacta a tu banco.',
+            icon: 'bi-x-circle-fill',
+            color: 'danger',
+            bgColor: 'bg-danger'
+          };
+        case 'FUND':
+          return {
+            title: 'Pago Rechazado',
+            message: 'Tu pago fue rechazado por fondos insuficientes. Verifica tu saldo disponible.',
+            icon: 'bi-x-circle-fill',
+            color: 'danger',
+            bgColor: 'bg-danger'
+          };
+        case 'SECU':
+          return {
+            title: 'Pago Rechazado',
+            message: 'Tu pago fue rechazado por código de seguridad inválido. Verifica el CVV de tu tarjeta.',
+            icon: 'bi-x-circle-fill',
+            color: 'danger',
+            bgColor: 'bg-danger'
+          };
+        case 'EXPI':
+          return {
+            title: 'Pago Rechazado',
+            message: 'Tu pago fue rechazado por problema con la fecha de vencimiento. Verifica la fecha de tu tarjeta.',
+            icon: 'bi-x-circle-fill',
+            color: 'danger',
+            bgColor: 'bg-danger'
+          };
+        case 'FORM':
+          return {
+            title: 'Pago Rechazado',
+            message: 'Tu pago fue rechazado por error en el formulario. Verifica los datos ingresados.',
+            icon: 'bi-x-circle-fill',
+            color: 'danger',
+            bgColor: 'bg-danger'
+          };
+      }
+    }
+
+    // Si no hay status_detail específico o no coincide, usamos el status general
     switch (status.toLowerCase()) {
       case 'approved':
         return {
-        title: '¡Pago Aprobado!',
+          title: '¡Pago Aprobado!',
           message: 'Tu pago ha sido procesado exitosamente.',
-        icon: 'bi-check-circle-fill',
+          icon: 'bi-check-circle-fill',
           color: 'success',
           bgColor: 'bg-success'
         };
       case 'pending':
         return {
-        title: 'Pago Pendiente',
+          title: 'Pago Pendiente',
           message: 'Tu pago está siendo procesado. Te notificaremos cuando se complete.',
           icon: 'bi-clock-fill',
           color: 'warning',
@@ -99,9 +190,9 @@ const PaymentResultPage = () => {
         };
       case 'rejected':
         return {
-        title: 'Pago Rechazado',
+          title: 'Pago Rechazado',
           message: 'Tu pago fue rechazado. Por favor, intenta con otro método de pago.',
-        icon: 'bi-x-circle-fill',
+          icon: 'bi-x-circle-fill',
           color: 'danger',
           bgColor: 'bg-danger'
         };
@@ -109,7 +200,7 @@ const PaymentResultPage = () => {
         return {
           title: 'Pago en Proceso',
           message: 'Tu pago está siendo revisado. Te notificaremos el resultado.',
-        icon: 'bi-hourglass-split',
+          icon: 'bi-hourglass-split',
           color: 'info',
           bgColor: 'bg-info'
         };
@@ -125,17 +216,26 @@ const PaymentResultPage = () => {
   };
 
   const handleContinueShopping = () => {
-    navigate('/productos');
+    cleanupMercadoPagoSDK();
+    // Limpiar cualquier estado de pago
+    localStorage.removeItem('payment_auto_reload');
+    // Recargar la página para limpiar completamente el estado
+    window.location.href = '/productos';
   };
 
   const handleViewOrders = () => {
-    navigate('/profile');
+    cleanupMercadoPagoSDK();
+    // Limpiar cualquier estado de pago
+    localStorage.removeItem('payment_auto_reload');
+    // Recargar la página para limpiar completamente el estado
+    window.location.href = '/profile';
   };
 
   const handleReloadPage = () => {
     cleanupMercadoPagoSDK();
-    // Marcar que ya se recargó manualmente
-    localStorage.setItem('payment_auto_reload', 'true');
+    // Limpiar cualquier estado de pago
+    localStorage.removeItem('payment_auto_reload');
+    // Recargar la página
     window.location.reload();
   };
 
@@ -166,7 +266,14 @@ const PaymentResultPage = () => {
     );
   }
 
-  const statusInfo = getStatusInfo(paymentResult.status);
+  // Logs de depuración
+  console.log('PaymentResult recibido:', paymentResult);
+  console.log('Status:', paymentResult.status);
+  console.log('Status Detail:', paymentResult.status_detail);
+  
+  const statusInfo = getStatusInfo(paymentResult.status, paymentResult.status_detail);
+  
+  console.log('StatusInfo calculado:', statusInfo);
 
     return (
     <div className="payment-result-page container py-5">
@@ -180,10 +287,19 @@ const PaymentResultPage = () => {
             <div className="card-body text-center">
               <p className="lead">{statusInfo.message}</p>
               
-              <div className="alert alert-info mt-3">
-                <i className="bi bi-info-circle me-2"></i>
-                <strong>Nota:</strong> La página se recargará automáticamente una vez para limpiar el estado del sistema de pagos y permitir nuevos pagos.
-              </div>
+              {paymentResult.payment_id?.startsWith('TEST_') && (
+                <div className="alert alert-warning mt-3">
+                  <i className="bi bi-exclamation-triangle me-2"></i>
+                  <strong>Pago de Prueba:</strong> Este es un pago simulado para probar los diferentes estados.
+                </div>
+              )}
+              
+              {!paymentResult.payment_id?.startsWith('TEST_') && (
+                <div className="alert alert-info mt-3">
+                  <i className="bi bi-info-circle me-2"></i>
+                  <strong>Nota:</strong> La página se recargará automáticamente en 3 segundos para limpiar el estado del sistema de pagos y permitir nuevos pagos.
+                </div>
+              )}
               
               {paymentResult.payment_id && (
                 <div className="alert alert-info">

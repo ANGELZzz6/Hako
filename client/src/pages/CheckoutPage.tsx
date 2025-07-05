@@ -133,8 +133,8 @@ const CheckoutPage = () => {
                 setError(null);
                 console.log('Datos del formulario de tarjeta:', cardFormData);
                 try {
-                  // Usar endpoint de prueba temporalmente
-                  const paymentResult = await paymentService.testProcessPayment({
+                  // Usar endpoint real para procesar el pago
+                  const paymentResult = await paymentService.processPayment({
                     token: cardFormData.token,
                     issuer_id: cardFormData.issuer_id,
                     payment_method_id: cardFormData.payment_method_id,
@@ -170,7 +170,24 @@ const CheckoutPage = () => {
                   navigate(`/payment-result?${params.toString()}`);
                 } catch (err: any) {
                   console.error('Error procesando el pago:', err);
-                  setError('Error procesando el pago. Por favor, intenta nuevamente.');
+                  
+                  // Si el error viene del servidor con información específica del pago
+                  if (err.status && err.status_detail) {
+                    const paymentData = {
+                      status: err.status,
+                      payment_id: 'ERROR_' + Date.now(),
+                      preference_id: preferenceId,
+                      payment_method_id: cardFormData.payment_method_id || 'card',
+                      installments: cardFormData.installments || '1',
+                      issuer_id: cardFormData.issuer_id || '',
+                      status_detail: err.status_detail
+                    };
+                    
+                    const params = new URLSearchParams(paymentData);
+                    navigate(`/payment-result?${params.toString()}`);
+                  } else {
+                    setError('Error procesando el pago. Por favor, intenta nuevamente.');
+                  }
                 } finally {
                   setLoading(false);
                 }

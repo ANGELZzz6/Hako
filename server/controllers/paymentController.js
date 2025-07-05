@@ -5,6 +5,98 @@ const notificationService = require('../services/notificationService');
 const preferenceClient = new Preference(mp);
 const paymentClient = new Payment(mp);
 
+// Función para mapear códigos de error de Mercado Pago a status_detail
+const mapErrorCodeToStatusDetail = (errorCode) => {
+  const errorMap = {
+    // Fondos insuficientes
+    '326': 'FUND',
+    '325': 'FUND',
+    '322': 'FUND',
+    
+    // Código de seguridad inválido
+    'E301': 'SECU',
+    '301': 'SECU',
+    
+    // Fecha de vencimiento
+    'E302': 'EXPI',
+    '302': 'EXPI',
+    
+    // Error de formulario
+    'E303': 'FORM',
+    '303': 'FORM',
+    
+    // Requiere validación
+    'E304': 'CALL',
+    '304': 'CALL',
+    
+    // Tarjeta no autorizada
+    'E305': 'CALL',
+    '305': 'CALL',
+    
+    // Tarjeta bloqueada
+    'E306': 'CALL',
+    '306': 'CALL',
+    
+    // Tarjeta vencida
+    'E307': 'EXPI',
+    '307': 'EXPI',
+    
+    // Tarjeta no válida
+    'E308': 'FORM',
+    '308': 'FORM',
+    
+    // Tarjeta no encontrada
+    'E309': 'FORM',
+    '309': 'FORM',
+    
+    // Tarjeta no autorizada para el comercio
+    'E310': 'CALL',
+    '310': 'CALL',
+    
+    // Tarjeta no autorizada para el tipo de operación
+    'E311': 'CALL',
+    '311': 'CALL',
+    
+    // Tarjeta no autorizada para el monto
+    'E312': 'CALL',
+    '312': 'CALL',
+    
+    // Tarjeta no autorizada para la moneda
+    'E313': 'CALL',
+    '313': 'CALL',
+    
+    // Tarjeta no autorizada para el país
+    'E314': 'CALL',
+    '314': 'CALL',
+    
+    // Tarjeta no autorizada para el comercio
+    'E315': 'CALL',
+    '315': 'CALL',
+    
+    // Tarjeta no autorizada para el tipo de operación
+    'E316': 'CALL',
+    '316': 'CALL',
+    
+    // Tarjeta no autorizada para el monto
+    'E317': 'CALL',
+    '317': 'CALL',
+    
+    // Tarjeta no autorizada para la moneda
+    'E318': 'CALL',
+    '318': 'CALL',
+    
+    // Tarjeta no autorizada para el país
+    'E319': 'CALL',
+    '319': 'CALL',
+    
+    // Tarjeta no autorizada para el comercio
+    'E320': 'CALL',
+    '320': 'CALL'
+  };
+  
+  return errorMap[errorCode] || 'OTHE';
+};
+
 exports.createPreference = async (req, res) => {
   try {
     const { items, payer, saveCardData, userId } = req.body;
@@ -233,11 +325,43 @@ exports.processPayment = async (req, res) => {
     
     // Manejo específico de errores de Mercado Pago
     if (error.error && error.error === 'bad_request') {
+      // Error específico de configuración (Access Token inválido)
+      if (error.cause && Array.isArray(error.cause) && error.cause[0] && error.cause[0].code === 2034) {
+        console.error('❌ Error de configuración de Mercado Pago - Access Token inválido');
+        return res.status(400).json({ 
+          error: 'Error de configuración de Mercado Pago',
+          status: 'rejected',
+          status_detail: 'OTHE',
+          details: 'El Access Token no es válido o ha expirado. Contacta al administrador.',
+          code: 2034
+        });
+      }
+      
       return res.status(400).json({ 
         error: 'Error en los datos del pago', 
         details: error.message,
         cause: error.cause 
       });
+    }
+    
+    // Manejo de errores específicos de tarjeta
+    if (error.cause && Array.isArray(error.cause)) {
+      const cardErrors = error.cause.filter(cause => cause.code && cause.description);
+      if (cardErrors.length > 0) {
+        const mainError = cardErrors[0];
+        console.log('Error de tarjeta detectado:', mainError);
+        
+        // Usar la función de mapeo para obtener el status_detail correcto
+        const statusDetail = mapErrorCodeToStatusDetail(mainError.code);
+        
+        return res.status(400).json({
+          error: 'Error en el pago',
+          status: 'rejected',
+          status_detail: statusDetail,
+          details: mainError.description,
+          code: mainError.code
+        });
+      }
     }
     
     res.status(500).json({ 
@@ -277,12 +401,15 @@ exports.payWithSavedCard = async (req, res) => {
 exports.testPaymentStatus = async (req, res) => {
   try {
     const { status, status_detail } = req.body;
-    console.log('Simulando estado de pago:', status, status_detail);
+    console.log('=== PRUEBA DE ESTADO DE PAGO ===');
+    console.log('Status recibido:', status);
+    console.log('Status Detail recibido:', status_detail);
+    console.log('Body completo:', JSON.stringify(req.body, null, 2));
     
     const testPayment = {
       id: 'TEST_' + Date.now(),
       status: status || 'approved',
-      status_detail: status_detail || 'accredited',
+      status_detail: status_detail || 'APRO',
       external_reference: 'test_reference',
       transaction_amount: 1000,
       payment_method: {
@@ -297,6 +424,9 @@ exports.testPaymentStatus = async (req, res) => {
         }
       }
     };
+    
+    console.log('Pago de prueba creado:', JSON.stringify(testPayment, null, 2));
+    console.log('=== FIN PRUEBA DE ESTADO ===');
     
     res.json(testPayment);
   } catch (error) {
@@ -354,13 +484,32 @@ exports.testMercadoPagoConfig = async (req, res) => {
     });
   } catch (error) {
     console.error('Error verificando configuración MP:', error);
-    res.status(500).json({
+    
+    let errorDetails = {
       success: false,
       error: 'Error en la configuración de Mercado Pago',
       details: error.message,
-      accessToken: mp.accessToken ? 'Configurado pero con error' : 'No configurado',
-      suggestion: 'Verifica tu access token en https://www.mercadopago.com/developers/panel/credentials'
-    });
+      accessToken: mp.accessToken ? 'Configurado pero con error' : 'No configurado'
+    };
+    
+    // Agregar detalles específicos del error
+    if (error.error === 'bad_request' && error.cause && error.cause[0]) {
+      const errorCode = error.cause[0].code;
+      const errorDesc = error.cause[0].description;
+      
+      errorDetails.errorCode = errorCode;
+      errorDetails.errorDescription = errorDesc;
+      
+      if (errorCode === 2034) {
+        errorDetails.suggestion = 'El Access Token no es válido o ha expirado. Obtén uno nuevo en el panel de desarrolladores.';
+      } else if (errorCode === 401) {
+        errorDetails.suggestion = 'Error de autenticación. Verifica que el token sea correcto.';
+      } else {
+        errorDetails.suggestion = 'Error desconocido. Revisa la documentación de Mercado Pago.';
+      }
+    }
+    
+    res.status(500).json(errorDetails);
   }
 };
 
@@ -389,7 +538,7 @@ exports.testProcessPayment = async (req, res) => {
     const simulatedPayment = {
       id: 'TEST_' + Date.now(),
       status: 'approved',
-      status_detail: 'accredited',
+      status_detail: 'APRO',
       external_reference: 'test_reference',
       transaction_amount: parseFloat(transaction_amount),
       payment_method: {

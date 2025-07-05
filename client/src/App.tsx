@@ -134,6 +134,13 @@ const AppContent = () => {
     }
   }, [navigate]);
 
+  // Efecto para limpiar el estado de pago cuando se navega a la página principal
+  useEffect(() => {
+    if (location.pathname === '/') {
+      cleanupPaymentState();
+    }
+  }, [location.pathname]);
+
   // Función para cambiar el tema
   const toggleTheme = () => {
     setIsDarkTheme(!isDarkTheme);
@@ -181,6 +188,52 @@ const AppContent = () => {
   const destacados = products.filter(p => p.isDestacado);
   const destacadosGroups = chunkArray(destacados, 4);
 
+  // Función para limpiar el estado de pago
+  const cleanupPaymentState = () => {
+    try {
+      // Limpiar cualquier instancia del SDK de Mercado Pago
+      if ((window as any).mp) {
+        delete (window as any).mp;
+      }
+      
+      // Limpiar cualquier script del SDK
+      const scripts = document.querySelectorAll('script[src*="mercadopago"]');
+      scripts.forEach(script => script.remove());
+      
+      // Limpiar cualquier contenedor de formularios
+      const containers = document.querySelectorAll('#cardFormContainer, #moneyFormContainer');
+      containers.forEach(container => {
+        if (container) {
+          container.innerHTML = '';
+        }
+      });
+      
+      // Limpiar cualquier elemento con clase de Mercado Pago
+      const mpElements = document.querySelectorAll('[class*="mercadopago"], [class*="mp-"]');
+      mpElements.forEach(element => {
+        if (element.parentNode) {
+          element.parentNode.removeChild(element);
+        }
+      });
+      
+      // Limpiar cualquier iframe de Mercado Pago
+      const iframes = document.querySelectorAll('iframe[src*="mercadopago"]');
+      iframes.forEach(iframe => {
+        if (iframe.parentNode) {
+          iframe.parentNode.removeChild(iframe);
+        }
+      });
+      
+      // Limpiar localStorage relacionado con pagos
+      localStorage.removeItem('payment_auto_reload');
+      localStorage.removeItem('mp_');
+      
+      console.log('Estado de pago limpiado exitosamente');
+    } catch (error) {
+      console.error('Error al limpiar estado de pago:', error);
+    }
+  };
+
   // Función para manejar el logout
   const handleLogout = () => {
     logout();
@@ -189,6 +242,7 @@ const AppContent = () => {
     } else {
       setCart(null);
     }
+    cleanupPaymentState();
   };
 
   // Función para manejar click en producto (ir a detalle)
@@ -430,9 +484,17 @@ const AppContent = () => {
       {showNavbar && (
         <nav className="navbar navbar-expand-lg navbar-light bg-light sticky-top">
           <div className="container">
-            <Link className="navbar-brand d-flex align-items-center" to="/">
+            <a 
+              className="navbar-brand d-flex align-items-center" 
+              href="/"
+              onClick={(e) => {
+                e.preventDefault();
+                cleanupPaymentState();
+                window.location.href = '/';
+              }}
+            >
               <span>箱</span><span className="brand-text">hako</span>
-            </Link>
+            </a>
             <button 
               className="navbar-toggler" 
               type="button" 
@@ -444,7 +506,17 @@ const AppContent = () => {
             <div className={`${isNavCollapsed ? 'collapse' : ''} navbar-collapse`}>
               <ul className="navbar-nav me-auto">
                 <li className="nav-item">
-                  <Link className="nav-link" to="/"><i className="bi bi-house-door me-1"></i>Inicio</Link>
+                  <a 
+                    className="nav-link" 
+                    href="/"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      cleanupPaymentState();
+                      window.location.href = '/';
+                    }}
+                  >
+                    <i className="bi bi-house-door me-1"></i>Inicio
+                  </a>
                 </li>
                 <li className="nav-item">
                   <Link className="nav-link" to="/productos"><i className="bi bi-grid me-1"></i>Productos</Link>
