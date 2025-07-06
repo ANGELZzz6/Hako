@@ -114,11 +114,7 @@ const PaymentManagement = () => {
             <span className="header-title">Payments</span>
           </div>
           <div className="header-center">
-            <h1 className="payment-header">
-              <span className="logo-japanese">箱</span>
-              <span className="brand-text">hako</span>
-              <span className="develop-text">Develop</span>
-            </h1>
+            <span className="logo-japanese">箱</span><span className="brand-text">hako</span>
           </div>
           <div className="header-right">
             <Link to="/admin" className="back-link">

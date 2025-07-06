@@ -54,22 +54,6 @@
   color: #333;
 }
 
-.logo-japanese {
-  font-size: 2rem;
-  margin-right: 0.5rem;
-}
-
-.brand-text {
-  color: #333;
-  margin-right: 0.5rem;
-}
-
-.develop-text {
-  color: #ffd700;
-  font-size: 0.9rem;
-  font-weight: 400;
-}
-
 .header-right {
   display: flex;
   align-items: center;

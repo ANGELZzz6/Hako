@@ -17,20 +17,12 @@
   text-align: center;
 }
 
-.admin-header .logo-japanese {
-  color: #d9534f;
-  font-weight: 700;
-}
-
-.admin-header .brand-text {
-  color: #333;
-}
-
+.admin-header .logo-japanese,
+.admin-header .brand-text,
 .admin-header .develop-text {
-  color: #d9534f;
-  font-size: 0.4em; /* "Develop" más pequeño */
-  font-weight: 500;
-  vertical-align: middle;
+  color: unset !important;
+  font-size: unset !important;
+  font-weight: unset !important;
 }
 
 .admin-main-content {

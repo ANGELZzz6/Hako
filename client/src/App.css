@@ -1146,3 +1146,39 @@ footer a:hover {
   color: white !important;
   box-shadow: 0 4px 12px rgba(255, 107, 107, 0.5);
 }
+
+/* Logo Login */
+.logo-bar-login .brand-text,
+.logo-bar-signup .brand-text,
+.logo-bar-admin .brand-text {
+  font-size: 2.2rem;
+  color: #222;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 700;
+  letter-spacing: 2px;
+}
+.logo-bar-login .logo-japanese,
+.logo-bar-signup .logo-japanese,
+.logo-bar-admin .logo-japanese {
+  font-size: 2.2rem;
+  color: #d32f2f;
+  font-family: 'Noto Sans JP', 'Montserrat', sans-serif;
+  font-weight: 800;
+  margin-right: 8px;
+}
+
+/* Refuerzo definitivo: fuente y peso idénticos al inicio en admin */
+.header-center .brand-text {
+  font-family: 'Montserrat', sans-serif !important;
+  font-weight: 700 !important;
+  font-size: 2.2rem !important;
+  color: #222 !important;
+  letter-spacing: 2px !important;
+}
+.header-center .logo-japanese {
+  font-family: 'Noto Sans JP', 'Montserrat', sans-serif !important;
+  font-weight: 800 !important;
+  font-size: 2.2rem !important;
+  color: #d32f2f !important;
+  margin-right: 8px !important;
+}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import '../App.css'; // Asegúrate de que los estilos generales se apliquen
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -17,7 +17,13 @@ const SignupPage = () => {
   const [userEmail, setUserEmail] = useState('');
 
   const navigate = useNavigate();
-  const { register, verifyCode, loginWithGoogle } = useAuth();
+  const { register, verifyCode, loginWithGoogle, isAuthenticated } = useAuth();
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   const validarNombre = (nombre: string) => /^[A-Za-zÁÉÍÓÚáéíóúÑñ ]+$/.test(nombre);
   // Solo acepta correos @gmail.com
@@ -97,8 +103,8 @@ const SignupPage = () => {
   return (
     <div className="auth-page-container light-gray-bg">
       <div className="auth-form-card peach-bg rounded-card">
-        <div className="brand-logo text-center mb-4">
-          <span className="logo-japanese red-text">箱</span><span className="brand-text black-text">hako</span>
+        <div className="logo-bar-signup text-center mb-4">
+          <span className="logo-japanese">箱</span><span className="brand-text">hako</span>
         </div>
         <h2 className="text-center mb-4">{step === 'register' ? 'Crear Cuenta' : 'Verifica tu correo'}</h2>
         {step === 'register' ? (

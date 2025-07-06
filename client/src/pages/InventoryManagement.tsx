@@ -174,11 +174,7 @@ const InventoryManagement = () => {
             <span className="header-title">Inventory</span>
           </div>
           <div className="header-center">
-            <h1 className="inventory-header">
-              <span className="logo-japanese">箱</span>
-              <span className="brand-text">hako</span>
-              <span className="develop-text">Develop</span>
-            </h1>
+            <span className="logo-japanese">箱</span><span className="brand-text">hako</span>
           </div>
           <div className="header-right">
             <Link to="/admin" className="back-link">

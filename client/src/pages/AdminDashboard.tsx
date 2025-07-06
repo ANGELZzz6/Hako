@@ -13,9 +13,7 @@ const AdminDashboard = () => {
             <span className="header-title">Dashboard</span>
           </div>
           <div className="header-center">
-            <h1 className="admin-header">
-              <span className="logo-japanese">箱</span> <span className="brand-text">hako</span> <span className="develop-text">Develop</span>
-            </h1>
+            <span className="logo-japanese">箱</span><span className="brand-text">hako</span>
           </div>
           <div className="header-right">
             <Link to="/" className="back-link">

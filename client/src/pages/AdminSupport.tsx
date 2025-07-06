@@ -257,11 +257,7 @@ const AdminSupportPage = () => {
             <span className="header-title">Soporte</span>
           </div>
           <div className="header-center">
-            <h1 className="user-header">
-              <span className="logo-japanese">箱</span>
-              <span className="brand-text">hako</span>
-              <span className="develop-text">Develop</span>
-            </h1>
+            <span className="logo-japanese">箱</span><span className="brand-text">hako</span>
           </div>
           <div className="header-right">
             <a href="/admin" className="back-link">

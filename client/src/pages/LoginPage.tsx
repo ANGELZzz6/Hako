@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import '../App.css'; // Asegúrate de que los estilos generales se apliquen
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
@@ -13,10 +13,16 @@ const LoginPage = () => {
 
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, loginWithGoogle } = useAuth();
+  const { login, loginWithGoogle, isAuthenticated } = useAuth();
 
   // Obtener la página de donde vino el usuario (si existe)
   const from = location.state?.from?.pathname || '/';
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   const validarEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   const validarContraseña = (contraseña: string) => contraseña.trim().length > 0;
@@ -74,8 +80,8 @@ const LoginPage = () => {
   return (
     <div className="auth-page-container light-gray-bg">
       <div className="auth-form-card peach-bg rounded-card">
-        <div className="brand-logo text-center mb-4">
-          <span className="logo-japanese red-text">箱</span><span className="brand-text black-text">hako</span>
+        <div className="logo-bar-login text-center mb-4">
+          <span className="logo-japanese">箱</span><span className="brand-text">hako</span>
         </div>
         <h2 className="text-center mb-4">Iniciar Sesión</h2>
         <form onSubmit={handleSubmit}>

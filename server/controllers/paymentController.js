@@ -59,7 +59,7 @@ exports.createPreference = async (req, res) => {
         pending: `${process.env.FRONTEND_URL}/payment-result`
       },
       // auto_return: 'all', // Comentado para pruebas de webhook - habilitar en producción
-      notification_url: 'https://620e-190-24-30-135.ngrok-free.app/api/payment/webhook/mercadopago',
+      notification_url: 'https://5302-190-24-30-135.ngrok-free.app/api/payment/webhook/mercadopago',
       external_reference: external_reference || `PREF_${Date.now()}`,
       expires: true,
       expiration_date_to: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 minutos
@@ -222,7 +222,7 @@ exports.testConfig = async (req, res) => {
         failure: 'https://httpbin.org/status/200',
         pending: 'https://httpbin.org/status/200'
       },
-      notification_url: 'https://e6c7-190-24-30-135.ngrok-free.app/api/payment/webhook/mercadopago',
+      notification_url: 'https://5302-190-24-30-135.ngrok-free.app/api/payment/webhook/mercadopago',
       external_reference: `TEST_${Date.now()}`,
       expires: true,
       expiration_date_to: new Date(Date.now() + 30 * 60 * 1000).toISOString()

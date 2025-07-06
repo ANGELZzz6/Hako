@@ -630,8 +630,8 @@ const AppContent = () => {
           </ProtectedRoute>
         } />
         <Route path="/soporte" element={<SupportPage />} />
-        <Route path="/profile" element={<ProfilePage />} />
-        <Route path="/cart-management" element={<CartManagement />} />
+        <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+        <Route path="/cart-management" element={<ProtectedRoute><CartManagement /></ProtectedRoute>} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
         <Route path="/sugerencias" element={<SugerenciasPage />} />
