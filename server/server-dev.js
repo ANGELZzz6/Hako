@@ -12,6 +12,9 @@ const path = require('path');
 
 const app = express();
 
+// Configurar trust proxy para ngrok
+app.set('trust proxy', 1);
+
 // Headers específicos para Google OAuth - SIN HELMET
 app.use((req, res, next) => {
   // Headers para permitir Google OAuth

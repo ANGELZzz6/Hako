@@ -40,13 +40,26 @@ class CartService {
 
   async getCart(): Promise<Cart> {
     try {
+      console.log('🛒 Obteniendo carrito desde:', ENDPOINTS.CART);
+      console.log('Headers:', this.getHeaders());
+      
       const response = await fetch(ENDPOINTS.CART, {
         headers: this.getHeaders(),
       });
-      if (!response.ok) throw new Error('Error al obtener el box');
-      return await response.json();
+      
+      console.log('Respuesta del servidor:', response.status, response.statusText);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Error en respuesta:', errorText);
+        throw new Error('Error al obtener el box');
+      }
+      
+      const cartData = await response.json();
+      console.log('✅ Datos del carrito recibidos:', cartData);
+      return cartData;
     } catch (error) {
-      console.error('Error:', error);
+      console.error('❌ Error en getCart:', error);
       throw error;
     }
   }

@@ -1,0 +1,23 @@
+# Configuración de Mercado Pago
+# IMPORTANTE: Reemplaza con tus credenciales reales de prueba
+
+# Token de acceso de Mercado Pago (debe empezar con TEST-)
+MERCADOPAGO_ACCESS_TOKEN=TEST-TU-TOKEN-DE-PRUEBA-AQUI
+
+# URL del frontend
+FRONTEND_URL=http://localhost:5173
+
+# Configuración de la base de datos
+MONGODB_URI=mongodb://localhost:27017/hako
+
+# Configuración de JWT
+JWT_SECRET=tu-jwt-secret-aqui
+
+# Configuración de Cloudinary (opcional)
+CLOUDINARY_CLOUD_NAME=tu-cloud-name
+CLOUDINARY_API_KEY=tu-api-key
+CLOUDINARY_API_SECRET=tu-api-secret
+
+# Configuración de Nodemailer (opcional)
+EMAIL_USER=tu-email@gmail.com
+EMAIL_PASS=tu-password-de-aplicacion 

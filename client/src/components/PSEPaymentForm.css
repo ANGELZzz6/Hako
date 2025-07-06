@@ -1,0 +1,141 @@
+.pse-payment-form {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.form-section-title {
+  color: #2c3e50;
+  border-bottom: 2px solid #3498db;
+  padding-bottom: 10px;
+  margin-bottom: 20px;
+  font-weight: 600;
+}
+
+.pse-payment-form .form-label {
+  font-weight: 500;
+  color: #34495e;
+  margin-bottom: 8px;
+}
+
+.pse-payment-form .form-control,
+.pse-payment-form .form-select {
+  border: 2px solid #e9ecef;
+  border-radius: 8px;
+  padding: 12px 15px;
+  font-size: 14px;
+  transition: all 0.3s ease;
+}
+
+.pse-payment-form .form-control:focus,
+.pse-payment-form .form-select:focus {
+  border-color: #3498db;
+  box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
+  outline: none;
+}
+
+.pse-payment-form .form-control:invalid,
+.pse-payment-form .form-select:invalid {
+  border-color: #e74c3c;
+}
+
+.pse-payment-form .btn-success {
+  background: linear-gradient(135deg, #27ae60, #2ecc71);
+  border: none;
+  border-radius: 25px;
+  padding: 15px 40px;
+  font-size: 16px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(46, 204, 113, 0.3);
+}
+
+.pse-payment-form .btn-success:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(46, 204, 113, 0.4);
+  background: linear-gradient(135deg, #2ecc71, #27ae60);
+}
+
+.pse-payment-form .btn-success:disabled {
+  background: #95a5a6;
+  transform: none;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.pse-payment-form .alert {
+  border-radius: 8px;
+  border: none;
+  padding: 15px 20px;
+  margin-top: 20px;
+}
+
+.pse-payment-form .alert-danger {
+  background: linear-gradient(135deg, #e74c3c, #c0392b);
+  color: white;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .pse-payment-form {
+    padding: 15px;
+  }
+  
+  .pse-payment-form .btn-success {
+    width: 100%;
+    padding: 12px 20px;
+    font-size: 14px;
+  }
+  
+  .form-section-title {
+    font-size: 18px;
+  }
+}
+
+/* Animaciones */
+.pse-payment-form .form-control,
+.pse-payment-form .form-select {
+  animation: fadeInUp 0.5s ease-out;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Estilos para campos requeridos */
+.pse-payment-form .form-label::after {
+  content: " *";
+  color: #e74c3c;
+  font-weight: bold;
+}
+
+/* Estilos para el alert de información */
+.pse-payment-form .alert-info {
+  background: linear-gradient(135deg, #3498db, #2980b9);
+  color: white;
+  border: none;
+  border-radius: 8px;
+}
+
+.pse-payment-form .alert-info i {
+  color: #ecf0f1;
+}
+
+/* Estilos para el estado de carga */
+.pse-payment-form .form-control-plaintext {
+  color: #7f8c8d;
+  font-style: italic;
+  padding: 12px 15px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  border: 2px solid #e9ecef;
+} 

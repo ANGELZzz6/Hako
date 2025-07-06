@@ -127,6 +127,30 @@ const PaymentResultPage = () => {
             color: 'warning',
             bgColor: 'bg-warning'
           };
+        case 'PENDING_WAITING_TRANSFER':
+          return {
+            title: 'Pago PSE Pendiente',
+            message: 'Tu pago PSE está pendiente. Completa la transferencia en tu banco para finalizar el pago.',
+            icon: 'bi-bank',
+            color: 'warning',
+            bgColor: 'bg-warning'
+          };
+        case 'PENDING_WAITING_PAYMENT':
+          return {
+            title: 'Pago PSE Pendiente',
+            message: 'Tu pago PSE está pendiente de confirmación. Te notificaremos cuando se complete.',
+            icon: 'bi-bank',
+            color: 'warning',
+            bgColor: 'bg-warning'
+          };
+        case 'PENDING_WAITING_CONFIRMATION':
+          return {
+            title: 'Pago PSE Pendiente',
+            message: 'Tu pago PSE está pendiente de confirmación. Te notificaremos cuando se complete.',
+            icon: 'bi-bank',
+            color: 'warning',
+            bgColor: 'bg-warning'
+          };
         case 'CALL':
           return {
             title: 'Pago Rechazado',
@@ -310,6 +334,20 @@ const PaymentResultPage = () => {
               {paymentResult.payment_method_id && (
                 <div className="mb-3">
                   <strong>Método de Pago:</strong> {paymentResult.payment_method_id.toUpperCase()}
+                                {paymentResult.payment_method_id === 'pse' && (
+                <div className="mt-2">
+                  <small className="text-muted">
+                    <i className="bi bi-bank me-1"></i>
+                    Pagos Seguros en Línea - Transferencia bancaria
+                  </small>
+                  {paymentResult.status === 'pending' && (
+                    <div className="alert alert-info mt-2">
+                      <i className="bi bi-info-circle me-2"></i>
+                      <strong>Próximo paso:</strong> Serás redirigido a tu banco para completar la transferencia.
+                    </div>
+                  )}
+                </div>
+              )}
                 </div>
               )}
 
