@@ -20,4 +20,31 @@ CLOUDINARY_API_SECRET=tu-api-secret
 
 # Configuración de Nodemailer (opcional)
 EMAIL_USER=tu-email@gmail.com
-EMAIL_PASS=tu-password-de-aplicacion 
+EMAIL_PASS=tu-password-de-aplicacion
+
+# CONFIGURACIÓN PARA MODO WEBHOOK (PRUEBAS)
+# ===========================================
+
+# Configuración básica
+EMAIL_USER=tu-email@gmail.com
+EMAIL_PASS=tu-password
+MONGODB_URI=tu-mongodb-uri
+PORT=5000
+
+# Cloudinary
+CLOUDINARY_CLOUD_NAME=tu-cloud-name
+CLOUDINARY_API_KEY=tu-api-key
+CLOUDINARY_API_SECRET=tu-api-secret
+
+# Mercado Pago
+MERCADOPAGO_ACCESS_TOKEN=tu-access-token
+
+# URLs para webhook (sin redirección automática)
+FRONTEND_URL=http://localhost:5173
+# notification_url se configura en el código con ngrok
+
+# NOTAS:
+# - Solo usar ngrok en puerto 5000 para webhook
+# - Frontend accede localmente a localhost:5000
+# - auto_return está comentado en el código
+# - Para producción, habilitar auto_return y usar URLs públicas 

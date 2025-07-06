@@ -1,0 +1,5 @@
+# Configuración para desarrollo local
+REACT_APP_API_URL=http://localhost:5000/api
+
+# Para usar con ngrok, cambia la línea anterior por:
+# REACT_APP_API_URL=https://tu-ngrok-backend.ngrok-free.app/api 

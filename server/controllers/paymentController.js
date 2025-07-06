@@ -10,7 +10,7 @@ exports.createPreference = async (req, res) => {
   try {
     console.log('=== CREANDO PREFERENCIA DE PAGO (CHECKOUT PRO) ===');
     
-    const { items, payer, external_reference } = req.body;
+    const { items, payer, external_reference, user_id, selected_items } = req.body;
     
     // Validar datos requeridos
     if (!items || !Array.isArray(items) || items.length === 0) {
@@ -27,7 +27,14 @@ exports.createPreference = async (req, res) => {
       });
     }
     
-    console.log('Datos recibidos:', { items, payer, external_reference });
+    if (!user_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Se requiere ID del usuario'
+      });
+    }
+    
+    console.log('Datos recibidos:', { items, payer, external_reference, user_id, selected_items });
     
     // Crear preferencia de pago
     const preferenceData = {
@@ -47,14 +54,24 @@ exports.createPreference = async (req, res) => {
         }
       },
       back_urls: {
-        success: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment-result`,
-        failure: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment-result`,
-        pending: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment-result`
+        success: `${process.env.FRONTEND_URL}/payment-result`,
+        failure: `${process.env.FRONTEND_URL}/payment-result`,
+        pending: `${process.env.FRONTEND_URL}/payment-result`
       },
-      notification_url: 'https://e6c7-190-24-30-135.ngrok-free.app/api/payment/webhook/mercadopago',
+      // auto_return: 'all', // Comentado para pruebas de webhook - habilitar en producción
+      notification_url: 'https://620e-190-24-30-135.ngrok-free.app/api/payment/webhook/mercadopago',
       external_reference: external_reference || `PREF_${Date.now()}`,
       expires: true,
-      expiration_date_to: new Date(Date.now() + 30 * 60 * 1000).toISOString() // 30 minutos
+      expiration_date_to: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 minutos
+      metadata: {
+        user_id: user_id,
+        selected_items: selected_items || items.map(item => ({
+          product_id: item.id,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          product_name: item.title
+        }))
+      }
     };
     
     console.log('Datos de preferencia a enviar:', JSON.stringify(preferenceData, null, 2));
@@ -303,9 +320,118 @@ exports.mercadoPagoWebhook = async (req, res) => {
           payment_method: paymentInfo.payment_method?.type
         });
 
-        // Aquí puedes actualizar tu base de datos según el estado del pago
-        // Por ejemplo:
-        // await Order.updateOne({ mp_payment_id: paymentId }, { status: paymentInfo.status });
+        // Guardar información del pago en la base de datos
+        const Payment = require('../models/Payment');
+        const Order = require('../models/Order');
+
+        try {
+          // Extraer información del usuario y productos desde metadata
+          const user_id = paymentInfo.metadata?.user_id;
+          const selected_items = paymentInfo.metadata?.selected_items || [];
+          
+          console.log('📦 Productos comprados:', selected_items);
+          console.log('👤 Usuario:', user_id);
+          console.log('🔍 Metadata completo:', paymentInfo.metadata);
+          
+          // Guardar o actualizar el pago
+          const paymentData = {
+            mp_payment_id: paymentInfo.id.toString(),
+            status: paymentInfo.status,
+            status_detail: paymentInfo.status_detail || '',
+            amount: paymentInfo.transaction_amount,
+            currency: paymentInfo.currency || 'COP',
+            payment_method: {
+              type: paymentInfo.payment_method?.type || '',
+              id: paymentInfo.payment_method?.id || ''
+            },
+            payer: {
+              email: paymentInfo.payer?.email || '',
+              name: paymentInfo.payer?.first_name || '',
+              surname: paymentInfo.payer?.last_name || ''
+            },
+            external_reference: paymentInfo.external_reference || '',
+            user_id: user_id,
+            purchased_items: selected_items,
+            date_created: new Date(paymentInfo.date_created),
+            date_approved: paymentInfo.status === 'approved' ? new Date(paymentInfo.date_approved || Date.now()) : null,
+            description: paymentInfo.description || '',
+            live_mode: paymentInfo.live_mode || false
+          };
+
+          // Upsert: crear si no existe, actualizar si existe
+          await Payment.findOneAndUpdate(
+            { mp_payment_id: paymentData.mp_payment_id },
+            paymentData,
+            { upsert: true, new: true }
+          );
+
+          console.log('💾 Pago guardado en la base de datos');
+
+          // Si el pago fue aprobado, limpiar productos del carrito
+          if (paymentInfo.status === 'approved' && user_id && selected_items.length > 0) {
+            console.log('✅ Pago aprobado, limpiando carrito...');
+            
+            try {
+              const Cart = require('../models/Cart');
+              
+                                  // Obtener IDs de productos comprados
+          const purchasedProductIds = selected_items.map(item => {
+            console.log('🔍 Procesando item:', item);
+            return item.id || item.product_id || item._id;
+          }).filter(id => id);
+          
+          console.log('🗑️ Eliminando productos del carrito:', purchasedProductIds);
+              
+              // Eliminar productos comprados del carrito del usuario
+              const result = await Cart.updateMany(
+                { 
+                  id_usuario: user_id,
+                  'items.id_producto': { $in: purchasedProductIds }
+                },
+                { 
+                  $pull: { 
+                    items: { 
+                      id_producto: { $in: purchasedProductIds } 
+                    } 
+                  } 
+                }
+              );
+              
+              console.log(`🧹 Carrito limpiado: ${result.modifiedCount} carritos actualizados`);
+              
+            } catch (cartError) {
+              console.error('❌ Error limpiando carrito:', cartError);
+            }
+          }
+
+          // Si el pago fue aprobado, actualizar la orden
+          if (paymentInfo.status === 'approved' && paymentInfo.external_reference) {
+            const orderUpdate = {
+              status: 'paid',
+              paid_at: new Date(),
+              'payment.mp_payment_id': paymentInfo.id.toString(),
+              'payment.status': paymentInfo.status,
+              'payment.method': paymentInfo.payment_method?.type || '',
+              'payment.amount': paymentInfo.transaction_amount,
+              'payment.currency': paymentInfo.currency || 'COP'
+            };
+
+            const updatedOrder = await Order.findOneAndUpdate(
+              { external_reference: paymentInfo.external_reference },
+              orderUpdate,
+              { new: true }
+            );
+
+            if (updatedOrder) {
+              console.log('✅ Orden actualizada como pagada:', updatedOrder._id);
+            } else {
+              console.log('⚠️ Orden no encontrada con external_reference:', paymentInfo.external_reference);
+            }
+          }
+
+        } catch (dbError) {
+          console.error('❌ Error guardando en base de datos:', dbError);
+        }
         
         console.log('✅ Webhook procesado correctamente');
         

@@ -1,3 +1,4 @@
+// Configuración de API para desarrollo local
 const API_URL = 'http://localhost:5000/api';
 
 export const ENDPOINTS = {

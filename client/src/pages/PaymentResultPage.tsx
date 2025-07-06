@@ -65,6 +65,10 @@ const PaymentResultPage = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log('=== PAYMENT RESULT PAGE LOADED ===');
+    console.log('URL Search Params:', searchParams.toString());
+    console.log('All URL Params:', Object.fromEntries(searchParams.entries()));
+    
     // Extraer parámetros de la URL
     const result: PaymentResult = {
       status: searchParams.get('status') || '',
@@ -76,6 +80,7 @@ const PaymentResultPage = () => {
       status_detail: searchParams.get('status_detail') || undefined,
     };
 
+    console.log('Payment Result parsed:', result);
     setPaymentResult(result);
     setLoading(false);
 
@@ -85,9 +90,18 @@ const PaymentResultPage = () => {
     // Verificar si ya se recargó automáticamente
     const hasAutoReloaded = localStorage.getItem('payment_auto_reload');
     
+    console.log('Payment info:', {
+      isTestPayment,
+      hasAutoReloaded,
+      status: result.status,
+      status_detail: result.status_detail
+    });
+    
     // Solo recargar UNA vez para pagos reales (no pruebas)
     if (!hasAutoReloaded && !isTestPayment) {
+      console.log('Configurando recarga automática en 3 segundos...');
       const timer = setTimeout(() => {
+        console.log('Ejecutando recarga automática...');
         cleanupMercadoPagoSDK();
         // Marcar que ya se recargó automáticamente
         localStorage.setItem('payment_auto_reload', 'true');

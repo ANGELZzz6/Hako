@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import paymentService from '../services/paymentService';
 import type { MPItem, MPPayer } from '../services/paymentService';
 import cartService from '../services/cartService';
@@ -17,6 +17,7 @@ const MercadoPagoCheckout: React.FC<MercadoPagoCheckoutProps> = ({
   onError 
 }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { currentUser } = useAuth();
   const { refreshCart } = useCart();
   
@@ -54,26 +55,25 @@ const MercadoPagoCheckout: React.FC<MercadoPagoCheckoutProps> = ({
       try {
         console.log('=== CARGANDO DATOS DEL CHECKOUT ===');
         
-        const cartData = await cartService.getCart();
-        console.log('Datos del carrito recibidos:', cartData);
+        // Obtener productos seleccionados del estado de navegación
+        const selectedItems = location.state?.items;
+        const selectedPayer = location.state?.payer;
         
-        if (!cartData || !cartData.items || cartData.items.length === 0) {
-          setError('No hay productos en el carrito');
+        console.log('Productos seleccionados recibidos:', selectedItems);
+        console.log('Datos del pagador recibidos:', selectedPayer);
+        
+        if (!selectedItems || selectedItems.length === 0) {
+          setError('No hay productos seleccionados para el pago');
           return;
         }
 
-        // Convertir a formato MPItem
-        const mpItems: MPItem[] = cartData.items.map((item: any) => ({
-          id: item.id_producto?._id || item.id_producto,
-          title: item.nombre_producto,
-          unit_price: item.precio_unitario,
-          quantity: item.cantidad
-        }));
-
-        setItems(mpItems);
+        // Usar los productos seleccionados directamente
+        setItems(selectedItems);
 
         // Configurar datos del pagador
-        if (currentUser) {
+        if (selectedPayer) {
+          setPayer(selectedPayer);
+        } else if (currentUser) {
           setPayer({
             email: currentUser.email,
             name: currentUser.nombre || '',
@@ -94,7 +94,7 @@ const MercadoPagoCheckout: React.FC<MercadoPagoCheckoutProps> = ({
     if (sdkLoaded) {
       loadCheckoutData();
     }
-  }, [currentUser, sdkLoaded]);
+  }, [currentUser, sdkLoaded, location.state]);
 
   // Crear preferencia cuando los datos estén listos
   useEffect(() => {
@@ -104,11 +104,14 @@ const MercadoPagoCheckout: React.FC<MercadoPagoCheckoutProps> = ({
       try {
         setLoading(true);
         console.log('Creando preferencia de pago...');
+        console.log('Productos a pagar:', items);
         
         const preference = await paymentService.createPreference(
           items, 
           payer, 
-          `HAKO_${Date.now()}`
+          `HAKO_${Date.now()}`,
+          currentUser?.id,
+          items // Enviar los productos que llegaron al checkout
         );
 
         console.log('Preferencia creada:', preference);
