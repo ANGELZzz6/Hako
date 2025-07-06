@@ -1,0 +1,307 @@
+/* Estilos para la página de gestión de pagos */
+
+.payment-management {
+  min-height: 100vh;
+  background: #f5f5f5;
+}
+
+/* Header */
+.payment-header-bar {
+  background: #fff;
+  border-bottom: 1px solid #e9ecef;
+  padding: 1rem 0;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.header-icon {
+  font-size: 1.5rem;
+  color: #dc3545;
+}
+
+.header-title {
+  color: #dc3545;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.header-center {
+  flex: 1;
+  text-align: center;
+}
+
+.payment-header {
+  margin: 0;
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #333;
+}
+
+.logo-japanese {
+  font-size: 2rem;
+  margin-right: 0.5rem;
+}
+
+.brand-text {
+  color: #333;
+  margin-right: 0.5rem;
+}
+
+.develop-text {
+  color: #ffd700;
+  font-size: 0.9rem;
+  font-weight: 400;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+}
+
+.back-link {
+  color: #dc3545;
+  text-decoration: none;
+  font-size: 1.5rem;
+  transition: color 0.3s ease;
+}
+
+.back-link:hover {
+  color: #dc3545;
+  opacity: 0.8;
+}
+
+/* Contenido principal */
+.payment-main-content {
+  padding: 2rem 0;
+}
+
+/* Grid de estadísticas */
+.stats-grid {
+  margin-bottom: 2rem;
+}
+
+.stats-grid .row {
+  margin: 0 -0.5rem;
+}
+
+.stats-grid .col-md-2 {
+  padding: 0 0.5rem;
+  margin-bottom: 1rem;
+}
+
+/* Tarjetas de estadísticas */
+.stat-card {
+  background: #fff;
+  border-radius: 15px;
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e9ecef;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+}
+
+.stat-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1rem auto;
+  font-size: 1.5rem;
+  color: #fff;
+}
+
+.stat-content h3 {
+  margin: 0;
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #333;
+  word-break: break-word;
+}
+
+.stat-content p {
+  margin: 0.5rem 0 0 0;
+  color: #666;
+  font-size: 0.9rem;
+  font-weight: 500;
+  word-break: break-word;
+  line-height: 1.2;
+}
+
+/* Contenedor de carga */
+.loading-container {
+  text-align: center;
+  padding: 3rem;
+  background: #fff;
+  border-radius: 15px;
+  margin: 2rem 0;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e9ecef;
+}
+
+.loading-container p {
+  margin-top: 1rem;
+  color: #666;
+  font-size: 1.1rem;
+}
+
+/* Mensaje de no hay pagos */
+.no-payments {
+  text-align: center;
+  padding: 4rem 2rem;
+  background: #fff;
+  border-radius: 15px;
+  margin: 2rem 0;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e9ecef;
+}
+
+.no-payments i {
+  font-size: 4rem;
+  color: #ccc;
+  margin-bottom: 1rem;
+}
+
+.no-payments p {
+  color: #666;
+  font-size: 1.2rem;
+  margin: 0;
+}
+
+/* Tabla */
+.table-responsive {
+  background: #fff;
+  border-radius: 15px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e9ecef;
+  overflow: hidden;
+}
+
+.table {
+  margin-bottom: 0;
+}
+
+.table thead th {
+  border-bottom: 2px solid #dee2e6;
+  font-weight: 600;
+}
+
+.table tbody tr:hover {
+  background-color: #f8f9fa;
+}
+
+/* Alertas */
+.alert {
+  border-radius: 10px;
+  border: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .header-content {
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .payment-header {
+    font-size: 1.5rem;
+  }
+  
+  .stats-grid .col-md-2 {
+    flex: 0 0 50%;
+    max-width: 50%;
+  }
+  
+  .stat-card {
+    margin-bottom: 1rem;
+    padding: 1rem;
+  }
+  
+  .stat-content h3 {
+    font-size: 1.5rem;
+  }
+  
+  .stat-content p {
+    font-size: 0.8rem;
+  }
+  
+  .stat-icon {
+    width: 50px;
+    height: 50px;
+    font-size: 1.2rem;
+  }
+}
+
+@media (max-width: 576px) {
+  .stats-grid .col-md-2 {
+    flex: 0 0 100%;
+    max-width: 100%;
+  }
+  
+  .stat-card {
+    padding: 0.8rem;
+  }
+  
+  .stat-content h3 {
+    font-size: 1.3rem;
+  }
+  
+  .stat-content p {
+    font-size: 0.75rem;
+  }
+  
+  .stat-icon {
+    width: 45px;
+    height: 45px;
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 576px) {
+  .payment-main-content {
+    padding: 1rem 0;
+  }
+  
+  .stat-card {
+    padding: 1rem;
+  }
+  
+  .stat-icon {
+    width: 50px;
+    height: 50px;
+    font-size: 1.2rem;
+  }
+  
+  .stat-content h3 {
+    font-size: 1.3rem;
+  }
+} 

@@ -52,8 +52,13 @@ const AdminDashboard = () => {
               <p>Boxes</p>
             </Link>
 
-            {/* Placeholders */}
-            <div className="dashboard-card placeholder"></div>
+            {/* Botón de Gestión de Pagos */}
+            <Link to="/admin/payments" className="dashboard-card" style={{ textDecoration: 'none' }}>
+              <i className="bi bi-credit-card icon"></i>
+              <p>Payments</p>
+            </Link>
+
+            {/* Placeholder */}
             <div className="dashboard-card placeholder"></div>
           </div>
         </div>

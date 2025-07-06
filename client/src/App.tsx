@@ -32,6 +32,7 @@ import ProfilePage from './pages/ProfilePage';
 import CartManagement from './pages/CartManagement';
 import { useMobileViewport } from './hooks/useMobileViewport';
 import AdminSupportPage from './pages/AdminSupport';
+import PaymentManagement from './pages/PaymentManagement';
 import { CartProvider, useCart } from './contexts/CartContext';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
@@ -621,6 +622,11 @@ const AppContent = () => {
         <Route path="/admin/carts" element={
           <ProtectedRoute requireAdmin>
             <CartManagement />
+          </ProtectedRoute>
+        } />
+        <Route path="/admin/payments" element={
+          <ProtectedRoute requireAdmin>
+            <PaymentManagement />
           </ProtectedRoute>
         } />
         <Route path="/soporte" element={<SupportPage />} />

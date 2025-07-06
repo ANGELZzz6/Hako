@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const paymentController = require('../controllers/paymentController');
+const { auth } = require('../middleware/auth');
+const adminAuth = require('../middleware/adminAuth');
 
 console.log('RUTA DE PAGO CARGADA');
 
@@ -12,5 +14,12 @@ router.get('/test-config', paymentController.testConfig); // Probar configuraci√
 
 // Webhook Mercado Pago
 router.post('/webhook/mercadopago', paymentController.mercadoPagoWebhook);
+
+// Rutas para administradores
+router.get('/admin/all', auth, adminAuth, paymentController.getAllPayments);
+router.get('/admin/stats', auth, adminAuth, paymentController.getPaymentStats);
+router.get('/admin/:paymentId', auth, adminAuth, paymentController.getPaymentById);
+router.put('/admin/:paymentId/status', auth, adminAuth, paymentController.updatePaymentStatus);
+router.delete('/admin/:paymentId', auth, adminAuth, paymentController.deletePayment);
 
 module.exports = router; 

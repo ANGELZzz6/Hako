@@ -455,11 +455,162 @@ exports.mercadoPagoWebhook = async (req, res) => {
   }
 };
 
+// Obtener todos los pagos (para admin)
+exports.getAllPayments = async (req, res) => {
+  try {
+    const Payment = require('../models/Payment');
+    
+    const payments = await Payment.find()
+      .populate('user_id', 'nombre email')
+      .sort({ date_created: -1 })
+      .exec();
+    
+    res.json(payments);
+  } catch (error) {
+    console.error('Error al obtener pagos:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+};
+
+// Obtener pago por ID (para admin)
+exports.getPaymentById = async (req, res) => {
+  try {
+    const { paymentId } = req.params;
+    
+    // Verificar que no sea "stats"
+    if (paymentId === 'stats') {
+      return res.status(400).json({ message: 'ID de pago inválido' });
+    }
+    
+    const Payment = require('../models/Payment');
+    
+    const payment = await Payment.findById(paymentId)
+      .populate('user_id', 'nombre email')
+      .exec();
+    
+    if (!payment) {
+      return res.status(404).json({ message: 'Pago no encontrado' });
+    }
+    
+    res.json(payment);
+  } catch (error) {
+    console.error('Error al obtener pago:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+};
+
+// Obtener estadísticas de pagos (para admin)
+exports.getPaymentStats = async (req, res) => {
+  try {
+    const Payment = require('../models/Payment');
+    
+    console.log('📊 Calculando estadísticas de pagos...');
+    
+    // Obtener todos los pagos para debug
+    const allPayments = await Payment.find({}, 'status amount');
+    console.log('🔍 Todos los pagos encontrados:', allPayments.length);
+    console.log('📋 Estados de pagos:', allPayments.map(p => ({ status: p.status, amount: p.amount })));
+    
+    const totalPayments = await Payment.countDocuments();
+    const approvedPayments = await Payment.countDocuments({ status: 'approved' });
+    const pendingPayments = await Payment.countDocuments({ status: 'pending' });
+    const rejectedPayments = await Payment.countDocuments({ status: 'rejected' });
+    
+    console.log('📈 Conteos:', {
+      total: totalPayments,
+      approved: approvedPayments,
+      pending: pendingPayments,
+      rejected: rejectedPayments
+    });
+    
+    const totalAmount = await Payment.aggregate([
+      { $match: { status: 'approved' } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+    
+    const averageAmount = await Payment.aggregate([
+      { $match: { status: 'approved' } },
+      { $group: { _id: null, average: { $avg: '$amount' } } }
+    ]);
+    
+    const stats = {
+      totalPayments,
+      approvedPayments,
+      pendingPayments,
+      rejectedPayments,
+      totalAmount: totalAmount[0]?.total || 0,
+      averageAmount: averageAmount[0]?.average || 0
+    };
+    
+    console.log('💰 Estadísticas calculadas:', stats);
+    
+    res.json(stats);
+  } catch (error) {
+    console.error('Error al obtener estadísticas:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+};
+
+// Actualizar estado de pago (para admin)
+exports.updatePaymentStatus = async (req, res) => {
+  try {
+    const { paymentId } = req.params;
+    const { status } = req.body;
+    
+    const Payment = require('../models/Payment');
+    
+    const payment = await Payment.findById(paymentId);
+    if (!payment) {
+      return res.status(404).json({ message: 'Pago no encontrado' });
+    }
+    
+    payment.status = status;
+    if (status === 'approved' && !payment.date_approved) {
+      payment.date_approved = new Date();
+    }
+    
+    await payment.save();
+    
+    // Poblar datos del usuario para la respuesta
+    await payment.populate('user_id', 'nombre email');
+    
+    res.json(payment);
+  } catch (error) {
+    console.error('Error al actualizar estado del pago:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+};
+
+// Eliminar pago (para admin)
+exports.deletePayment = async (req, res) => {
+  try {
+    const { paymentId } = req.params;
+    const Payment = require('../models/Payment');
+    
+    const payment = await Payment.findById(paymentId);
+    if (!payment) {
+      return res.status(404).json({ message: 'Pago no encontrado' });
+    }
+    
+    await Payment.findByIdAndDelete(paymentId);
+    
+    res.json({ message: 'Pago eliminado correctamente' });
+  } catch (error) {
+    console.error('Error al eliminar pago:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+};
+
 // Exportar todas las funciones
 module.exports = {
   createPreference: exports.createPreference,
   getPaymentStatus: exports.getPaymentStatus,
   webhook: exports.webhook,
   testConfig: exports.testConfig,
-  mercadoPagoWebhook: exports.mercadoPagoWebhook
+  mercadoPagoWebhook: exports.mercadoPagoWebhook,
+  getAllPayments: exports.getAllPayments,
+  getPaymentById: exports.getPaymentById,
+  getPaymentStats: exports.getPaymentStats,
+  updatePaymentStatus: exports.updatePaymentStatus,
+  deletePayment: exports.deletePayment
 }; 
