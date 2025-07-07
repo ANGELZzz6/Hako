@@ -36,6 +36,23 @@ exports.createPreference = async (req, res) => {
     
     console.log('Datos recibidos:', { items, payer, external_reference, user_id, selected_items });
     
+    // Buscar si el usuario tiene un pedido activo en estado 'paid' sin casillero confirmado
+    const Order = require('../models/Order');
+    let activeOrder = await Order.findOne({
+      user: user_id,
+      status: 'paid' // Solo pedidos pagados pero sin casillero confirmado
+    });
+
+    // Si existe un pedido activo, usar su external_reference
+    let finalExternalReference = external_reference;
+    if (activeOrder) {
+      finalExternalReference = activeOrder.external_reference;
+      console.log('🔄 Usando external_reference del pedido activo:', finalExternalReference);
+    } else {
+      finalExternalReference = external_reference || `PREF_${Date.now()}`;
+      console.log('🆕 Creando nuevo external_reference:', finalExternalReference);
+    }
+    
     // Crear preferencia de pago
     const preferenceData = {
       items: items.map(item => ({
@@ -60,7 +77,7 @@ exports.createPreference = async (req, res) => {
       },
       // auto_return: 'all', // Comentado para pruebas de webhook - habilitar en producción
       notification_url: 'https://5302-190-24-30-135.ngrok-free.app/api/payment/webhook/mercadopago',
-      external_reference: external_reference || `PREF_${Date.now()}`,
+      external_reference: finalExternalReference,
       expires: true,
       expiration_date_to: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 minutos
       metadata: {
@@ -320,8 +337,32 @@ exports.mercadoPagoWebhook = async (req, res) => {
           payment_method: paymentInfo.payment_method?.type
         });
 
-        // Guardar información del pago en la base de datos
+        // Verificar si el pago ya fue procesado
         const Payment = require('../models/Payment');
+        const existingPayment = await Payment.findOne({ mp_payment_id: paymentInfo.id.toString() });
+        if (existingPayment) {
+          console.log('ℹ️ Pago ya procesado anteriormente:', paymentInfo.id);
+          
+          // Aunque el pago ya existe, verificar si necesitamos crear productos individuales
+          if (paymentInfo.status === 'approved') {
+            const Order = require('../models/Order');
+            const IndividualProduct = require('../models/IndividualProduct');
+            
+            // Buscar si ya existen productos individuales para este pago
+            const existingIndividualProducts = await IndividualProduct.find({
+              'payment.mp_payment_id': paymentInfo.id.toString()
+            });
+            
+            if (existingIndividualProducts.length === 0) {
+              console.log('🔄 Creando productos individuales para pago existente...');
+              await createIndividualProductsForPayment(paymentInfo, existingPayment);
+            }
+          }
+          
+          return res.status(200).send('OK');
+        }
+
+        // Guardar información del pago en la base de datos
         const Order = require('../models/Order');
 
         try {
@@ -333,38 +374,24 @@ exports.mercadoPagoWebhook = async (req, res) => {
           console.log('👤 Usuario:', user_id);
           console.log('🔍 Metadata completo:', paymentInfo.metadata);
           
-          // Guardar o actualizar el pago
+          // Guardar el pago
           const paymentData = {
+            user_id: user_id,
             mp_payment_id: paymentInfo.id.toString(),
-            status: paymentInfo.status,
-            status_detail: paymentInfo.status_detail || '',
             amount: paymentInfo.transaction_amount,
-            currency: paymentInfo.currency || 'COP',
+            status: paymentInfo.status,
             payment_method: {
               type: paymentInfo.payment_method?.type || '',
               id: paymentInfo.payment_method?.id || ''
             },
-            payer: {
-              email: paymentInfo.payer?.email || '',
-              name: paymentInfo.payer?.first_name || '',
-              surname: paymentInfo.payer?.last_name || ''
-            },
-            external_reference: paymentInfo.external_reference || '',
-            user_id: user_id,
-            purchased_items: selected_items,
+            currency: paymentInfo.currency || 'COP',
+            external_reference: paymentInfo.external_reference,
             date_created: new Date(paymentInfo.date_created),
-            date_approved: paymentInfo.status === 'approved' ? new Date(paymentInfo.date_approved || Date.now()) : null,
-            description: paymentInfo.description || '',
-            live_mode: paymentInfo.live_mode || false
+            date_approved: paymentInfo.status === 'approved' ? new Date(paymentInfo.date_approved || Date.now()) : null
           };
 
-          // Upsert: crear si no existe, actualizar si existe
-          await Payment.findOneAndUpdate(
-            { mp_payment_id: paymentData.mp_payment_id },
-            paymentData,
-            { upsert: true, new: true }
-          );
-
+          const payment = new Payment(paymentData);
+          await payment.save();
           console.log('💾 Pago guardado en la base de datos');
 
           // Si el pago fue aprobado, limpiar productos del carrito
@@ -406,26 +433,133 @@ exports.mercadoPagoWebhook = async (req, res) => {
 
           // Si el pago fue aprobado, actualizar la orden
           if (paymentInfo.status === 'approved' && paymentInfo.external_reference) {
-            const orderUpdate = {
-              status: 'paid',
-              paid_at: new Date(),
-              'payment.mp_payment_id': paymentInfo.id.toString(),
-              'payment.status': paymentInfo.status,
-              'payment.method': paymentInfo.payment_method?.type || '',
-              'payment.amount': paymentInfo.transaction_amount,
-              'payment.currency': paymentInfo.currency || 'COP'
-            };
+            // Buscar pedido activo en estado 'paid' (que no esté en ready_for_pickup)
+            let activeOrder = await Order.findOne({
+              user: user_id,
+              status: 'paid' // Solo pedidos pagados pero sin casillero confirmado
+            });
 
-            const updatedOrder = await Order.findOneAndUpdate(
-              { external_reference: paymentInfo.external_reference },
-              orderUpdate,
-              { new: true }
-            );
-
-            if (updatedOrder) {
-              console.log('✅ Orden actualizada como pagada:', updatedOrder._id);
+            if (activeOrder) {
+              // Verificar si los productos ya están en el pedido para evitar duplicados
+              const existingProductIds = activeOrder.items.map(item => item.product.toString());
+              console.log('🔍 Productos existentes en el pedido:', existingProductIds);
+              console.log('🆕 Productos a agregar:', selected_items.map(item => (item.id || item.product_id || item._id).toString()));
+              
+              // Procesar cada producto nuevo
+              for (const newItem of selected_items) {
+                const productId = (newItem.id || newItem.product_id || newItem._id).toString();
+                const existingItemIndex = activeOrder.items.findIndex(item => item.product.toString() === productId);
+                
+                if (existingItemIndex !== -1) {
+                  // Producto ya existe, sumar cantidad
+                  const existingItem = activeOrder.items[existingItemIndex];
+                  const oldTotalPrice = existingItem.total_price; // Guardar el precio anterior
+                  const newQuantity = existingItem.quantity + newItem.quantity;
+                  const newTotalPrice = existingItem.unit_price * newQuantity;
+                  
+                  console.log(`🔢 Sumando cantidad para ${newItem.title}: ${existingItem.quantity} + ${newItem.quantity} = ${newQuantity}`);
+                  console.log(`💰 Actualizando precio: ${oldTotalPrice} → ${newTotalPrice} (diferencia: ${newTotalPrice - oldTotalPrice})`);
+                  
+                  // Actualizar cantidad y precio total del item existente
+                  activeOrder.items[existingItemIndex].quantity = newQuantity;
+                  activeOrder.items[existingItemIndex].total_price = newTotalPrice;
+                  
+                  // Actualizar total del pedido (restar el precio anterior y sumar el nuevo)
+                  activeOrder.total_amount = activeOrder.total_amount - oldTotalPrice + newTotalPrice;
+                  
+                } else {
+                  // Producto nuevo, agregarlo
+                  console.log(`🆕 Agregando producto nuevo: ${newItem.title}`);
+                  const newItemToAdd = {
+                    product: newItem.id || newItem.product_id || newItem._id,
+                    quantity: newItem.quantity,
+                    unit_price: newItem.unit_price,
+                    total_price: newItem.unit_price * newItem.quantity
+                  };
+                  activeOrder.items.push(newItemToAdd);
+                  activeOrder.total_amount += newItemToAdd.total_price;
+                }
+              }
+              
+              // Actualizar información de pago
+              activeOrder.paid_at = new Date();
+              activeOrder.payment = {
+                mp_payment_id: paymentInfo.id.toString(),
+                status: paymentInfo.status,
+                method: paymentInfo.payment_method?.type || '',
+                amount: paymentInfo.transaction_amount,
+                currency: paymentInfo.currency || 'COP'
+              };
+              
+              await activeOrder.save();
+              
+              // Verificar el cálculo del total
+              const calculatedTotal = activeOrder.items.reduce((acc, item) => acc + item.total_price, 0);
+              console.log('✅ Pedido activo actualizado:', activeOrder._id);
+              console.log(`💰 Total guardado: ${activeOrder.total_amount}, Total calculado: ${calculatedTotal}`);
+              console.log('📦 Items en el pedido:', activeOrder.items.map(item => `${item.quantity}x $${item.unit_price} = $${item.total_price}`));
             } else {
-              console.log('⚠️ Orden no encontrada con external_reference:', paymentInfo.external_reference);
+              // Si no hay pedido activo, buscar si existe una orden con este external_reference
+              let existingOrder = await Order.findOne({ 
+                external_reference: paymentInfo.external_reference 
+              });
+
+              if (existingOrder) {
+                // Actualizar la orden existente
+                const orderUpdate = {
+                  status: 'paid',
+                  paid_at: new Date(),
+                  'payment.mp_payment_id': paymentInfo.id.toString(),
+                  'payment.status': paymentInfo.status,
+                  'payment.method': paymentInfo.payment_method?.type || '',
+                  'payment.amount': paymentInfo.transaction_amount,
+                  'payment.currency': paymentInfo.currency || 'COP'
+                };
+
+                let updatedOrder = await Order.findOneAndUpdate(
+                  { external_reference: paymentInfo.external_reference },
+                  orderUpdate,
+                  { new: true }
+                );
+
+                console.log('✅ Orden actualizada como pagada:', updatedOrder._id);
+              } else {
+                // Si no existe la orden, la creamos
+                try {
+                  // Calcular el total de la orden
+                  const total_amount = selected_items.reduce((acc, item) => acc + (item.unit_price * item.quantity), 0);
+                  const items = selected_items.map(item => ({
+                    product: item.id || item.product_id || item._id,
+                    quantity: item.quantity,
+                    unit_price: item.unit_price,
+                    total_price: item.unit_price * item.quantity
+                  }));
+
+                  const newOrder = new Order({
+                    user: user_id,
+                    items,
+                    status: 'paid', // Estado inicial: pagado - productos disponibles para reclamar
+                    paid_at: new Date(),
+                    payment: {
+                      mp_payment_id: paymentInfo.id.toString(),
+                      status: paymentInfo.status,
+                      method: paymentInfo.payment_method?.type || '',
+                      amount: paymentInfo.transaction_amount,
+                      currency: paymentInfo.currency || 'COP'
+                    },
+                    external_reference: paymentInfo.external_reference,
+                    total_amount
+                    // No se asigna casillero automáticamente - el usuario lo hará al reclamar productos
+                  });
+                  await newOrder.save();
+                  console.log('✅ Orden creada:', newOrder._id, 'Productos disponibles para reclamar');
+
+                  // Crear productos individuales usando la función auxiliar
+                  await createIndividualProductsForPayment(paymentInfo, payment);
+                } catch (orderCreateError) {
+                  console.error('❌ Error creando la orden:', orderCreateError);
+                }
+              }
             }
           }
 
@@ -459,13 +593,41 @@ exports.mercadoPagoWebhook = async (req, res) => {
 exports.getAllPayments = async (req, res) => {
   try {
     const Payment = require('../models/Payment');
+    const Order = require('../models/Order');
     
     const payments = await Payment.find()
       .populate('user_id', 'nombre email')
       .sort({ date_created: -1 })
       .exec();
     
-    res.json(payments);
+    // Para cada pago, buscar la orden asociada y agregar información de productos
+    const paymentsWithProducts = await Promise.all(payments.map(async (payment) => {
+      const paymentObj = payment.toObject();
+      
+      // Buscar orden asociada por mp_payment_id
+      const associatedOrder = await Order.findOne({
+        'payment.mp_payment_id': payment.mp_payment_id
+      }).populate('items.product', 'title picture_url');
+      
+      if (associatedOrder) {
+        // Agregar información de productos desde la orden
+        paymentObj.purchased_items = associatedOrder.items.map(item => ({
+          id: item.product._id,
+          title: item.product.title,
+          picture_url: item.product.picture_url,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          total_price: item.total_price
+        }));
+      } else {
+        // Si no hay orden asociada, usar array vacío
+        paymentObj.purchased_items = [];
+      }
+      
+      return paymentObj;
+    }));
+    
+    res.json(paymentsWithProducts);
   } catch (error) {
     console.error('Error al obtener pagos:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
@@ -483,6 +645,7 @@ exports.getPaymentById = async (req, res) => {
     }
     
     const Payment = require('../models/Payment');
+    const Order = require('../models/Order');
     
     const payment = await Payment.findById(paymentId)
       .populate('user_id', 'nombre email')
@@ -492,7 +655,29 @@ exports.getPaymentById = async (req, res) => {
       return res.status(404).json({ message: 'Pago no encontrado' });
     }
     
-    res.json(payment);
+    const paymentObj = payment.toObject();
+    
+    // Buscar orden asociada por mp_payment_id
+    const associatedOrder = await Order.findOne({
+      'payment.mp_payment_id': payment.mp_payment_id
+    }).populate('items.product', 'title picture_url');
+    
+    if (associatedOrder) {
+      // Agregar información de productos desde la orden
+      paymentObj.purchased_items = associatedOrder.items.map(item => ({
+        id: item.product._id,
+        title: item.product.title,
+        picture_url: item.product.picture_url,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        total_price: item.total_price
+      }));
+    } else {
+      // Si no hay orden asociada, usar array vacío
+      paymentObj.purchased_items = [];
+    }
+    
+    res.json(paymentObj);
   } catch (error) {
     console.error('Error al obtener pago:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
@@ -567,6 +752,8 @@ exports.updatePaymentStatus = async (req, res) => {
     payment.status = status;
     if (status === 'approved' && !payment.date_approved) {
       payment.date_approved = new Date();
+    } else if (status !== 'approved') {
+      payment.date_approved = null;
     }
     
     await payment.save();
@@ -600,6 +787,79 @@ exports.deletePayment = async (req, res) => {
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 };
+
+// Función auxiliar para crear productos individuales para un pago
+async function createIndividualProductsForPayment(paymentInfo, payment) {
+  try {
+    const Order = require('../models/Order');
+    const IndividualProduct = require('../models/IndividualProduct');
+    
+    // Extraer información del usuario y productos desde metadata
+    const user_id = paymentInfo.metadata?.user_id;
+    const selected_items = paymentInfo.metadata?.selected_items || [];
+    
+    if (!user_id || selected_items.length === 0) {
+      console.log('⚠️ No se pueden crear productos individuales: faltan datos del usuario o productos');
+      return;
+    }
+    
+    // Buscar la orden asociada al pago
+    const order = await Order.findOne({
+      'payment.mp_payment_id': paymentInfo.id.toString()
+    });
+    
+    if (!order) {
+      console.log('⚠️ No se encontró orden asociada al pago:', paymentInfo.id);
+      return;
+    }
+    
+    // Verificar si ya existen productos individuales para esta orden
+    const existingIndividualProducts = await IndividualProduct.find({
+      order: order._id
+    });
+    
+    if (existingIndividualProducts.length > 0) {
+      console.log('ℹ️ Ya existen productos individuales para esta orden:', existingIndividualProducts.length);
+      return;
+    }
+    
+    // Crear productos individuales para cada unidad comprada
+    console.log('🆕 Creando productos individuales para orden:', order._id);
+    
+    for (const item of order.items) {
+      // Obtener el producto original para copiar las dimensiones
+      const Product = require('../models/Product');
+      const originalProduct = await Product.findById(item.product);
+      
+      if (!originalProduct) {
+        console.log('⚠️ Producto original no encontrado:', item.product);
+        continue;
+      }
+      
+      for (let i = 0; i < item.quantity; i++) {
+        const individualProduct = new IndividualProduct({
+          user: user_id,
+          order: order._id,
+          product: item.product,
+          individualIndex: i + 1,
+          status: 'available',
+          unitPrice: item.unit_price,
+          dimensiones: originalProduct.dimensiones, // Copiar dimensiones del producto original
+          payment: {
+            mp_payment_id: paymentInfo.id.toString(),
+            status: paymentInfo.status
+          }
+        });
+        await individualProduct.save();
+      }
+    }
+    
+    console.log('✅ Productos individuales creados exitosamente para el pago:', paymentInfo.id);
+    
+  } catch (error) {
+    console.error('❌ Error creando productos individuales:', error);
+  }
+}
 
 // Exportar todas las funciones
 module.exports = {

@@ -41,6 +41,10 @@ import SugerenciasPage from './pages/SugerenciasPage';
 import PaymentFailurePage from './pages/PaymentFailurePage';
 import PaymentPendingPage from './pages/PaymentPendingPage';
 import CheckoutPage from './pages/CheckoutPage';
+import OrdersPage from './pages/OrdersPage';
+import AdminOrdersPage from './pages/AdminOrdersPage';
+
+import AdminAppointmentsPage from './pages/AdminAppointmentsPage';
 
 // Importar fuente Montserrat
 import '@fontsource/montserrat/300.css';
@@ -546,6 +550,10 @@ const AppContent = () => {
                         Admin
                       </Link>
                     </AdminOnly>
+                    <Link to="/mis-pedidos" className="btn btn-outline-primary">
+                      <i className="bi bi-clipboard-check me-1"></i>
+                      Mi Pedido
+                    </Link>
                     <button 
                       className="btn btn-danger"
                       onClick={handleLogout}
@@ -629,6 +637,8 @@ const AppContent = () => {
             <PaymentManagement />
           </ProtectedRoute>
         } />
+        <Route path="/admin/orders" element={<ProtectedRoute requireAdmin><AdminOrdersPage /></ProtectedRoute>} />
+        <Route path="/admin/appointments" element={<ProtectedRoute requireAdmin><AdminAppointmentsPage /></ProtectedRoute>} />
         <Route path="/soporte" element={<SupportPage />} />
         <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
         <Route path="/cart-management" element={<ProtectedRoute><CartManagement /></ProtectedRoute>} />
@@ -638,6 +648,8 @@ const AppContent = () => {
         <Route path="/payment-failure" element={<PaymentFailurePage />} />
         <Route path="/payment-pending" element={<PaymentPendingPage />} />
         <Route path="/checkout" element={<ProtectedRoute><CheckoutPage /></ProtectedRoute>} />
+        <Route path="/mis-pedidos" element={<ProtectedRoute><OrdersPage /></ProtectedRoute>} />
+        
       </Routes>
 
       {/* Footer */}

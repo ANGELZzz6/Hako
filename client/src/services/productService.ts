@@ -1,5 +1,6 @@
 import { ENDPOINTS } from '../config/api';
 import authService from './authService';
+import { handle401 } from '../utils/handle401';
 
 export interface ReviewUser {
   _id: string;
@@ -51,6 +52,12 @@ export interface Product {
   fecha_creacion: string;
   fecha_actualizacion: string;
   categoria: string;
+  dimensiones?: {
+    largo: number;
+    ancho: number;
+    alto: number;
+    peso: number;
+  };
 }
 
 export interface CreateProductData {
@@ -72,6 +79,12 @@ export interface UpdateProductData {
   images?: string[];
   adminRating?: number;
   categoria?: string;
+  dimensiones?: {
+    largo: number;
+    ancho: number;
+    alto: number;
+    peso: number;
+  };
 }
 
 export interface ProductSearchParams {
@@ -119,6 +132,7 @@ class ProductService {
         throw new Error(error.error || 'Error al obtener productos');
       }
       
+      handle401(response);
       return await response.json();
     } catch (error) {
       console.error('Error:', error);
@@ -138,6 +152,7 @@ class ProductService {
         throw new Error(error.error || 'Error al obtener productos');
       }
       
+      handle401(response);
       return await response.json();
     } catch (error) {
       console.error('Error:', error);
@@ -155,6 +170,7 @@ class ProductService {
         throw new Error(error.error || 'Error al obtener el producto');
       }
       
+      handle401(response);
       return await response.json();
     } catch (error) {
       console.error('Error:', error);
@@ -191,6 +207,7 @@ class ProductService {
         throw new Error(errorMessage);
       }
       
+      handle401(response);
       const data = await response.json();
       return data;
     } catch (error) {
@@ -228,6 +245,7 @@ class ProductService {
         throw new Error(errorMessage);
       }
       
+      handle401(response);
       const data = await response.json();
       return data;
     } catch (error) {
@@ -264,6 +282,7 @@ class ProductService {
         throw new Error(errorMessage);
       }
       
+      handle401(response);
       const data = await response.json();
       return data;
     } catch (error) {
@@ -300,6 +319,7 @@ class ProductService {
         throw new Error(errorMessage);
       }
       
+      handle401(response);
       const data = await response.json();
       return data;
     } catch (error) {
@@ -318,6 +338,7 @@ class ProductService {
         throw new Error(error.error || 'Error al buscar productos');
       }
       
+      handle401(response);
       return await response.json();
     } catch (error) {
       console.error('Error:', error);
@@ -336,6 +357,7 @@ class ProductService {
       const error = await response.json();
       throw new Error(error.error || 'Error al agregar reseña');
     }
+    handle401(response);
   }
 
   // Editar reseña
@@ -349,6 +371,7 @@ class ProductService {
       const error = await response.json();
       throw new Error(error.error || 'Error al editar reseña');
     }
+    handle401(response);
   }
 
   // Eliminar reseña
@@ -363,6 +386,7 @@ class ProductService {
         const error = await response.json();
         throw new Error(error.error || 'Error al eliminar reseña');
       }
+      handle401(response);
     } catch (error) {
       console.error('Error:', error);
       throw error;
@@ -379,6 +403,7 @@ class ProductService {
         throw new Error(error.error || 'Error al obtener productos destacados');
       }
       
+      handle401(response);
       return await response.json();
     } catch (error) {
       console.error('Error:', error);
@@ -396,6 +421,7 @@ class ProductService {
         throw new Error(error.error || 'Error al obtener productos en oferta');
       }
       
+      handle401(response);
       return await response.json();
     } catch (error) {
       console.error('Error:', error);
@@ -416,6 +442,7 @@ class ProductService {
         throw new Error(error.error || 'Error al cambiar estado de destacado');
       }
       
+      handle401(response);
       return await response.json();
     } catch (error) {
       console.error('Error:', error);
@@ -437,6 +464,7 @@ class ProductService {
         throw new Error(error.error || 'Error al cambiar estado de oferta');
       }
       
+      handle401(response);
       return await response.json();
     } catch (error) {
       console.error('Error:', error);
@@ -455,6 +483,7 @@ class ProductService {
     if (!response.ok) {
       throw new Error('Error al subir la imagen');
     }
+    handle401(response);
     const data = await response.json();
     return data.url;
   }
@@ -462,12 +491,14 @@ class ProductService {
   async getAllCategories(): Promise<string[]> {
     const response = await fetch(`${ENDPOINTS.PRODUCTS}/admin/categorias`);
     if (!response.ok) throw new Error('Error al obtener categorías');
+    handle401(response);
     return await response.json();
   }
 
   async getProductsByCategory(categoria: string): Promise<Product[]> {
     const response = await fetch(`${ENDPOINTS.PRODUCTS}/admin/categorias/${encodeURIComponent(categoria)}/productos`);
     if (!response.ok) throw new Error('Error al obtener productos de la categoría');
+    handle401(response);
     return await response.json();
   }
 
@@ -476,6 +507,7 @@ class ProductService {
       headers: this.getAuthHeaders(),
     });
     if (!response.ok) throw new Error('Error al obtener sugerencias');
+    handle401(response);
     return await response.json();
   }
 
@@ -485,6 +517,7 @@ class ProductService {
       headers: this.getAuthHeaders(),
     });
     if (!response.ok) throw new Error('Error al eliminar sugerencia');
+    handle401(response);
   }
 }
 

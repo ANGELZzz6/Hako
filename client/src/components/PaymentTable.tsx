@@ -88,7 +88,7 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
                 <div>
                   <strong>{payment.user_id?.nombre || 'N/A'}</strong>
                   <br />
-                  <small className="text-muted">{payment.user_id?.email || payment.payer.email}</small>
+                  <small className="text-muted">{payment.user_id?.email || 'N/A'}</small>
                 </div>
               </td>
               <td>

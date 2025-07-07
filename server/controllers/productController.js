@@ -86,7 +86,7 @@ exports.getProductById = async (req, res) => {
 // Crear nuevo producto
 exports.createProduct = async (req, res) => {
   try {
-    const { nombre, descripcion, precio, stock, imagen_url, variants, categoria } = req.body;
+    const { nombre, descripcion, precio, stock, imagen_url, variants, categoria, dimensiones } = req.body;
 
     // Validaciones
     if (!nombre || !descripcion || precio === undefined || stock === undefined || !imagen_url || !categoria) {
@@ -123,7 +123,8 @@ exports.createProduct = async (req, res) => {
       stock: parseInt(stock),
       imagen_url,
       categoria: categoria.trim(),
-      variants: variants || { enabled: false, attributes: [] }
+      variants: variants || { enabled: false, attributes: [] },
+      dimensiones: dimensiones || null
     });
 
     await product.save();
@@ -147,7 +148,7 @@ exports.createProduct = async (req, res) => {
 exports.updateProduct = async (req, res) => {
   try {
     const { id } = req.params;
-    const { nombre, descripcion, precio, stock, imagen_url, isActive, adminRating, images, variants, categoria } = req.body;
+    const { nombre, descripcion, precio, stock, imagen_url, isActive, adminRating, images, variants, categoria, dimensiones } = req.body;
 
     if (!validator.isMongoId(id)) {
       return res.status(400).json({ error: 'ID de producto inválido' });
@@ -189,6 +190,23 @@ exports.updateProduct = async (req, res) => {
       }
     }
 
+    // Validar dimensiones si se proporcionan
+    if (dimensiones && typeof dimensiones === 'object') {
+      const { largo, ancho, alto, peso } = dimensiones;
+      if (largo !== undefined && (typeof largo !== 'number' || largo < 0)) {
+        return res.status(400).json({ error: 'El largo debe ser un número mayor o igual a 0' });
+      }
+      if (ancho !== undefined && (typeof ancho !== 'number' || ancho < 0)) {
+        return res.status(400).json({ error: 'El ancho debe ser un número mayor o igual a 0' });
+      }
+      if (alto !== undefined && (typeof alto !== 'number' || alto < 0)) {
+        return res.status(400).json({ error: 'El alto debe ser un número mayor o igual a 0' });
+      }
+      if (peso !== undefined && (typeof peso !== 'number' || peso < 0)) {
+        return res.status(400).json({ error: 'El peso debe ser un número mayor o igual a 0' });
+      }
+    }
+
     const updateData = {};
     if (nombre) updateData.nombre = nombre.trim();
     if (descripcion) updateData.descripcion = descripcion.trim();
@@ -200,6 +218,7 @@ exports.updateProduct = async (req, res) => {
     if (images) updateData.images = images;
     if (variants !== undefined) updateData.variants = variants;
     if (categoria) updateData.categoria = categoria.trim();
+    if (dimensiones !== undefined) updateData.dimensiones = dimensiones;
 
     const product = await Product.findByIdAndUpdate(
       id,

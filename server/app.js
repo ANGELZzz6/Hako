@@ -17,6 +17,10 @@ console.log('Antes de require soporte');
 console.log('Antes de require paymentRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 console.log('Después de require paymentRoutes');
+const orderRoutes = require('./routes/orderRoutes');
+console.log('Antes de require orderRoutes');
+const appointmentRoutes = require('./routes/appointmentRoutes');
+console.log('Antes de require appointmentRoutes');
 const app = express();
 
 // Configuración de CORS más permisiva para Google OAuth
@@ -79,5 +83,9 @@ app.use('/api/support', supportRoutes);
 console.log('Rutas de soporte montadas');
 console.log('Rutas de pago montadas en /api/payment');
 app.use('/api/payment', paymentRoutes);
+console.log('Rutas de pedidos montadas en /api/orders');
+app.use('/api/orders', orderRoutes);
+console.log('Rutas de citas montadas en /api/appointments');
+app.use('/api/appointments', appointmentRoutes);
 
 module.exports = app;

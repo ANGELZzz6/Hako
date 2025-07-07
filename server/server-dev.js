@@ -7,8 +7,13 @@ const userRoutes = require('./routes/userRoutes');
 const cartRoutes = require('./routes/cartRoutes');
 const supportRoutes = require('./routes/supportRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
+const orderRoutes = require('./routes/orderRoutes');
+const appointmentRoutes = require('./routes/appointmentRoutes');
 const { connectDB } = require('./config/db');
 const path = require('path');
+
+// Importar el modelo IndividualProduct para asegurar que esté disponible
+require('./models/IndividualProduct');
 
 const app = express();
 
@@ -60,6 +65,10 @@ console.log('Rutas de soporte montadas');
 console.log('Antes de montar rutas de pago');
 app.use('/api/payment', paymentRoutes);
 console.log('Rutas de pago montadas en /api/payment');
+app.use('/api/orders', orderRoutes);
+console.log('Rutas de pedidos montadas en /api/orders');
+app.use('/api/appointments', appointmentRoutes);
+console.log('Rutas de citas montadas en /api/appointments');
 
 // Ruta de prueba
 app.get('/', (req, res) => {

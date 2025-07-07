@@ -5,7 +5,14 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const productoRoutes = require('./routes/productoRoutes');
 const userRoutes = require('./routes/userRoutes');
+const cartRoutes = require('./routes/cartRoutes');
+const supportRoutes = require('./routes/supportRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
+const orderRoutes = require('./routes/orderRoutes');
+const appointmentRoutes = require('./routes/appointmentRoutes');
+
+// Importar el modelo IndividualProduct para asegurar que esté disponible
+require('./models/IndividualProduct');
 const { connectDB } = require('./config/db');
 const path = require('path');
 
@@ -54,9 +61,15 @@ app.use(express.json({ limit: '10mb' }));
 // Rutas
 app.use('/api/products', productoRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/cart', cartRoutes);
+app.use('/api/support', supportRoutes);
 app.use('/api/payment', paymentRoutes);
+app.use('/api/orders', orderRoutes);
+app.use('/api/appointments', appointmentRoutes);
 
 console.log('✅ Rutas de pago montadas en /api/payment');
+console.log('✅ Rutas de pedidos montadas en /api/orders');
+console.log('✅ Rutas de citas montadas en /api/appointments');
 
 // Ruta de prueba
 app.get('/', (req, res) => {

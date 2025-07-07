@@ -7,6 +7,7 @@ export const ENDPOINTS = {
   CART: `${API_URL}/cart`,
   ORDERS: `${API_URL}/orders`,
   SUPPORT: `${API_URL}/support`,
+  APPOINTMENTS: `${API_URL}/appointments`,
 };
 
 export default API_URL; 

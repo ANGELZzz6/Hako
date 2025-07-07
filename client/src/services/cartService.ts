@@ -1,5 +1,6 @@
 import { ENDPOINTS } from '../config/api';
 import authService from './authService';
+import { handle401 } from '../utils/handle401';
 
 export interface CartItem {
   id_producto: {
@@ -46,6 +47,7 @@ class CartService {
       const response = await fetch(ENDPOINTS.CART, {
         headers: this.getHeaders(),
       });
+      handle401(response);
       
       console.log('Respuesta del servidor:', response.status, response.statusText);
       
@@ -71,6 +73,7 @@ class CartService {
         headers: this.getHeaders(),
         body: JSON.stringify({ productId, quantity }),
       });
+      handle401(response);
       if (!response.ok) throw new Error('Error al agregar al box');
       return await response.json();
     } catch (error) {
@@ -90,6 +93,7 @@ class CartService {
         headers: this.getHeaders(),
         body: JSON.stringify(cartItem),
       });
+      handle401(response);
       if (!response.ok) throw new Error('Error al agregar al box');
       return await response.json();
     } catch (error) {
@@ -105,6 +109,7 @@ class CartService {
         headers: this.getHeaders(),
         body: JSON.stringify({ quantity }),
       });
+      handle401(response);
       if (!response.ok) throw new Error('Error al actualizar el box');
       return await response.json();
     } catch (error) {
@@ -119,6 +124,7 @@ class CartService {
         method: 'DELETE',
         headers: this.getHeaders(),
       });
+      handle401(response);
       if (!response.ok) throw new Error('Error al eliminar del box');
       return await response.json();
     } catch (error) {
@@ -134,6 +140,7 @@ class CartService {
         headers: this.getHeaders(),
         body: JSON.stringify({ productIds }),
       });
+      handle401(response);
       if (!response.ok) throw new Error('Error al eliminar productos del box');
       return await response.json();
     } catch (error) {
@@ -148,6 +155,7 @@ class CartService {
         method: 'DELETE',
         headers: this.getHeaders(),
       });
+      handle401(response);
       if (!response.ok) throw new Error('Error al vaciar el box');
       return await response.json();
     } catch (error) {
@@ -162,6 +170,7 @@ class CartService {
       const response = await fetch(`${ENDPOINTS.CART}/admin/all`, {
         headers: this.getHeaders(),
       });
+      handle401(response);
       if (!response.ok) throw new Error('Error al obtener todos los boxes');
       return await response.json();
     } catch (error) {
@@ -180,6 +189,7 @@ class CartService {
       const response = await fetch(`${ENDPOINTS.CART}/admin/stats`, {
         headers: this.getHeaders(),
       });
+      handle401(response);
       if (!response.ok) throw new Error('Error al obtener estadísticas');
       return await response.json();
     } catch (error) {

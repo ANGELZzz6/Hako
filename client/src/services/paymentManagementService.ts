@@ -2,10 +2,12 @@ import API_URL from '../config/api';
 import authService from './authService';
 
 export interface PaymentItem {
-  product_id: string;
+  id: string;
+  title: string;
+  picture_url?: string;
   quantity: number;
   unit_price: number;
-  product_name: string;
+  total_price: number;
 }
 
 export interface Payment {
@@ -17,12 +19,7 @@ export interface Payment {
   currency: string;
   payment_method: {
     type: string;
-    id: string;
-  };
-  payer: {
-    email: string;
-    name: string;
-    surname: string;
+    id?: string;
   };
   external_reference: string;
   user_id: {

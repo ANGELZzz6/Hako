@@ -4,7 +4,7 @@
   "description": "Proyecto completo de tienda online",
   "scripts": {
     "start": "node server/index.js",
-    "dev": "node server/server-dev.js",
+    "dev": "node server/server.js",
     "server": "node server/server.js"
   },
   "dependencies": {
@@ -24,6 +24,7 @@
     "multer": "^2.0.1",
     "node-fetch": "^3.3.2",
     "nodemailer": "^7.0.3",
+    "uuid": "^11.1.0",
     "validator": "^13.15.15"
   }
 }

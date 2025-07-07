@@ -1,5 +1,7 @@
 // Servicio para pagos con Mercado Pago
 
+import { handle401 } from '../utils/handle401';
+
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 // Tipos para Checkout Pro
@@ -59,6 +61,8 @@ const paymentService = {
       })
     });
 
+    handle401(response);
+
     if (!response.ok) {
       const errorData = await response.json();
       throw new Error(errorData.message || 'Error al crear preferencia de pago');
@@ -71,6 +75,8 @@ const paymentService = {
   async getPaymentStatus(paymentId: string): Promise<PaymentStatusResponse> {
     const response = await fetch(`${API_URL}/payment/status/${paymentId}`);
 
+    handle401(response);
+
     if (!response.ok) {
       const errorData = await response.json();
       throw new Error(errorData.message || 'Error al obtener estado del pago');
@@ -82,6 +88,8 @@ const paymentService = {
   // Probar configuración
   async testConfig(): Promise<any> {
     const response = await fetch(`${API_URL}/payment/test-config`);
+
+    handle401(response);
 
     if (!response.ok) {
       const errorData = await response.json();

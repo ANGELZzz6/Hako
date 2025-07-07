@@ -99,6 +99,29 @@ const productSchema = new mongoose.Schema({
         required: [true, 'La categoría es obligatoria'],
         trim: true,
     },
+    // Dimensiones del producto (en centímetros)
+    dimensiones: {
+        largo: {
+            type: Number,
+            min: [0, 'El largo no puede ser negativo'],
+            description: 'Largo del producto en centímetros'
+        },
+        ancho: {
+            type: Number,
+            min: [0, 'El ancho no puede ser negativo'],
+            description: 'Ancho del producto en centímetros'
+        },
+        alto: {
+            type: Number,
+            min: [0, 'El alto no puede ser negativo'],
+            description: 'Alto del producto en centímetros'
+        },
+        peso: {
+            type: Number,
+            min: [0, 'El peso no puede ser negativo'],
+            description: 'Peso del producto en gramos'
+        }
+    },
     variants: {
         enabled: {
             type: Boolean,
@@ -199,6 +222,22 @@ productSchema.methods.getPorcentajeDescuento = function() {
 // Método para verificar si el producto tiene descuento activo
 productSchema.methods.tieneDescuento = function() {
     return this.isOferta && this.precioOferta && this.precioOferta < this.precio;
+};
+
+// Método para calcular el volumen del producto
+productSchema.methods.getVolumen = function() {
+    if (this.dimensiones && this.dimensiones.largo && this.dimensiones.ancho && this.dimensiones.alto) {
+        return this.dimensiones.largo * this.dimensiones.ancho * this.dimensiones.alto;
+    }
+    return 0;
+};
+
+// Método para verificar si el producto tiene dimensiones
+productSchema.methods.tieneDimensiones = function() {
+    return this.dimensiones && 
+           this.dimensiones.largo && 
+           this.dimensiones.ancho && 
+           this.dimensiones.alto;
 };
 
 module.exports = mongoose.model('Product', productSchema, 'productos'); 

@@ -1,5 +1,6 @@
 import { ENDPOINTS } from '../config/api';
 import authService from './authService';
+import { handle401 } from '../utils/handle401';
 
 const USER_API_URL = '/api/users';
 
@@ -57,6 +58,7 @@ class UserService {
         throw new Error(error.error || 'Error al obtener usuarios');
       }
       
+      handle401(response);
       return await response.json();
     } catch (error) {
       console.error('Error:', error);
@@ -92,6 +94,7 @@ class UserService {
         throw new Error(errorMessage);
       }
       
+      handle401(response);
       const data = await response.json();
       return data;
     } catch (error) {
@@ -127,6 +130,7 @@ class UserService {
         throw new Error(errorMessage);
       }
       
+      handle401(response);
       const data = await response.json();
       return data;
     } catch (error) {
@@ -162,6 +166,7 @@ class UserService {
         throw new Error(errorMessage);
       }
       
+      handle401(response);
       const data = await response.json();
       return data;
     } catch (error) {
@@ -181,6 +186,7 @@ class UserService {
         throw new Error(error.error || 'Error al obtener usuario');
       }
       
+      handle401(response);
       return await response.json();
     } catch (error) {
       console.error('Error:', error);
@@ -210,6 +216,7 @@ class UserService {
       credentials: 'include',
     });
     if (!response.ok) throw new Error('No se pudieron obtener las tarjetas guardadas');
+    handle401(response);
     return await response.json();
   }
 
@@ -221,6 +228,7 @@ class UserService {
       body: JSON.stringify(cardData)
     });
     if (!response.ok) throw new Error('No se pudo guardar la tarjeta');
+    handle401(response);
     return await response.json();
   }
 }

@@ -1,0 +1,38 @@
+const express = require('express');
+const router = express.Router();
+const appointmentController = require('../controllers/appointmentController');
+const { auth } = require('../middleware/auth');
+const adminAuth = require('../middleware/adminAuth');
+
+// ===== RUTAS PÚBLICAS (requieren autenticación) =====
+
+// Obtener horarios disponibles para una fecha
+router.get('/available-slots/:date', auth, appointmentController.getAvailableTimeSlots);
+
+// Crear una nueva cita
+router.post('/', auth, appointmentController.createAppointment);
+
+// Obtener citas del usuario
+router.get('/my-appointments', auth, appointmentController.getMyAppointments);
+
+// Obtener una cita específica del usuario
+router.get('/my-appointments/:appointmentId', auth, appointmentController.getMyAppointment);
+
+// Cancelar una cita del usuario
+router.post('/my-appointments/:appointmentId/cancel', auth, appointmentController.cancelAppointment);
+
+// ===== RUTAS DE ADMIN =====
+
+// Obtener todas las citas (admin)
+router.get('/admin', auth, adminAuth, appointmentController.getAllAppointments);
+
+// Actualizar estado de una cita (admin)
+router.patch('/admin/:appointmentId/status', auth, adminAuth, appointmentController.updateAppointmentStatus);
+
+// Obtener estadísticas de citas (admin)
+router.get('/admin/stats', auth, adminAuth, appointmentController.getAppointmentStats);
+
+// Eliminar una cita (admin)
+router.delete('/admin/:appointmentId', auth, adminAuth, appointmentController.deleteAppointment);
+
+module.exports = router; 

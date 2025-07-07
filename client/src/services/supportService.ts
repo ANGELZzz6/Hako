@@ -1,5 +1,6 @@
 import { ENDPOINTS } from '../config/api';
 import authService from './authService';
+import { handle401 } from '../utils/handle401';
 
 const getAuthHeaders = () => {
   const token = authService.getToken();
@@ -27,6 +28,7 @@ export const createTicket = async (subject: string, message: string) => {
     }
     throw new Error(errorMessage);
   }
+  handle401(response);
   return await response.json();
 };
 
@@ -46,6 +48,7 @@ export const getTickets = async () => {
     }
     throw new Error(errorMessage);
   }
+  handle401(response);
   return await response.json();
 };
 
@@ -67,6 +70,7 @@ export const replyTicket = async (id: string, message: string) => {
     }
     throw new Error(errorMessage);
   }
+  handle401(response);
   return await response.json();
 };
 
@@ -88,6 +92,7 @@ export const changeStatus = async (id: string, status: string) => {
     }
     throw new Error(errorMessage);
   }
+  handle401(response);
   return await response.json();
 };
 
@@ -108,6 +113,7 @@ export const deleteTicket = async (id: string) => {
     }
     throw new Error(errorMessage);
   }
+  handle401(response);
   return await response.json();
 };
 
@@ -117,6 +123,7 @@ export const getAdmins = async () => {
     credentials: 'include',
   });
   if (!response.ok) throw new Error('Error al obtener admins');
+  handle401(response);
   return await response.json();
 };
 
@@ -128,6 +135,7 @@ export const addInternalNote = async (id: string, note: string) => {
     credentials: 'include',
   });
   if (!response.ok) throw new Error('Error al agregar nota interna');
+  handle401(response);
   return await response.json();
 };
 
@@ -139,6 +147,7 @@ export const assignResponsable = async (id: string, responsable: string) => {
     credentials: 'include',
   });
   if (!response.ok) throw new Error('Error al asignar responsable');
+  handle401(response);
   return await response.json();
 };
 
@@ -149,6 +158,7 @@ export const closeByUser = async (id: string) => {
     credentials: 'include',
   });
   if (!response.ok) throw new Error('Error al cerrar ticket');
+  handle401(response);
   return await response.json();
 };
 
@@ -160,6 +170,7 @@ export const rateTicket = async (id: string, stars: number, comment: string) => 
     credentials: 'include',
   });
   if (!response.ok) throw new Error('Error al enviar valoración');
+  handle401(response);
   return await response.json();
 };
 

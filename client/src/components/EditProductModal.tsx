@@ -40,7 +40,13 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ product, isOpen, is
     imagen_url: '',
     isActive: true,
     adminRating: 0,
-    images: []
+    images: [],
+    dimensiones: {
+      largo: 0,
+      ancho: 0,
+      alto: 0,
+      peso: 0
+    }
   });
   const [variants, setVariants] = useState<ProductVariants>({
     enabled: false,
@@ -65,7 +71,13 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ product, isOpen, is
         imagen_url: product.imagen_url,
         isActive: product.isActive,
         adminRating: product.adminRating ?? 0,
-        images: ((product.images && product.images.length > 0 ? [...product.images] : [product.imagen_url]).filter(img => typeof img === 'string' && !!img)) as string[]
+        images: ((product.images && product.images.length > 0 ? [...product.images] : [product.imagen_url]).filter(img => typeof img === 'string' && !!img)) as string[],
+        dimensiones: product.dimensiones || {
+          largo: 0,
+          ancho: 0,
+          alto: 0,
+          peso: 0
+        }
       });
       setVariants(product.variants || { enabled: false, attributes: [] });
     } else {
@@ -77,7 +89,13 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ product, isOpen, is
         imagen_url: '',
         isActive: true,
         adminRating: 0,
-        images: []
+        images: [],
+        dimensiones: {
+          largo: 0,
+          ancho: 0,
+          alto: 0,
+          peso: 0
+        }
       });
       setVariants({ enabled: false, attributes: [] });
     }
@@ -235,6 +253,88 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ product, isOpen, is
               {variantStock !== null && (
                 <small className="text-muted">Stock total calculado a partir de las variantes activas.</small>
               )}
+            </div>
+          </div>
+          
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="dimensiones_largo">Largo (cm)</label>
+              <input 
+                type="number" 
+                id="dimensiones_largo" 
+                name="dimensiones.largo" 
+                value={formData.dimensiones?.largo || 0} 
+                onChange={(e) => setFormData(prev => ({
+                  ...prev,
+                  dimensiones: {
+                    ...prev.dimensiones!,
+                    largo: parseFloat(e.target.value) || 0
+                  }
+                }))} 
+                className="form-control" 
+                min="0" 
+                step="0.1" 
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="dimensiones_ancho">Ancho (cm)</label>
+              <input 
+                type="number" 
+                id="dimensiones_ancho" 
+                name="dimensiones.ancho" 
+                value={formData.dimensiones?.ancho || 0} 
+                onChange={(e) => setFormData(prev => ({
+                  ...prev,
+                  dimensiones: {
+                    ...prev.dimensiones!,
+                    ancho: parseFloat(e.target.value) || 0
+                  }
+                }))} 
+                className="form-control" 
+                min="0" 
+                step="0.1" 
+              />
+            </div>
+          </div>
+          
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="dimensiones_alto">Alto (cm)</label>
+              <input 
+                type="number" 
+                id="dimensiones_alto" 
+                name="dimensiones.alto" 
+                value={formData.dimensiones?.alto || 0} 
+                onChange={(e) => setFormData(prev => ({
+                  ...prev,
+                  dimensiones: {
+                    ...prev.dimensiones!,
+                    alto: parseFloat(e.target.value) || 0
+                  }
+                }))} 
+                className="form-control" 
+                min="0" 
+                step="0.1" 
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="dimensiones_peso">Peso (g)</label>
+              <input 
+                type="number" 
+                id="dimensiones_peso" 
+                name="dimensiones.peso" 
+                value={formData.dimensiones?.peso || 0} 
+                onChange={(e) => setFormData(prev => ({
+                  ...prev,
+                  dimensiones: {
+                    ...prev.dimensiones!,
+                    peso: parseFloat(e.target.value) || 0
+                  }
+                }))} 
+                className="form-control" 
+                min="0" 
+                step="1" 
+              />
             </div>
           </div>
           <div className="form-group">

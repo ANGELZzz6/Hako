@@ -151,22 +151,14 @@ const PaymentDetailsModal: React.FC<PaymentDetailsModalProps> = ({
                         <div className="mb-2">
                           <strong>Nombre:</strong>
                           <br />
-                          {payment.user_id?.nombre || payment.payer.name || 'N/A'}
+                          {payment.user_id?.nombre || 'N/A'}
                         </div>
                         
                         <div className="mb-2">
                           <strong>Email:</strong>
                           <br />
-                          {payment.user_id?.email || payment.payer.email}
+                          {payment.user_id?.email || 'N/A'}
                         </div>
-                        
-                        {payment.payer.surname && (
-                          <div className="mb-2">
-                            <strong>Apellido:</strong>
-                            <br />
-                            {payment.payer.surname}
-                          </div>
-                        )}
                         
                         <div className="mb-2">
                           <strong>ID Usuario:</strong>
@@ -231,16 +223,16 @@ const PaymentDetailsModal: React.FC<PaymentDetailsModalProps> = ({
                           {payment.purchased_items.map((item, index) => (
                             <tr key={index}>
                               <td>
-                                <strong>{item.product_name}</strong>
+                                <strong>{item.title}</strong>
                                 <br />
-                                <small className="text-muted">ID: {item.product_id}</small>
+                                <small className="text-muted">ID: {item.id}</small>
                               </td>
                               <td>
                                 <span className="badge bg-primary">{item.quantity}</span>
                               </td>
                               <td>{formatCurrency(item.unit_price)}</td>
                               <td>
-                                <strong>{formatCurrency(item.unit_price * item.quantity)}</strong>
+                                <strong>{formatCurrency(item.total_price)}</strong>
                               </td>
                             </tr>
                           ))}
