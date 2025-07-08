@@ -1,0 +1,351 @@
+/* Contenedor principal de la visualización */
+.locker-3d-visualization {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* Controles de vista */
+.view-controls {
+  text-align: center;
+}
+
+.view-controls .btn-group .btn {
+  font-size: 0.875rem;
+  padding: 0.375rem 0.75rem;
+}
+
+/* Contenedor de visualización */
+.visualization-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 300px;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  border-radius: 8px;
+  padding: 20px;
+  margin: 10px 0;
+}
+
+/* Vista 3D */
+.locker-3d-container {
+  perspective: 1200px;
+  perspective-origin: center center;
+}
+
+.locker-3d-box {
+  position: relative;
+  width: 200px;
+  height: 200px;
+  transform-style: preserve-3d;
+  transform: rotateX(-25deg) rotateY(-35deg);
+  transition: transform 0.3s ease;
+}
+
+.locker-3d-box:hover {
+  transform: rotateX(-20deg) rotateY(-30deg) scale(1.05);
+}
+
+/* Base del casillero */
+.locker-base {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+}
+
+/* Paredes del casillero */
+.locker-walls {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+}
+
+.locker-wall {
+  position: absolute;
+  background: rgba(52, 73, 94, 0.8);
+  border: 2px solid rgba(44, 62, 80, 0.9);
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.3);
+}
+
+/* Pared trasera */
+.back-wall {
+  width: 200px;
+  height: 200px;
+  transform: translateZ(-100px);
+  background: linear-gradient(45deg, rgba(52, 73, 94, 0.9), rgba(44, 62, 80, 0.9));
+  border: 1px solid rgba(44, 62, 80, 1);
+}
+
+/* Pared izquierda */
+.left-wall {
+  width: 100px;
+  height: 200px;
+  transform: rotateY(90deg) translateZ(-100px) translateX(-50px);
+  background: linear-gradient(45deg, rgba(52, 73, 94, 0.7), rgba(44, 62, 80, 0.7));
+  border: 1px solid rgba(44, 62, 80, 1);
+}
+
+/* Pared derecha */
+.right-wall {
+  width: 100px;
+  height: 200px;
+  transform: rotateY(-90deg) translateZ(-100px) translateX(-50px);
+  background: linear-gradient(45deg, rgba(52, 73, 94, 0.7), rgba(44, 62, 80, 0.7));
+  border: 1px solid rgba(44, 62, 80, 1);
+}
+
+/* Techo */
+.top-wall {
+  width: 200px;
+  height: 100px;
+  transform: rotateX(90deg) translateZ(-100px) translateY(-50px);
+  background: linear-gradient(45deg, rgba(52, 73, 94, 0.6), rgba(44, 62, 80, 0.6));
+  border: 1px solid rgba(44, 62, 80, 1);
+}
+
+/* Piso */
+.floor-wall {
+  width: 200px;
+  height: 100px;
+  transform: rotateX(-90deg) translateZ(-100px) translateY(50px);
+  background: linear-gradient(45deg, rgba(52, 73, 94, 0.5), rgba(44, 62, 80, 0.5));
+  border: 1px solid rgba(44, 62, 80, 1);
+}
+
+/* Productos en 3D */
+.product-box {
+  position: absolute;
+  border: 2px solid rgba(0, 0, 0, 0.4);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: bold;
+  color: white;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+  min-width: 20px;
+  min-height: 20px;
+  transform-style: preserve-3d;
+}
+
+.product-box:hover {
+  transform: scale(1.1) translateZ(10px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+  z-index: 1000 !important;
+}
+
+.product-box.hovered {
+  transform: scale(1.15) translateZ(15px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.4);
+}
+
+.product-label {
+  text-align: center;
+  line-height: 1.2;
+  padding: 2px;
+  word-break: break-word;
+}
+
+/* Vista 2D */
+.locker-2d-container {
+  position: relative;
+  width: 200px;
+  height: 200px;
+  border: 3px solid #34495e;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #ecf0f1 0%, #bdc3c7 100%);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.locker-2d-box {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  padding: 10px;
+}
+
+.product-2d-box {
+  position: absolute;
+  border: 2px solid rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6rem;
+  font-weight: bold;
+  color: white;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7);
+  min-width: 15px;
+  min-height: 15px;
+}
+
+.product-2d-box:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  z-index: 100;
+}
+
+.product-2d-box.hovered {
+  transform: scale(1.15);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+}
+
+.product-2d-label {
+  text-align: center;
+  line-height: 1.1;
+  padding: 1px;
+  word-break: break-word;
+}
+
+/* Detalles del casillero */
+.locker-details {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 15px;
+  border: 1px solid #dee2e6;
+}
+
+.detail-item {
+  margin-bottom: 10px;
+}
+
+.detail-item strong {
+  color: #495057;
+  font-size: 0.9rem;
+}
+
+.detail-item small {
+  font-size: 0.8rem;
+}
+
+/* Lista de productos */
+.products-list {
+  border-top: 1px solid #dee2e6;
+  padding-top: 10px;
+}
+
+.product-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+  padding: 5px;
+  background: white;
+  border-radius: 4px;
+  border: 1px solid #e9ecef;
+}
+
+.color-indicator {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  margin-right: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+.product-info {
+  flex: 1;
+}
+
+.product-name {
+  display: block;
+  font-weight: 500;
+  color: #495057;
+  margin-bottom: 2px;
+}
+
+.product-dimensions {
+  display: block;
+  color: #6c757d;
+  font-size: 0.75rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .visualization-container {
+    min-height: 250px;
+    padding: 15px;
+  }
+  
+  .locker-3d-box {
+    width: 150px;
+    height: 150px;
+  }
+  
+  .back-wall {
+    width: 150px;
+    height: 150px;
+    transform: translateZ(-75px);
+  }
+  
+  .left-wall,
+  .right-wall {
+    width: 75px;
+    height: 150px;
+    transform: rotateY(90deg) translateZ(-75px) translateX(-37.5px);
+  }
+  
+  .right-wall {
+    transform: rotateY(-90deg) translateZ(-75px) translateX(-37.5px);
+  }
+  
+  .top-wall {
+    width: 150px;
+    height: 75px;
+    transform: rotateX(90deg) translateZ(-75px) translateY(-37.5px);
+  }
+  
+  .locker-2d-container {
+    width: 150px;
+    height: 150px;
+  }
+  
+  .product-box,
+  .product-2d-box {
+    font-size: 0.6rem;
+  }
+}
+
+/* Animaciones */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.locker-3d-visualization {
+  animation: fadeIn 0.5s ease-out;
+}
+
+/* Efectos de hover mejorados */
+.locker-3d-box:hover .locker-wall {
+  box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.4);
+}
+
+.product-box:hover .product-label {
+  transform: scale(1.05);
+}
+
+/* Indicadores de estado */
+.locker-3d-visualization .progress-bar.bg-success {
+  background: linear-gradient(90deg, #28a745, #20c997) !important;
+}
+
+.locker-3d-visualization .progress-bar.bg-warning {
+  background: linear-gradient(90deg, #ffc107, #fd7e14) !important;
+}
+
+.locker-3d-visualization .progress-bar.bg-danger {
+  background: linear-gradient(90deg, #dc3545, #e83e8c) !important;
+} 

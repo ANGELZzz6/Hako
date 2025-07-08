@@ -76,7 +76,7 @@ exports.createPreference = async (req, res) => {
         pending: `${process.env.FRONTEND_URL}/payment-result`
       },
       // auto_return: 'all', // Comentado para pruebas de webhook - habilitar en producción
-      notification_url: 'https://5302-190-24-30-135.ngrok-free.app/api/payment/webhook/mercadopago',
+      notification_url: 'https://4da9b2d0d3d0.ngrok-free.app/api/payment/webhook/mercadopago',
       external_reference: finalExternalReference,
       expires: true,
       expiration_date_to: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 minutos
@@ -239,7 +239,7 @@ exports.testConfig = async (req, res) => {
         failure: 'https://httpbin.org/status/200',
         pending: 'https://httpbin.org/status/200'
       },
-      notification_url: 'https://5302-190-24-30-135.ngrok-free.app/api/payment/webhook/mercadopago',
+      notification_url: 'https://4da9b2d0d3d0.ngrok-free.app/api/payment/webhook/mercadopago',
       external_reference: `TEST_${Date.now()}`,
       expires: true,
       expiration_date_to: new Date(Date.now() + 30 * 60 * 1000).toISOString()
@@ -390,9 +390,17 @@ exports.mercadoPagoWebhook = async (req, res) => {
             date_approved: paymentInfo.status === 'approved' ? new Date(paymentInfo.date_approved || Date.now()) : null
           };
 
-          const payment = new Payment(paymentData);
-          await payment.save();
-          console.log('💾 Pago guardado en la base de datos');
+          // Usar findOneAndUpdate con upsert para evitar condiciones de carrera
+          const payment = await Payment.findOneAndUpdate(
+            { mp_payment_id: paymentInfo.id.toString() },
+            paymentData,
+            { 
+              upsert: true, 
+              new: true,
+              setDefaultsOnInsert: true 
+            }
+          );
+          console.log('💾 Pago guardado/actualizado en la base de datos');
 
           // Si el pago fue aprobado, limpiar productos del carrito
           if (paymentInfo.status === 'approved' && user_id && selected_items.length > 0) {
@@ -498,6 +506,9 @@ exports.mercadoPagoWebhook = async (req, res) => {
               console.log('✅ Pedido activo actualizado:', activeOrder._id);
               console.log(`💰 Total guardado: ${activeOrder.total_amount}, Total calculado: ${calculatedTotal}`);
               console.log('📦 Items en el pedido:', activeOrder.items.map(item => `${item.quantity}x $${item.unit_price} = $${item.total_price}`));
+              
+              // Crear productos individuales para el pedido actualizado
+              await createIndividualProductsForPayment(paymentInfo, payment);
             } else {
               // Si no hay pedido activo, buscar si existe una orden con este external_reference
               let existingOrder = await Order.findOne({ 
@@ -523,6 +534,9 @@ exports.mercadoPagoWebhook = async (req, res) => {
                 );
 
                 console.log('✅ Orden actualizada como pagada:', updatedOrder._id);
+                
+                // Crear productos individuales para la orden actualizada
+                await createIndividualProductsForPayment(paymentInfo, payment);
               } else {
                 // Si no existe la orden, la creamos
                 try {

@@ -3,6 +3,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import orderService from '../services/orderService';
 import type { Order } from '../types/order';
+import SimpleLockerStatus from '../components/SimpleLockerStatus';
+import BinPackingStatus from '../components/BinPackingStatus';
 
 const statusLabels: Record<string, string> = {
   pending: 'Pendiente de pago',
@@ -127,6 +129,12 @@ const AdminOrdersPage: React.FC = () => {
       <main className="admin-main-content">
         <div className="container">
           <h2 className="mb-4 text-center">Gestión de Pedidos</h2>
+          
+          {/* Vista simple de estado de casilleros */}
+          <SimpleLockerStatus orders={orders} />
+          
+          {/* Vista de Bin Packing 3D */}
+          <BinPackingStatus orders={orders} />
           {loading ? (
             <div className="text-center">
               <div className="spinner-border" role="status">

@@ -1,5 +1,6 @@
 const Order = require('../models/Order');
 const IndividualProduct = require('../models/IndividualProduct');
+const binPackingService = require('../services/binPackingService');
 
 // Obtener el pedido activo del usuario (solo uno por usuario)
 exports.getMyOrders = async (req, res) => {
@@ -752,3 +753,91 @@ exports.deleteOrder = async (req, res) => {
     res.status(500).json({ error: 'Error al borrar pedido' });
   }
 }; 
+
+// Validar si un casillero puede recibir más productos usando Bin Packing 3D
+exports.validateLockerCapacity = async (req, res) => {
+  try {
+    const { lockerNumber, product } = req.body;
+    
+    if (!lockerNumber || !product) {
+      return res.status(400).json({ 
+        error: 'Se requiere número de casillero y producto' 
+      });
+    }
+
+    // Obtener todos los productos en el casillero
+    const orders = await Order.find({
+      'items.assigned_locker': lockerNumber,
+      status: { $nin: ['picked_up', 'cancelled'] }
+    }).populate('items.product');
+
+    // Usar Bin Packing para verificar si cabe el producto
+    const result = binPackingService.canFitProduct(lockerNumber, orders, product);
+    
+    // Obtener estadísticas del casillero
+    const lockerStatus = binPackingService.calculateLockerStatus(lockerNumber, orders);
+    
+    res.json({
+      lockerNumber,
+      currentVolume: lockerStatus.usedVolume,
+      maxVolume: lockerStatus.maxVolume,
+      usagePercentage: lockerStatus.usagePercentage,
+      canFit: result.canFit,
+      position: result.position,
+      orientation: result.orientation,
+      remainingSpace: lockerStatus.maxVolume - lockerStatus.usedVolume,
+      reason: result.canFit ? null : `El casillero ${lockerNumber} no tiene espacio físico disponible para este producto.`,
+      binPackingResult: result
+    });
+
+  } catch (error) {
+    console.error('Error validando capacidad del casillero:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
+// Obtener estadísticas de casilleros usando Bin Packing 3D
+exports.getSimpleLockerStats = async (req, res) => {
+  try {
+    const orders = await Order.find({
+      status: { $nin: ['picked_up', 'cancelled'] }
+    }).populate('items.product');
+
+    // Usar Bin Packing para calcular estadísticas reales
+    const stats = binPackingService.getAllLockersStatus(orders);
+
+    res.json(stats);
+
+  } catch (error) {
+    console.error('Error obteniendo estadísticas de casilleros:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
+// Encontrar el mejor casillero para un producto usando Bin Packing 3D
+exports.findBestLocker = async (req, res) => {
+  try {
+    const { product } = req.body;
+    
+    if (!product) {
+      return res.status(400).json({ 
+        error: 'Se requiere el producto' 
+      });
+    }
+
+    const orders = await Order.find({
+      status: { $nin: ['picked_up', 'cancelled'] }
+    }).populate('items.product');
+
+    // Usar Bin Packing para encontrar el mejor casillero
+    const result = binPackingService.findBestLockerForProduct(orders, product);
+
+    res.json(result);
+
+  } catch (error) {
+    console.error('Error encontrando mejor casillero:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
+ 

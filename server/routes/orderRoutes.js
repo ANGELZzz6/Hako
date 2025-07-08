@@ -15,6 +15,15 @@ router.get('/lockers', auth, orderController.getAvailableLockers);
 // Obtener estado detallado de casilleros (solo admin)
 router.get('/admin/lockers/status', auth, orderController.getLockerStatus);
 
+// Validar capacidad de casillero (solo admin)
+router.post('/admin/validate-locker', auth, orderController.validateLockerCapacity);
+
+// Obtener estadísticas simples de casilleros (solo admin)
+router.get('/admin/lockers/stats', auth, orderController.getSimpleLockerStats);
+
+// Encontrar mejor casillero para un producto (solo admin)
+router.post('/admin/find-best-locker', auth, orderController.findBestLocker);
+
 // Obtener el pedido activo del usuario autenticado
 router.get('/mine', auth, orderController.getMyOrders);
 

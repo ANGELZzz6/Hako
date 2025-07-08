@@ -399,6 +399,119 @@ class OrderService {
       throw error;
     }
   }
+
+  // Validar capacidad de casillero usando Bin Packing 3D
+  async validateLockerCapacity(lockerNumber: number, product: any): Promise<{
+    lockerNumber: number;
+    currentVolume: number;
+    maxVolume: number;
+    usagePercentage: number;
+    canFit: boolean;
+    position?: { x: number; y: number; z: number };
+    orientation?: { width: number; height: number; depth: number };
+    remainingSpace: number;
+    reason?: string;
+    binPackingResult: any;
+  }> {
+    try {
+      const response = await fetch(`${ENDPOINTS.ORDERS}/admin/validate-locker`, {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify({ lockerNumber, product }),
+      });
+      handle401(response);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error al validar capacidad del casillero');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error:', error);
+      throw error;
+    }
+  }
+
+  // Obtener estadísticas simples de casilleros
+  async getSimpleLockerStats(): Promise<{
+    generalStats: {
+      totalLockers: number;
+      usedLockers: number;
+      availableLockers: number;
+      totalUsedVolume: number;
+      totalMaxVolume: number;
+      overallEfficiency: number;
+    };
+    lockers: Array<{
+      number: number;
+      usedVolume: number;
+      maxVolume: number;
+      usagePercentage: number;
+      isFull: boolean;
+      orders: string[];
+      items: Array<{
+        productId: string;
+        productName: string;
+        quantity: number;
+        volume: number;
+      }>;
+    }>;
+  }> {
+    try {
+      const response = await fetch(`${ENDPOINTS.ORDERS}/admin/lockers/stats`, {
+        headers: this.getHeaders(),
+      });
+      handle401(response);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error al obtener estadísticas de casilleros');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error:', error);
+      throw error;
+    }
+  }
+
+  // Encontrar el mejor casillero para un producto usando Bin Packing 3D
+  async findBestLocker(product: any): Promise<{
+    success: boolean;
+    message?: string;
+    bestLocker?: {
+      number: number;
+      score: number;
+      usagePercentage: number;
+      canFit: boolean;
+    };
+    allAvailable?: Array<{
+      number: number;
+      score: number;
+      usagePercentage: number;
+      canFit: boolean;
+    }>;
+  }> {
+    try {
+      const response = await fetch(`${ENDPOINTS.ORDERS}/admin/find-best-locker`, {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify({ product }),
+      });
+      handle401(response);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error al encontrar mejor casillero');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error:', error);
+      throw error;
+    }
+  }
 }
 
 export default new OrderService(); 

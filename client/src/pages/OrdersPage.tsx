@@ -4,6 +4,10 @@ import { useNavigate } from 'react-router-dom';
 import orderService from '../services/orderService';
 import appointmentService from '../services/appointmentService';
 import AppointmentScheduler from '../components/AppointmentScheduler';
+import Locker3DVisualization from '../components/Locker3DVisualization';
+import PackingOptimizationTips from '../components/PackingOptimizationTips';
+import binPackingService from '../services/binPackingService';
+import type { PackingResult, Bin3D, PackedItem } from '../services/binPackingService';
 import type { Order, OrderItem } from '../types/order';
 import type { CreateAppointmentData } from '../services/appointmentService';
 
@@ -43,6 +47,8 @@ const OrdersPage: React.FC = () => {
   const [schedulingAppointment, setSchedulingAppointment] = useState(false);
   const [myAppointments, setMyAppointments] = useState<any[]>([]);
   const [loadingAppointments, setLoadingAppointments] = useState(false);
+  const [packingResult, setPackingResult] = useState<PackingResult | null>(null);
+  const [showPackingOptimization, setShowPackingOptimization] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -139,10 +145,14 @@ const OrdersPage: React.FC = () => {
 
   // Manejar selección de productos individuales
   const handleQuantityChange = (itemIndex: number, quantity: number) => {
+    console.log(`🖱️ Cambiando cantidad para producto ${itemIndex}:`, quantity);
+    
     const item = purchasedProducts[itemIndex];
+    console.log('📦 Item:', item);
     
     // Solo permitir seleccionar productos no reclamados y no reservados
     if (item.isClaimed || item.assigned_locker) {
+      console.log('❌ Producto no disponible para selección');
       return;
     }
     
@@ -151,9 +161,12 @@ const OrdersPage: React.FC = () => {
       quantity = quantity > 0 ? 1 : 0;
     }
     
+    console.log('✅ Cantidad final:', quantity);
+    
     if (quantity === 0) {
       const newSelectedProducts = new Map(selectedProducts);
       newSelectedProducts.delete(itemIndex);
+      console.log('🗑️ Eliminando producto de selección');
       setSelectedProducts(newSelectedProducts);
       updateLockerAssignments(newSelectedProducts);
       return;
@@ -161,11 +174,14 @@ const OrdersPage: React.FC = () => {
 
     const currentSelection = selectedProducts.get(itemIndex);
     const newSelectedProducts = new Map(selectedProducts);
+    const defaultLocker = availableLockers.length > 0 ? availableLockers[0] : 1;
+    
     newSelectedProducts.set(itemIndex, {
       quantity: 1, // Siempre 1 para productos individuales
-      lockerNumber: currentSelection?.lockerNumber || availableLockers[0] || 1
+      lockerNumber: currentSelection?.lockerNumber || defaultLocker
     });
     
+    console.log('✅ Agregando producto a selección:', newSelectedProducts.get(itemIndex));
     setSelectedProducts(newSelectedProducts);
     updateLockerAssignments(newSelectedProducts);
   };
@@ -185,33 +201,102 @@ const OrdersPage: React.FC = () => {
     updateLockerAssignments(newSelectedProducts);
   };
 
-  // Actualizar asignaciones de lockers
+  // Actualizar asignaciones de lockers usando Bin Packing 3D
   const updateLockerAssignments = (newSelectedProducts: Map<number, { quantity: number; lockerNumber: number }>) => {
-    const newAssignments = new Map();
-    newSelectedProducts.forEach((selection, itemIndex) => {
+    console.log('🔄 Actualizando asignaciones de lockers...');
+    console.log('Productos seleccionados:', newSelectedProducts);
+    
+    if (newSelectedProducts.size === 0) {
+      console.log('❌ No hay productos seleccionados');
+      setPackingResult(null);
+      setLockerAssignments(new Map());
+      return;
+    }
+
+    // Convertir productos seleccionados al formato del algoritmo
+    const selectedItems = Array.from(newSelectedProducts.entries()).map(([itemIndex, selection]) => {
       const item = purchasedProducts[itemIndex];
-      const itemVolume = getVolumen(item) * selection.quantity;
-      const lockerNumber = selection.lockerNumber;
-      const currentAssignment = newAssignments.get(lockerNumber) || {
-        totalVolume: 0,
-        items: []
+      console.log(`📦 Producto ${itemIndex}:`, item.product.nombre, 'Cantidad:', selection.quantity);
+      return {
+        ...item,
+        quantity: selection.quantity
       };
-      currentAssignment.totalVolume += itemVolume;
-      currentAssignment.items.push({
-        itemIndex,
-        quantity: selection.quantity,
-        volume: itemVolume,
-        productName: item.product.nombre
-      });
-      newAssignments.set(lockerNumber, currentAssignment);
     });
+
+    console.log('📋 Items convertidos:', selectedItems);
+
+    // Aplicar algoritmo de Bin Packing 3D
+    const products3D = binPackingService.convertProductsTo3D(selectedItems);
+    console.log('🎯 Productos 3D:', products3D);
+    
+    const result = binPackingService.packProducts3D(products3D);
+    console.log('📊 Resultado Bin Packing:', result);
+    
+    setPackingResult(result);
+
+    // Convertir resultado del Bin Packing al formato original para compatibilidad
+    const newAssignments = new Map();
+    result.bins.forEach((bin, binIndex) => {
+      const lockerNumber = binIndex + 1; // Asignar números de casillero secuencialmente
+      const items = bin.items.map((packedItem, itemIndex) => {
+        const originalItemIndex = selectedItems.findIndex(item => 
+          item._id === packedItem.product.id
+        );
+        return {
+          itemIndex: originalItemIndex >= 0 ? originalItemIndex : itemIndex,
+          quantity: packedItem.product.quantity,
+          volume: packedItem.volume,
+          productName: packedItem.product.name
+        };
+      });
+
+      newAssignments.set(lockerNumber, {
+        totalVolume: bin.usedVolume,
+        items
+      });
+    });
+
+    console.log('🏷️ Asignaciones finales:', newAssignments);
     setLockerAssignments(newAssignments);
+    
+    // Actualizar selectedProducts con los números de casillero asignados por el algoritmo
+    const updatedSelectedProducts = new Map(newSelectedProducts);
+    
+    result.bins.forEach((bin, binIndex) => {
+      const lockerNumber = binIndex + 1;
+      bin.items.forEach((packedItem) => {
+        // Encontrar el índice del producto original
+        const originalItemIndex = selectedItems.findIndex(item => 
+          item._id === packedItem.product.id
+        );
+        
+        if (originalItemIndex >= 0) {
+          const currentSelection = updatedSelectedProducts.get(originalItemIndex);
+          if (currentSelection) {
+            updatedSelectedProducts.set(originalItemIndex, {
+              ...currentSelection,
+              lockerNumber: lockerNumber
+            });
+          }
+        }
+      });
+    });
+    
+    console.log('🔄 Actualizando selectedProducts con asignaciones del algoritmo:', updatedSelectedProducts);
+    setSelectedProducts(updatedSelectedProducts);
   };
 
   // Verificar si hay errores de validación
   const getValidationErrors = () => {
     const errors: string[] = [];
 
+    // Si tenemos un resultado del Bin Packing, confiar en él
+    if (packingResult && packingResult.bins.length > 0) {
+      console.log('✅ Usando validación del Bin Packing - todos los productos caben correctamente');
+      return errors; // No hay errores si el Bin Packing fue exitoso
+    }
+
+    // Solo validar manualmente si no hay resultado del Bin Packing
     selectedProducts.forEach((selection, itemIndex) => {
       const item = purchasedProducts[itemIndex];
       if (item.isClaimed || item.assigned_locker) return;
@@ -324,6 +409,13 @@ const OrdersPage: React.FC = () => {
     const isClaimed = item.isClaimed || false;
     const selectedProduct = selectedProducts.get(index);
     
+    console.log(`🎯 Renderizando producto ${index}:`, {
+      itemName: item.product.nombre,
+      selectedProduct,
+      isClaimed,
+      assigned_locker: item.assigned_locker
+    });
+    
     return (
       <div key={index} className="card shadow-sm mb-3">
         <div className="card-body">
@@ -396,18 +488,14 @@ const OrdersPage: React.FC = () => {
                   {selectedProduct && (
                     <div className="d-flex align-items-center gap-2">
                       <label className="form-label mb-0 small">Casillero:</label>
-                      <select
-                        className="form-select form-select-sm"
-                        style={{ width: '120px' }}
-                        value={selectedProduct.lockerNumber}
-                        onChange={(e) => handleLockerChange(index, parseInt(e.target.value))}
-                      >
-                        {availableLockers.map(lockerNum => (
-                          <option key={lockerNum} value={lockerNum}>
-                            Casillero {lockerNum}
-                          </option>
-                        ))}
-                      </select>
+                      <div className="d-flex align-items-center gap-2">
+                        <span className="badge bg-primary">
+                          Casillero {selectedProduct.lockerNumber}
+                        </span>
+                        <small className="text-muted">
+                          (Asignado automáticamente)
+                        </small>
+                      </div>
                     </div>
                   )}
                   
@@ -511,56 +599,102 @@ const OrdersPage: React.FC = () => {
                 {purchasedProducts.map((item, index) => renderProductCard(item, index))}
               </div>
 
-              {/* Visualización de Casilleros */}
+              {/* Visualización de Casilleros con Bin Packing 3D */}
               {lockerAssignments.size > 0 && (
                 <div className="mb-5">
-                  <h4 className="mb-3">
-                    <i className="bi bi-grid-3x3-gap me-2"></i>
-                    Casilleros Seleccionados
-                  </h4>
+                  <div className="d-flex justify-content-between align-items-center mb-3">
+                    <h4 className="mb-0">
+                      <i className="bi bi-grid-3x3-gap me-2"></i>
+                      Casilleros Optimizados (Bin Packing 3D)
+                    </h4>
+                    <div className="btn-group btn-group-sm">
+                      <button
+                        type="button"
+                        className={`btn ${showPackingOptimization ? 'btn-primary' : 'btn-outline-primary'}`}
+                        onClick={() => setShowPackingOptimization(!showPackingOptimization)}
+                      >
+                        <i className="bi bi-cube me-1"></i>
+                        {showPackingOptimization ? 'Vista Simple' : 'Vista 3D'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Estadísticas y recomendaciones del empaquetado */}
+                  {packingResult && (
+                    <div className="mb-3">
+                      <PackingOptimizationTips result={packingResult} />
+                    </div>
+                  )}
+
                   <div className="row">
-                    {Array.from(lockerAssignments.entries()).map(([lockerNumber, assignment]) => (
-                      <div key={lockerNumber} className="col-md-4 mb-3">
-                        <div className="card border-primary">
-                          <div className="card-header bg-primary text-white">
-                            <h6 className="mb-0">
-                              <i className="bi bi-box me-2"></i>
-                              Casillero {lockerNumber}
-                            </h6>
-                          </div>
-                          <div className="card-body">
-                            <div className="mb-3">
-                              <div className="d-flex justify-content-between align-items-center mb-1">
-                                <small>Uso del espacio:</small>
-                                <small>{getLockerUsagePercentage(lockerNumber)}%</small>
-                              </div>
-                              <div className="progress" style={{ height: '8px' }}>
-                                <div 
-                                  className={`progress-bar ${getLockerUsagePercentage(lockerNumber) > 90 ? 'bg-danger' : getLockerUsagePercentage(lockerNumber) > 70 ? 'bg-warning' : 'bg-success'}`}
-                                  style={{ width: `${getLockerUsagePercentage(lockerNumber)}%` }}
-                                ></div>
-                              </div>
-                              <small className="text-muted">
-                                {assignment.totalVolume.toLocaleString()} / 125,000 cm³
-                              </small>
+                    {showPackingOptimization && packingResult ? (
+                      // Vista 3D optimizada
+                      packingResult.bins.map((bin, index) => (
+                        <div key={bin.id} className="col-md-6 mb-4">
+                          <div className="card border-primary">
+                            <div className="card-header bg-primary text-white">
+                              <h6 className="mb-0">
+                                <i className="bi bi-box me-2"></i>
+                                Casillero {index + 1} - Optimizado
+                              </h6>
                             </div>
-                            <div>
-                              <small className="text-muted d-block mb-2">Productos asignados:</small>
-                              {assignment.items.map((item, idx) => (
-                                <div key={idx} className="d-flex justify-content-between align-items-center mb-1">
-                                  <small className="text-truncate" style={{ maxWidth: '150px' }}>
-                                    {item.productName}
-                                  </small>
-                                  <small className="badge bg-secondary">
-                                    {item.quantity} × {(item.volume / item.quantity / 1000).toFixed(1)}L
-                                  </small>
-                                </div>
-                              ))}
+                            <div className="card-body">
+                              <Locker3DVisualization 
+                                bin={bin}
+                                showDetails={true}
+                                onItemClick={(item) => {
+                                  console.log('Producto clickeado:', item);
+                                }}
+                              />
                             </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      ))
+                    ) : (
+                      // Vista simple original
+                      Array.from(lockerAssignments.entries()).map(([lockerNumber, assignment]) => (
+                        <div key={lockerNumber} className="col-md-4 mb-3">
+                          <div className="card border-primary">
+                            <div className="card-header bg-primary text-white">
+                              <h6 className="mb-0">
+                                <i className="bi bi-box me-2"></i>
+                                Casillero {lockerNumber}
+                              </h6>
+                            </div>
+                            <div className="card-body">
+                              <div className="mb-3">
+                                <div className="d-flex justify-content-between align-items-center mb-1">
+                                  <small>Uso del espacio:</small>
+                                  <small>{getLockerUsagePercentage(lockerNumber)}%</small>
+                                </div>
+                                <div className="progress" style={{ height: '8px' }}>
+                                  <div 
+                                    className={`progress-bar ${getLockerUsagePercentage(lockerNumber) > 90 ? 'bg-danger' : getLockerUsagePercentage(lockerNumber) > 70 ? 'bg-warning' : 'bg-success'}`}
+                                    style={{ width: `${getLockerUsagePercentage(lockerNumber)}%` }}
+                                  ></div>
+                                </div>
+                                <small className="text-muted">
+                                  {assignment.totalVolume.toLocaleString()} / 125,000 cm³
+                                </small>
+                              </div>
+                              <div>
+                                <small className="text-muted d-block mb-2">Productos asignados:</small>
+                                {assignment.items.map((item, idx) => (
+                                  <div key={idx} className="d-flex justify-content-between align-items-center mb-1">
+                                    <small className="text-truncate" style={{ maxWidth: '150px' }}>
+                                      {item.productName}
+                                    </small>
+                                    <small className="badge bg-secondary">
+                                      {item.quantity} × {(item.volume / item.quantity / 1000).toFixed(1)}L
+                                    </small>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
               )}
