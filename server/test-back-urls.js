@@ -35,7 +35,7 @@ async function testBackUrls() {
         pending: 'http://localhost:5173/payment-result'
       },
       auto_return: 'all',
-      notification_url: 'https://e6c7-190-24-30-135.ngrok-free.app/api/payment/webhook/mercadopago',
+      notification_url: 'https://10f2b917bbd2.ngrok-free.app/api/payment/webhook/mercadopago',
       external_reference: `BACK_URLS_TEST_${Date.now()}`,
       expires: true,
       expiration_date_to: new Date(Date.now() + 30 * 60 * 1000).toISOString()

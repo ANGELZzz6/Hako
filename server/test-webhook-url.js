@@ -9,7 +9,7 @@ const mp = new MercadoPagoConfig({
   accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN || 'APP_USR-7141205000973179-070320-5e2fcea86869ce7063884eb151f62d92-2531494471'
 });
 
-const webhookUrl = 'https://e6c7-190-24-30-135.ngrok-free.app/api/payment/webhook/mercadopago';
+const webhookUrl = 'https://10f2b917bbd2.ngrok-free.app/api/payment/webhook/mercadopago';
 
 console.log('📋 Configuración actual:');
 console.log('  - Webhook URL:', webhookUrl);

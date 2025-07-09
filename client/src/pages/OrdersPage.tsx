@@ -720,16 +720,24 @@ const OrdersPage: React.FC = () => {
       </div>
 
       {/* Modal de Agendamiento de Citas */}
-      {showAppointmentScheduler && (
+      {showAppointmentScheduler && packingResult && (
         <AppointmentScheduler
           isOpen={showAppointmentScheduler}
           onClose={() => setShowAppointmentScheduler(false)}
           onSchedule={handleScheduleAppointment}
           orderId={purchasedProducts[0]?.orderId || ''}
-          itemsToPickup={Array.from(selectedProducts.entries()).map(([itemIndex, selection]) => ({
-            product: purchasedProducts[itemIndex]._id || '', // ID del producto individual
-            quantity: selection.quantity,
-            lockerNumber: selection.lockerNumber
+          itemsToPickup={packingResult.lockers.map((locker, idx) => ({
+            lockerIndex: idx + 1,
+            quantity: locker.packedProducts.length,
+            products: locker.packedProducts.reduce((acc, item) => {
+              const found = acc.find(p => p.name === item.product.name);
+              if (found) {
+                found.count += 1;
+              } else {
+                acc.push({ name: item.product.name, count: 1 });
+              }
+              return acc;
+            }, [] as { name: string; count: number }[])
           }))}
           loading={schedulingAppointment}
         />

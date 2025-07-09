@@ -8,12 +8,15 @@ interface AppointmentSchedulerProps {
   onSchedule: (appointmentData: CreateAppointmentData) => void;
   orderId: string;
   itemsToPickup: Array<{
-    product: string;
+    lockerIndex: number;
     quantity: number;
-    lockerNumber: number;
+    products: { name: string; count: number }[];
+    lockerNumber?: number;
   }>;
   loading?: boolean;
 }
+
+const LOCKER_NUMBERS = Array.from({ length: 12 }, (_, i) => i + 1);
 
 const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
   isOpen,
@@ -27,19 +30,39 @@ const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>('');
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
+  // Estado para lockers seleccionados por grupo
+  const [selectedLockers, setSelectedLockers] = useState<number[]>(() => itemsToPickup.map((item, idx) => item.lockerNumber || (idx + 1)));
+
+  useEffect(() => {
+    // Reset lockers seleccionados si cambia la cantidad de lockers a reservar
+    setSelectedLockers(itemsToPickup.map((item, idx) => item.lockerNumber || (idx + 1)));
+  }, [itemsToPickup]);
 
   // Generar fechas disponibles (próximos 7 días)
   const getAvailableDates = () => {
     const dates = [];
     const today = new Date();
-    
     for (let i = 0; i < 7; i++) {
       const date = new Date(today);
       date.setDate(today.getDate() + i);
       dates.push(date.toISOString().split('T')[0]);
     }
-    
     return dates;
+  };
+
+  // Generar horarios de 1 hora (por ejemplo, 08:00, 09:00, ..., 19:00)
+  const getHourlyTimeSlots = () => {
+    const slots = [];
+    for (let hour = 8; hour <= 19; hour++) {
+      slots.push({
+        time: `${hour.toString().padStart(2, '0')}:00`,
+        available: true,
+        occupiedLockers: [],
+        availableLockers: 12,
+        totalLockers: 12
+      });
+    }
+    return slots;
   };
 
   // Cargar horarios disponibles cuando se selecciona una fecha
@@ -52,8 +75,10 @@ const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
   const loadTimeSlots = async (date: string) => {
     try {
       setLoadingSlots(true);
-      const result = await appointmentService.getAvailableTimeSlots(date);
-      setTimeSlots(result.timeSlots);
+      // Si el backend soporta intervalos de 1 hora, úsalo. Si no, usa getHourlyTimeSlots localmente.
+      // const result = await appointmentService.getAvailableTimeSlots(date);
+      // setTimeSlots(result.timeSlots);
+      setTimeSlots(getHourlyTimeSlots());
     } catch (error) {
       console.error('Error al cargar horarios:', error);
       alert('Error al cargar horarios disponibles');
@@ -62,19 +87,35 @@ const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
     }
   };
 
+  const handleLockerChange = (idx: number, value: number) => {
+    setSelectedLockers(prev => {
+      const arr = [...prev];
+      arr[idx] = value;
+      return arr;
+    });
+  };
+
   const handleSchedule = () => {
     if (!selectedDate || !selectedTimeSlot) {
       alert('Por favor selecciona una fecha y hora');
       return;
     }
-
+    // Validar que no haya lockers repetidos
+    const uniqueLockers = new Set(selectedLockers);
+    if (uniqueLockers.size !== selectedLockers.length) {
+      alert('No puedes seleccionar el mismo casillero para más de un grupo.');
+      return;
+    }
     const appointmentData: CreateAppointmentData = {
       orderId,
       scheduledDate: selectedDate,
       timeSlot: selectedTimeSlot,
-      itemsToPickup
+      itemsToPickup: itemsToPickup.map((item, idx) => ({
+        product: '', // No se usa, pero requerido por el backend, puedes poner ''
+        quantity: item.quantity,
+        lockerNumber: selectedLockers[idx]
+      }))
     };
-
     onSchedule(appointmentData);
   };
 
@@ -160,7 +201,7 @@ const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
                               {formatTime(slot.time)}
                               {slot.available ? (
                                 <small className="d-block text-success">
-                                  {slot.availableLockers} casillero{slot.availableLockers > 1 ? 's' : ''} disponible{slot.availableLockers > 1 ? 's' : ''}
+                                  {(slot.availableLockers ?? (12 - slot.occupiedLockers.length))} casillero{(slot.availableLockers ?? (12 - slot.occupiedLockers.length)) > 1 ? 's' : ''} disponible{(slot.availableLockers ?? (12 - slot.occupiedLockers.length)) > 1 ? 's' : ''}
                                 </small>
                               ) : (
                                 <small className="d-block text-muted">
@@ -183,19 +224,37 @@ const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
 
 
 
-            {/* Resumen de Productos */}
+            {/* Resumen de Productos y selección de casillero */}
             <div className="mb-3">
               <label className="form-label">
                 <i className="bi bi-box-seam me-1"></i>
-                Productos a Recoger
+                Casilleros a Reservar y Productos
               </label>
               <div className="border rounded p-3 bg-light">
                 {itemsToPickup.map((item, index) => (
-                  <div key={index} className="d-flex justify-content-between align-items-center mb-2">
-                    <span>Producto {index + 1}</span>
-                    <span className="badge bg-primary">
-                      {item.quantity} unidad{item.quantity > 1 ? 'es' : ''} - Casillero {item.lockerNumber}
-                    </span>
+                  <div key={index} className="mb-3">
+                    <div className="d-flex justify-content-between align-items-center mb-1">
+                      <span><strong>Casillero necesario #{item.lockerIndex}</strong></span>
+                      <select
+                        className="form-select w-auto d-inline-block"
+                        value={selectedLockers[index]}
+                        onChange={e => handleLockerChange(index, Number(e.target.value))}
+                        style={{ minWidth: 120 }}
+                      >
+                        {LOCKER_NUMBERS.map(num => (
+                          <option key={num} value={num} disabled={selectedLockers.includes(num) && selectedLockers[index] !== num}>
+                            Casillero {num}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="ms-2 small text-muted">
+                      {item.products.map((prod, i) => (
+                        <span key={i} className="me-2">
+                          {prod.count} × {prod.name}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 ))}
               </div>

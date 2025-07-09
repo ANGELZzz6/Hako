@@ -61,7 +61,7 @@ async function testToken() {
 // Verificar configuración del webhook
 console.log('');
 console.log('🔗 CONFIGURACIÓN DEL WEBHOOK:');
-console.log('URL del webhook:', 'https://e6c7-190-24-30-135.ngrok-free.app/api/payment/webhook/mercadopago');
+console.log('URL del webhook:', 'https://10f2b917bbd2.ngrok-free.app/api/payment/webhook/mercadopago');
 console.log('Clave secreta:', '59e47f91f713216ea4aebf571ac7bb5ad308513bc7991a141d1815f014505efe');
 
 console.log('');
