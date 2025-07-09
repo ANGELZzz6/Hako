@@ -1,26 +1,27 @@
 import React from 'react';
-import type { PackingResult } from '../services/binPackingService';
+import type { PackingResult } from '../services/gridPackingService';
 
 interface PackingOptimizationTipsProps {
   result: PackingResult;
 }
 
+const SLOT_SIZE = 15; // cm
+const SLOT_VOLUME = SLOT_SIZE * SLOT_SIZE * SLOT_SIZE; // 3375 cm³
+
 const PackingOptimizationTips: React.FC<PackingOptimizationTipsProps> = ({ result }) => {
   const stats = {
     efficiency: Math.round(result.totalEfficiency),
     score: result.packingScore,
-    bins: result.bins.length,
-    unusedVolume: result.unusedVolume,
-    totalUsedVolume: result.bins.reduce((sum, bin) => sum + bin.usedVolume, 0)
+    lockers: result.lockers.length,
+    unusedVolume: result.totalUnusedSlots * SLOT_VOLUME,
+    totalUsedVolume: result.lockers.reduce((sum, locker) => sum + locker.usedSlots * SLOT_VOLUME, 0)
   };
 
   const getEfficiencyLevel = () => {
-    // Para productos muy pequeños, ajustar los niveles
     if (stats.efficiency >= 90) return { level: 'Excelente', color: 'success', icon: 'bi-star-fill' };
     if (stats.efficiency >= 80) return { level: 'Muy Buena', color: 'info', icon: 'bi-star-half' };
     if (stats.efficiency >= 70) return { level: 'Buena', color: 'warning', icon: 'bi-star' };
     if (stats.efficiency >= 1) return { level: 'Mejorable', color: 'danger', icon: 'bi-exclamation-triangle' };
-    // Para productos muy pequeños (< 1%), considerar como "Normal"
     return { level: 'Normal', color: 'info', icon: 'bi-box-seam' };
   };
 
@@ -36,8 +37,6 @@ const PackingOptimizationTips: React.FC<PackingOptimizationTipsProps> = ({ resul
 
   const getRecommendations = () => {
     const recommendations = [];
-
-    // Para productos muy pequeños, mostrar recomendaciones específicas
     if (stats.efficiency < 1) {
       recommendations.push({
         icon: 'bi-box-seam',
@@ -53,8 +52,7 @@ const PackingOptimizationTips: React.FC<PackingOptimizationTipsProps> = ({ resul
         priority: 'high'
       });
     }
-
-    if (stats.bins > 1) {
+    if (stats.lockers > 1) {
       recommendations.push({
         icon: 'bi-boxes',
         title: 'Reduce casilleros',
@@ -62,7 +60,6 @@ const PackingOptimizationTips: React.FC<PackingOptimizationTipsProps> = ({ resul
         priority: 'medium'
       });
     }
-
     if (stats.unusedVolume > 25000 && stats.efficiency > 1) {
       recommendations.push({
         icon: 'bi-arrows-move',
@@ -71,7 +68,6 @@ const PackingOptimizationTips: React.FC<PackingOptimizationTipsProps> = ({ resul
         priority: 'medium'
       });
     }
-
     if (stats.score < 70 && stats.efficiency > 1) {
       recommendations.push({
         icon: 'bi-gear',
@@ -80,9 +76,7 @@ const PackingOptimizationTips: React.FC<PackingOptimizationTipsProps> = ({ resul
         priority: 'high'
       });
     }
-
-    // Recomendación positiva para productos pequeños bien organizados
-    if (stats.efficiency < 1 && stats.bins === 1 && stats.score >= 60) {
+    if (stats.efficiency < 1 && stats.lockers === 1 && stats.score >= 60) {
       recommendations.push({
         icon: 'bi-check-circle',
         title: 'Empaquetado eficiente',
@@ -90,7 +84,6 @@ const PackingOptimizationTips: React.FC<PackingOptimizationTipsProps> = ({ resul
         priority: 'low'
       });
     }
-
     return recommendations;
   };
 
@@ -114,7 +107,6 @@ const PackingOptimizationTips: React.FC<PackingOptimizationTipsProps> = ({ resul
             </div>
           </div>
         </div>
-        
         <div className="col-md-3">
           <div className="metric-card text-center p-3 border rounded">
             <div className={`text-${scoreInfo.color}`}>
@@ -129,22 +121,20 @@ const PackingOptimizationTips: React.FC<PackingOptimizationTipsProps> = ({ resul
             </div>
           </div>
         </div>
-        
         <div className="col-md-3">
           <div className="metric-card text-center p-3 border rounded">
             <div className="text-primary">
               <i className="bi bi-boxes fs-2"></i>
             </div>
-            <h5 className="mt-2 mb-1">{stats.bins}</h5>
+            <h5 className="mt-2 mb-1">{stats.lockers}</h5>
             <small className="text-muted">Casilleros Usados</small>
             <div className="mt-1">
               <span className="badge bg-primary">
-                {stats.bins === 1 ? 'Óptimo' : 'Múltiples'}
+                {stats.lockers === 1 ? 'Óptimo' : 'Múltiples'}
               </span>
             </div>
           </div>
         </div>
-        
         <div className="col-md-3">
           <div className="metric-card text-center p-3 border rounded">
             <div className="text-warning">
@@ -160,7 +150,6 @@ const PackingOptimizationTips: React.FC<PackingOptimizationTipsProps> = ({ resul
           </div>
         </div>
       </div>
-
       {/* Recomendaciones */}
       {recommendations.length > 0 && (
         <div className="recommendations-section">
@@ -168,13 +157,10 @@ const PackingOptimizationTips: React.FC<PackingOptimizationTipsProps> = ({ resul
             <i className="bi bi-lightbulb me-2"></i>
             Recomendaciones de Optimización
           </h6>
-          
           <div className="row">
             {recommendations.map((rec, index) => (
               <div key={index} className="col-md-6 mb-3">
-                <div className={`recommendation-card p-3 border rounded ${
-                  rec.priority === 'high' ? 'border-danger' : 'border-warning'
-                }`}>
+                <div className={`recommendation-card p-3 border rounded ${rec.priority === 'high' ? 'border-danger' : 'border-warning'}`}>
                   <div className="d-flex align-items-start">
                     <div className={`text-${rec.priority === 'high' ? 'danger' : 'warning'} me-3`}>
                       <i className={`bi ${rec.icon} fs-4`}></i>
@@ -195,7 +181,6 @@ const PackingOptimizationTips: React.FC<PackingOptimizationTipsProps> = ({ resul
           </div>
         </div>
       )}
-
       {/* Tips generales */}
       <div className="tips-section mt-4">
         <h6 className="mb-3">

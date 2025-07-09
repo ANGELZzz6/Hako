@@ -6,10 +6,11 @@ import appointmentService from '../services/appointmentService';
 import AppointmentScheduler from '../components/AppointmentScheduler';
 import Locker3DVisualization from '../components/Locker3DVisualization';
 import PackingOptimizationTips from '../components/PackingOptimizationTips';
-import binPackingService from '../services/binPackingService';
-import type { PackingResult, Bin3D, PackedItem } from '../services/binPackingService';
+import gridPackingService from '../services/gridPackingService';
+import type { PackingResult, Locker3D, PackedItem, Product3D } from '../services/gridPackingService';
 import type { Order, OrderItem } from '../types/order';
 import type { CreateAppointmentData } from '../services/appointmentService';
+import Locker3DCanvas from '../components/Locker3DCanvas';
 
 const statusLabels: Record<string, string> = {
   pending: 'Pendiente de pago',
@@ -145,14 +146,11 @@ const OrdersPage: React.FC = () => {
 
   // Manejar selección de productos individuales
   const handleQuantityChange = (itemIndex: number, quantity: number) => {
-    console.log(`🖱️ Cambiando cantidad para producto ${itemIndex}:`, quantity);
     
     const item = purchasedProducts[itemIndex];
-    console.log('📦 Item:', item);
     
     // Solo permitir seleccionar productos no reclamados y no reservados
     if (item.isClaimed || item.assigned_locker) {
-      console.log('❌ Producto no disponible para selección');
       return;
     }
     
@@ -161,12 +159,9 @@ const OrdersPage: React.FC = () => {
       quantity = quantity > 0 ? 1 : 0;
     }
     
-    console.log('✅ Cantidad final:', quantity);
-    
     if (quantity === 0) {
       const newSelectedProducts = new Map(selectedProducts);
       newSelectedProducts.delete(itemIndex);
-      console.log('🗑️ Eliminando producto de selección');
       setSelectedProducts(newSelectedProducts);
       updateLockerAssignments(newSelectedProducts);
       return;
@@ -181,7 +176,6 @@ const OrdersPage: React.FC = () => {
       lockerNumber: currentSelection?.lockerNumber || defaultLocker
     });
     
-    console.log('✅ Agregando producto a selección:', newSelectedProducts.get(itemIndex));
     setSelectedProducts(newSelectedProducts);
     updateLockerAssignments(newSelectedProducts);
   };
@@ -201,9 +195,9 @@ const OrdersPage: React.FC = () => {
     updateLockerAssignments(newSelectedProducts);
   };
 
-  // Actualizar asignaciones de lockers usando Bin Packing 3D
+  // Actualizar asignaciones de lockers usando Grid Packing 3D
   const updateLockerAssignments = (newSelectedProducts: Map<number, { quantity: number; lockerNumber: number }>) => {
-    console.log('🔄 Actualizando asignaciones de lockers...');
+    console.log('🔄 Actualizando asignaciones de lockers (Grid Packing 3D)...');
     console.log('Productos seleccionados:', newSelectedProducts);
     
     if (newSelectedProducts.size === 0) {
@@ -214,75 +208,67 @@ const OrdersPage: React.FC = () => {
     }
 
     // Convertir productos seleccionados al formato del algoritmo
-    const selectedItems = Array.from(newSelectedProducts.entries()).map(([itemIndex, selection]) => {
+    const selectedItems: Product3D[] = Array.from(newSelectedProducts.entries()).map(([itemIndex, selection]) => {
       const item = purchasedProducts[itemIndex];
-      console.log(`📦 Producto ${itemIndex}:`, item.product.nombre, 'Cantidad:', selection.quantity);
+      const dimensiones = getDimensiones(item);
       return {
-        ...item,
-        quantity: selection.quantity
+        id: item._id || item.product?._id || `item_${itemIndex}`,
+        name: item.product?.nombre || `Producto ${itemIndex + 1}`,
+        dimensions: {
+          length: dimensiones?.largo || 0,
+          width: dimensiones?.ancho || 0,
+          height: dimensiones?.alto || 0,
+        },
+        quantity: selection.quantity,
+        volume: getVolumen(item),
       };
     });
 
-    console.log('📋 Items convertidos:', selectedItems);
+    console.log('📋 Items convertidos (GridPacking):', selectedItems);
 
-    // Aplicar algoritmo de Bin Packing 3D
-    const products3D = binPackingService.convertProductsTo3D(selectedItems);
-    console.log('🎯 Productos 3D:', products3D);
-    
-    const result = binPackingService.packProducts3D(products3D);
-    console.log('📊 Resultado Bin Packing:', result);
-    
+    // Aplicar algoritmo de Grid Packing 3D
+    const result = gridPackingService.packProducts3D(selectedItems);
+    console.log('📊 Resultado Grid Packing:', result);
     setPackingResult(result);
 
-    // Convertir resultado del Bin Packing al formato original para compatibilidad
+    // Convertir resultado del Grid Packing al formato de asignaciones
     const newAssignments = new Map();
-    result.bins.forEach((bin, binIndex) => {
-      const lockerNumber = binIndex + 1; // Asignar números de casillero secuencialmente
-      const items = bin.items.map((packedItem, itemIndex) => {
-        const originalItemIndex = selectedItems.findIndex(item => 
-          item._id === packedItem.product.id
-        );
+    result.lockers.forEach((locker, lockerIndex) => {
+      const lockerNumber = lockerIndex + 1;
+      const items = locker.packedProducts.map((packedItem, itemIndex) => {
+        // Buscar el índice original del producto
+        const originalItemIndex = selectedItems.findIndex(item => item.id === packedItem.product.id);
         return {
           itemIndex: originalItemIndex >= 0 ? originalItemIndex : itemIndex,
           quantity: packedItem.product.quantity,
           volume: packedItem.volume,
-          productName: packedItem.product.name
+          productName: packedItem.product.name,
         };
       });
-
       newAssignments.set(lockerNumber, {
-        totalVolume: bin.usedVolume,
-        items
+        totalVolume: items.reduce((sum, i) => sum + i.volume, 0),
+        items,
       });
     });
-
-    console.log('🏷️ Asignaciones finales:', newAssignments);
     setLockerAssignments(newAssignments);
-    
+
     // Actualizar selectedProducts con los números de casillero asignados por el algoritmo
     const updatedSelectedProducts = new Map(newSelectedProducts);
-    
-    result.bins.forEach((bin, binIndex) => {
-      const lockerNumber = binIndex + 1;
-      bin.items.forEach((packedItem) => {
-        // Encontrar el índice del producto original
-        const originalItemIndex = selectedItems.findIndex(item => 
-          item._id === packedItem.product.id
-        );
-        
+    result.lockers.forEach((locker, lockerIndex) => {
+      const lockerNumber = lockerIndex + 1;
+      locker.packedProducts.forEach((packedItem) => {
+        const originalItemIndex = selectedItems.findIndex(item => item.id === packedItem.product.id);
         if (originalItemIndex >= 0) {
           const currentSelection = updatedSelectedProducts.get(originalItemIndex);
           if (currentSelection) {
             updatedSelectedProducts.set(originalItemIndex, {
               ...currentSelection,
-              lockerNumber: lockerNumber
+              lockerNumber: lockerNumber,
             });
           }
         }
       });
     });
-    
-    console.log('🔄 Actualizando selectedProducts con asignaciones del algoritmo:', updatedSelectedProducts);
     setSelectedProducts(updatedSelectedProducts);
   };
 
@@ -291,7 +277,7 @@ const OrdersPage: React.FC = () => {
     const errors: string[] = [];
 
     // Si tenemos un resultado del Bin Packing, confiar en él
-    if (packingResult && packingResult.bins.length > 0) {
+    if (packingResult && packingResult.lockers.length > 0) {
       console.log('✅ Usando validación del Bin Packing - todos los productos caben correctamente');
       return errors; // No hay errores si el Bin Packing fue exitoso
     }
@@ -301,7 +287,7 @@ const OrdersPage: React.FC = () => {
       const item = purchasedProducts[itemIndex];
       if (item.isClaimed || item.assigned_locker) return;
       if (!tieneDimensiones(item)) {
-        errors.push(`El producto ${item.product.nombre} no tiene dimensiones configuradas`);
+        errors.push(`El producto ${item.product?.nombre} no tiene dimensiones configuradas`);
       }
       const itemVolume = getVolumen(item) * selection.quantity;
       if (!hasLockerSpace(selection.lockerNumber, itemVolume)) {
@@ -409,13 +395,6 @@ const OrdersPage: React.FC = () => {
     const isClaimed = item.isClaimed || false;
     const selectedProduct = selectedProducts.get(index);
     
-    console.log(`🎯 Renderizando producto ${index}:`, {
-      itemName: item.product.nombre,
-      selectedProduct,
-      isClaimed,
-      assigned_locker: item.assigned_locker
-    });
-    
     return (
       <div key={index} className="card shadow-sm mb-3">
         <div className="card-body">
@@ -423,13 +402,13 @@ const OrdersPage: React.FC = () => {
             <div className="col-md-2">
               <img 
                 src={item.product.imagen_url} 
-                alt={item.product.nombre} 
+                alt={item.product?.nombre} 
                 className="img-fluid rounded"
                 style={{ width: 80, height: 80, objectFit: 'cover' }} 
               />
             </div>
             <div className="col-md-3">
-              <h6 className="mb-1">{item.product.nombre}</h6>
+              <h6 className="mb-1">{item.product?.nombre}</h6>
               <p className="text-muted mb-1">{item.product.descripcion}</p>
               <div className="d-flex gap-2 flex-wrap">
                 <span className="badge bg-primary">${item.unit_price.toLocaleString('es-CO')}</span>
@@ -600,101 +579,38 @@ const OrdersPage: React.FC = () => {
               </div>
 
               {/* Visualización de Casilleros con Bin Packing 3D */}
-              {lockerAssignments.size > 0 && (
+              {lockerAssignments.size > 0 && packingResult && (
                 <div className="mb-5">
                   <div className="d-flex justify-content-between align-items-center mb-3">
                     <h4 className="mb-0">
                       <i className="bi bi-grid-3x3-gap me-2"></i>
                       Casilleros Optimizados (Bin Packing 3D)
                     </h4>
-                    <div className="btn-group btn-group-sm">
-                      <button
-                        type="button"
-                        className={`btn ${showPackingOptimization ? 'btn-primary' : 'btn-outline-primary'}`}
-                        onClick={() => setShowPackingOptimization(!showPackingOptimization)}
-                      >
-                        <i className="bi bi-cube me-1"></i>
-                        {showPackingOptimization ? 'Vista Simple' : 'Vista 3D'}
-                      </button>
-                    </div>
                   </div>
-
-                  {/* Estadísticas y recomendaciones del empaquetado */}
-                  {packingResult && (
-                    <div className="mb-3">
-                      <PackingOptimizationTips result={packingResult} />
-                    </div>
-                  )}
-
                   <div className="row">
-                    {showPackingOptimization && packingResult ? (
-                      // Vista 3D optimizada
-                      packingResult.bins.map((bin, index) => (
-                        <div key={bin.id} className="col-md-6 mb-4">
-                          <div className="card border-primary">
-                            <div className="card-header bg-primary text-white">
-                              <h6 className="mb-0">
-                                <i className="bi bi-box me-2"></i>
-                                Casillero {index + 1} - Optimizado
-                              </h6>
-                            </div>
-                            <div className="card-body">
-                              <Locker3DVisualization 
-                                bin={bin}
-                                showDetails={true}
-                                onItemClick={(item) => {
-                                  console.log('Producto clickeado:', item);
-                                }}
-                              />
-                            </div>
+                    {packingResult.lockers.map((locker, index) => (
+                      <div key={locker.id} className="col-md-6 mb-4">
+                        <div className="card border-primary">
+                          <div className="card-header bg-primary text-white">
+                            <strong>Casillero {index + 1}</strong> &nbsp;|&nbsp; Slots usados: {locker.usedSlots}/27
+                          </div>
+                          <div className="card-body">
+                            <Locker3DCanvas 
+                              bin={locker}
+                              selectedProductId={(() => {
+                                // Resalta el primer producto seleccionado si existe
+                                const firstSelected = Array.from(selectedProducts.keys())[0];
+                                if (firstSelected !== undefined) {
+                                  const item = purchasedProducts[firstSelected];
+                                  return item?._id || item?.product?._id || null;
+                                }
+                                return null;
+                              })()}
+                            />
                           </div>
                         </div>
-                      ))
-                    ) : (
-                      // Vista simple original
-                      Array.from(lockerAssignments.entries()).map(([lockerNumber, assignment]) => (
-                        <div key={lockerNumber} className="col-md-4 mb-3">
-                          <div className="card border-primary">
-                            <div className="card-header bg-primary text-white">
-                              <h6 className="mb-0">
-                                <i className="bi bi-box me-2"></i>
-                                Casillero {lockerNumber}
-                              </h6>
-                            </div>
-                            <div className="card-body">
-                              <div className="mb-3">
-                                <div className="d-flex justify-content-between align-items-center mb-1">
-                                  <small>Uso del espacio:</small>
-                                  <small>{getLockerUsagePercentage(lockerNumber)}%</small>
-                                </div>
-                                <div className="progress" style={{ height: '8px' }}>
-                                  <div 
-                                    className={`progress-bar ${getLockerUsagePercentage(lockerNumber) > 90 ? 'bg-danger' : getLockerUsagePercentage(lockerNumber) > 70 ? 'bg-warning' : 'bg-success'}`}
-                                    style={{ width: `${getLockerUsagePercentage(lockerNumber)}%` }}
-                                  ></div>
-                                </div>
-                                <small className="text-muted">
-                                  {assignment.totalVolume.toLocaleString()} / 125,000 cm³
-                                </small>
-                              </div>
-                              <div>
-                                <small className="text-muted d-block mb-2">Productos asignados:</small>
-                                {assignment.items.map((item, idx) => (
-                                  <div key={idx} className="d-flex justify-content-between align-items-center mb-1">
-                                    <small className="text-truncate" style={{ maxWidth: '150px' }}>
-                                      {item.productName}
-                                    </small>
-                                    <small className="badge bg-secondary">
-                                      {item.quantity} × {(item.volume / item.quantity / 1000).toFixed(1)}L
-                                    </small>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ))
-                    )}
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
