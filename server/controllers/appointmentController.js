@@ -41,8 +41,25 @@ exports.createAppointment = async (req, res) => {
   try {
     const { orderId, scheduledDate, timeSlot, itemsToPickup, notes, contactInfo } = req.body;
     
+    // Debug: Ver qué datos está recibiendo el backend
+    console.log('🔍 Backend recibió:', {
+      orderId,
+      scheduledDate,
+      timeSlot,
+      itemsToPickup,
+      notes,
+      contactInfo
+    });
+    
     // Validar datos requeridos
     if (!orderId || !scheduledDate || !timeSlot || !itemsToPickup || !Array.isArray(itemsToPickup)) {
+      console.log('❌ Datos incompletos:', {
+        orderId: !!orderId,
+        scheduledDate: !!scheduledDate,
+        timeSlot: !!timeSlot,
+        itemsToPickup: !!itemsToPickup,
+        isArray: Array.isArray(itemsToPickup)
+      });
       return res.status(400).json({ error: 'Datos incompletos para crear la cita' });
     }
     
@@ -97,61 +114,133 @@ exports.createAppointment = async (req, res) => {
       });
     }
     
-    // Obtener los casilleros que se van a usar en esta cita
-    const requestedLockers = validItems.map(item => item.lockerNumber);
-    
-    // Verificar disponibilidad de los casilleros específicos
-    const availability = await Appointment.checkLockerAvailability(selectedDate, timeSlot, requestedLockers);
-    if (!availability.available) {
-      return res.status(400).json({ 
-        error: `Casilleros ${availability.conflictingLockers.join(', ')} no disponibles en este horario`,
-        occupiedLockers: availability.occupiedLockers,
-        conflictingLockers: availability.conflictingLockers
+    // Buscar reservas existentes del usuario en la misma fecha y hora
+    const existingAppointments = await Appointment.find({
+      user: req.user.id,
+      scheduledDate: selectedDate,
+      timeSlot: timeSlot,
+      status: { $nin: ['cancelled', 'completed'] }
+    }).populate('itemsToPickup.product');
+
+    console.log('🔍 Reservas existentes encontradas:', existingAppointments.length);
+
+    // Si hay reservas existentes, intentar agregar productos a ellas
+    if (existingAppointments.length > 0) {
+      console.log('📅 Intentando agregar productos a reservas existentes...');
+      
+      // Agrupar productos por casillero solicitado
+      const productsByLocker = new Map();
+      validItems.forEach(item => {
+        if (!productsByLocker.has(item.lockerNumber)) {
+          productsByLocker.set(item.lockerNumber, []);
+        }
+        productsByLocker.get(item.lockerNumber).push(item);
       });
+
+      // Para cada casillero solicitado, buscar una reserva existente que lo use
+      for (const [lockerNumber, products] of productsByLocker) {
+        const existingAppointment = existingAppointments.find(app => 
+          app.itemsToPickup.some(item => item.lockerNumber === lockerNumber)
+        );
+
+        if (existingAppointment) {
+          console.log(`✅ Agregando productos al casillero ${lockerNumber} en reserva existente ${existingAppointment._id}`);
+          
+          // Agregar productos a la reserva existente
+          for (const product of products) {
+            existingAppointment.itemsToPickup.push({
+              product: product.product,
+              quantity: product.quantity,
+              lockerNumber: product.lockerNumber
+            });
+          }
+          
+          await existingAppointment.save();
+          
+          // Marcar productos como reservados
+          for (const product of products) {
+            const individualProduct = await IndividualProduct.findById(product.individualProductId);
+            if (individualProduct) {
+              individualProduct.status = 'reserved';
+              individualProduct.assignedLocker = product.lockerNumber;
+              individualProduct.reservedAt = new Date();
+              await individualProduct.save();
+            }
+          }
+          
+          // Remover estos productos de validItems para no crear una nueva reserva
+          validItems.splice(validItems.findIndex(item => 
+            products.some(p => p.individualProductId === item.individualProductId)
+          ), products.length);
+        }
+      }
     }
 
-    // Marcar productos individuales como reservados
-    for (const item of validItems) {
-      const individualProduct = await IndividualProduct.findById(item.individualProductId);
-      if (individualProduct) {
-        individualProduct.status = 'reserved';
-        individualProduct.assignedLocker = item.lockerNumber;
-        individualProduct.reservedAt = new Date();
-        await individualProduct.save();
+    // Si quedan productos sin asignar, crear una nueva reserva
+    if (validItems.length > 0) {
+      console.log(`📅 Creando nueva reserva para ${validItems.length} productos restantes`);
+      
+      // Obtener los casilleros que se van a usar en esta cita
+      const requestedLockers = validItems.map(item => item.lockerNumber);
+      
+      // Verificar disponibilidad de los casilleros específicos
+      const availability = await Appointment.checkLockerAvailability(selectedDate, timeSlot, requestedLockers);
+      if (!availability.available) {
+        return res.status(400).json({ 
+          error: `Casilleros ${availability.conflictingLockers.join(', ')} no disponibles en este horario`,
+          occupiedLockers: availability.occupiedLockers,
+          conflictingLockers: availability.conflictingLockers
+        });
       }
-    }
-    
-    // Crear la cita
-    const appointment = new Appointment({
-      user: req.user.id,
-      order: orderId,
-      scheduledDate: selectedDate,
-      timeSlot,
-      itemsToPickup: validItems,
-      notes: notes || undefined,
-      contactInfo: contactInfo ? {
-        phone: contactInfo.phone || undefined,
-        email: contactInfo.email || undefined
-      } : undefined
-    });
-    
-    await appointment.save();
-    
-    // Actualizar estado de la orden si es necesario
-    if (order.status === 'paid') {
-      order.status = 'ready_for_pickup';
-      await order.save();
-    }
-    
-    res.status(201).json({
-      message: 'Cita agendada exitosamente',
-      appointment: {
-        id: appointment._id,
-        scheduledDate: appointment.scheduledDate,
-        timeSlot: appointment.timeSlot,
-        status: appointment.status
+
+      // Marcar productos individuales como reservados
+      for (const item of validItems) {
+        const individualProduct = await IndividualProduct.findById(item.individualProductId);
+        if (individualProduct) {
+          individualProduct.status = 'reserved';
+          individualProduct.assignedLocker = item.lockerNumber;
+          individualProduct.reservedAt = new Date();
+          await individualProduct.save();
+        }
       }
-    });
+      
+      // Crear la nueva cita
+      const appointment = new Appointment({
+        user: req.user.id,
+        order: orderId,
+        scheduledDate: selectedDate,
+        timeSlot,
+        itemsToPickup: validItems,
+        notes: notes || undefined,
+        contactInfo: contactInfo ? {
+          phone: contactInfo.phone || undefined,
+          email: contactInfo.email || undefined
+        } : undefined
+      });
+      
+      await appointment.save();
+      
+      // Actualizar estado de la orden si es necesario
+      if (order.status === 'paid') {
+        order.status = 'ready_for_pickup';
+        await order.save();
+      }
+      
+      res.status(201).json({
+        message: 'Productos agregados a reservas existentes y nueva reserva creada exitosamente',
+        appointment: {
+          id: appointment._id,
+          scheduledDate: appointment.scheduledDate,
+          timeSlot: appointment.timeSlot,
+          status: appointment.status
+        }
+      });
+    } else {
+      // Todos los productos se agregaron a reservas existentes
+      res.status(200).json({
+        message: 'Productos agregados a reservas existentes exitosamente'
+      });
+    }
     
   } catch (error) {
     console.error('Error al crear cita:', error);
@@ -164,7 +253,7 @@ exports.getMyAppointments = async (req, res) => {
   try {
     const appointments = await Appointment.find({ user: req.user.id })
       .populate('order', 'total_amount status')
-      .populate('itemsToPickup.product', 'nombre imagen_url')
+      .populate('itemsToPickup.product', 'nombre imagen_url descripcion dimensiones')
       .sort({ scheduledDate: 1, timeSlot: 1 });
     
     res.json(appointments);
@@ -184,7 +273,7 @@ exports.getMyAppointment = async (req, res) => {
       user: req.user.id 
     })
     .populate('order', 'total_amount status')
-    .populate('itemsToPickup.product', 'nombre imagen_url descripcion');
+    .populate('itemsToPickup.product', 'nombre imagen_url descripcion dimensiones');
     
     if (!appointment) {
       return res.status(404).json({ error: 'Cita no encontrada' });

@@ -1,67 +1,64 @@
 const { connectDB } = require('./config/db');
 const IndividualProduct = require('./models/IndividualProduct');
-const Payment = require('../models/Payment');
+const Order = require('./models/Order');
+const Product = require('./models/Product');
+const User = require('./models/User');
 
 async function testIndividualProducts() {
   try {
-    console.log('🔌 Conectando a la base de datos...');
+    // Conectar a la base de datos
     await connectDB();
-    
-    console.log('🧪 Probando creación de productos individuales...');
-    
-    // Simular datos de un pago
-    const mockPaymentInfo = {
-      id: 'TEST_PAYMENT_123',
-      status: 'approved',
-      metadata: {
-        user_id: '6865c8eadaea2368cc29a818',
-        selected_items: [
-          {
-            id: '6857192c777fc0acb62e5150',
-            title: 'Camisa Blanca',
-            quantity: 1,
-            unit_price: 10000
-          }
-        ]
+    console.log('✅ Conectado a MongoDB');
+
+    // Obtener todos los productos individuales con sus órdenes
+    const individualProducts = await IndividualProduct.find({})
+      .populate('order', '_id')
+      .populate('product', 'nombre')
+      .populate('user', 'email');
+
+    console.log(`📊 Productos individuales encontrados: ${individualProducts.length}`);
+
+    // Encontrar productos con órdenes inexistentes
+    const orphanedProducts = [];
+    const validProducts = [];
+
+    individualProducts.forEach((product) => {
+      if (product.order === null && product.order !== undefined) {
+        orphanedProducts.push(product);
+      } else {
+        validProducts.push(product);
       }
-    };
-    
-    // Simular pago
-    const mockPayment = {
-      _id: 'test_payment_id',
-      mp_payment_id: 'TEST_PAYMENT_123'
-    };
-    
-    // Importar la función
-    const { mercadoPagoWebhook } = require('./controllers/paymentController');
-    
-    // Contar productos individuales antes
-    const beforeCount = await IndividualProduct.countDocuments();
-    console.log(`📊 Productos individuales antes: ${beforeCount}`);
-    
-    // Simular la creación (esto no funcionará directamente, pero podemos probar la lógica)
-    console.log('📦 Simulando creación de productos individuales...');
-    console.log('Productos a crear:', mockPaymentInfo.metadata.selected_items);
-    
-    // Verificar si ya existen productos para este pago
-    const existingProducts = await IndividualProduct.find({
-      'payment.mp_payment_id': mockPaymentInfo.id
     });
-    
-    console.log(`🔍 Productos existentes para pago ${mockPaymentInfo.id}: ${existingProducts.length}`);
-    
-    // Contar productos individuales después
-    const afterCount = await IndividualProduct.countDocuments();
-    console.log(`📊 Productos individuales después: ${afterCount}`);
-    
-    console.log('✅ Prueba completada');
-    
+
+    console.log('\n❌ PRODUCTOS HUÉRFANOS (orden eliminada):', orphanedProducts.length);
+    orphanedProducts.forEach((product, index) => {
+      console.log(`  ${index + 1}. ID: ${product._id}`);
+      console.log(`     Producto: ${product.product?.nombre}`);
+      console.log(`     Usuario: ${product.user?.email}`);
+      console.log(`     Order ID: ${product.order}`);
+      console.log(`     Status: ${product.status}`);
+      console.log('');
+    });
+
+    console.log('\n✅ PRODUCTOS VÁLIDOS:', validProducts.length);
+    validProducts.forEach((product, index) => {
+      console.log(`  ${index + 1}. ID: ${product._id}`);
+      console.log(`     Producto: ${product.product?.nombre}`);
+      console.log(`     Order ID: ${product.order?._id}`);
+      console.log(`     Status: ${product.status}`);
+    });
+
+    // Estadísticas
+    console.log('\n📊 ESTADÍSTICAS FINALES:');
+    console.log('Total productos individuales:', individualProducts.length);
+    console.log('Productos válidos:', validProducts.length);
+    console.log('Productos huérfanos:', orphanedProducts.length);
+
   } catch (error) {
-    console.error('❌ Error durante la prueba:', error);
+    console.error('❌ Error:', error);
   } finally {
     process.exit(0);
   }
 }
 
-// Ejecutar la prueba
 testIndividualProducts(); 

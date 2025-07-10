@@ -1,10 +1,11 @@
 import React, { useRef } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls } from '@react-three/drei';
+import { OrbitControls, Text } from '@react-three/drei';
 import type { Locker3D } from '../services/gridPackingService';
 
 const GRID = 3;
 const SLOT_SIZE = 0.5; // en unidades Three.js (ajustable)
+const LOCKER_WALL_THICKNESS = 0.05; // grosor de las paredes del casillero
 
 // Cambiar para usar el nombre del producto como clave de color
 const getProductColor = (productName: string) => {
@@ -55,12 +56,78 @@ interface Locker3DCanvasProps {
 const Locker3DCanvas: React.FC<Locker3DCanvasProps> = ({ bin, selectedProductId = null }) => {
   const slotGrid = buildSlotGrid(bin);
 
+  // Dimensiones del casillero
+  const lockerWidth = GRID * SLOT_SIZE + LOCKER_WALL_THICKNESS * 2;
+  const lockerHeight = GRID * SLOT_SIZE + LOCKER_WALL_THICKNESS * 2;
+  const lockerDepth = GRID * SLOT_SIZE + LOCKER_WALL_THICKNESS * 2;
+
   return (
     <div style={{ width: 400, height: 400 }}>
-      <Canvas camera={{ position: [3, 3, 5], fov: 50 }}>
+      <Canvas camera={{ position: [4, 4, 6], fov: 50 }}>
         <ambientLight intensity={0.7} />
-        <directionalLight position={[5, 10, 7]} intensity={0.7} />
-        {/* Renderizar slots */}
+        <directionalLight position={[5, 10, 7]} intensity={0.8} />
+        <pointLight position={[0, 5, 5]} intensity={0.3} />
+
+        {/* Estructura del casillero */}
+        <group>
+          {/* Pared trasera */}
+          <mesh
+            position={[0, 0, -lockerDepth / 2 + LOCKER_WALL_THICKNESS / 2]}
+            receiveShadow
+          >
+            <boxGeometry args={[lockerWidth, lockerHeight, LOCKER_WALL_THICKNESS]} />
+            <meshStandardMaterial color="#ffffff" />
+          </mesh>
+
+          {/* Pared izquierda */}
+          <mesh
+            position={[-lockerWidth / 2 + LOCKER_WALL_THICKNESS / 2, 0, 0]}
+            receiveShadow
+          >
+            <boxGeometry args={[LOCKER_WALL_THICKNESS, lockerHeight, lockerDepth]} />
+            <meshStandardMaterial color="#f8f9fa" />
+          </mesh>
+
+          {/* Pared derecha */}
+          <mesh
+            position={[lockerWidth / 2 - LOCKER_WALL_THICKNESS / 2, 0, 0]}
+            receiveShadow
+          >
+            <boxGeometry args={[LOCKER_WALL_THICKNESS, lockerHeight, lockerDepth]} />
+            <meshStandardMaterial color="#f8f9fa" />
+          </mesh>
+
+          {/* Techo */}
+          <mesh
+            position={[0, lockerHeight / 2 - LOCKER_WALL_THICKNESS / 2, 0]}
+            receiveShadow
+          >
+            <boxGeometry args={[lockerWidth, LOCKER_WALL_THICKNESS, lockerDepth]} />
+            <meshStandardMaterial color="#ffffff" />
+          </mesh>
+
+          {/* Piso */}
+          <mesh
+            position={[0, -lockerHeight / 2 + LOCKER_WALL_THICKNESS / 2, 0]}
+            receiveShadow
+          >
+            <boxGeometry args={[lockerWidth, LOCKER_WALL_THICKNESS, lockerDepth]} />
+            <meshStandardMaterial color="#ffffff" />
+          </mesh>
+
+          {/* Texto "HAKO" en la parte superior */}
+          <Text
+            position={[0, lockerHeight / 2 + 0.1, 0]}
+            fontSize={0.2}
+            color="#2c3e50"
+            anchorX="center"
+            anchorY="middle"
+          >
+            箱HAKO
+          </Text>
+        </group>
+
+        {/* Renderizar slots dentro del casillero */}
         {Array.from({ length: GRID }).map((_, x) =>
           Array.from({ length: GRID }).map((_, y) =>
             Array.from({ length: GRID }).map((_, z) => {
@@ -82,19 +149,27 @@ const Locker3DCanvas: React.FC<Locker3DCanvasProps> = ({ bin, selectedProductId 
                   castShadow
                   receiveShadow
                 >
-                  <boxGeometry args={[SLOT_SIZE * 0.95, SLOT_SIZE * 0.95, SLOT_SIZE * 0.95]} />
-                  <meshStandardMaterial color={color} opacity={isOccupied ? 1 : 0.25} transparent />
+                  <boxGeometry args={[SLOT_SIZE * 0.9, SLOT_SIZE * 0.9, SLOT_SIZE * 0.9]} />
+                  <meshStandardMaterial 
+                    color={color} 
+                    opacity={isOccupied ? 1 : 0.3} 
+                    transparent 
+                    metalness={isOccupied ? 0.1 : 0}
+                    roughness={isOccupied ? 0.8 : 0.9}
+                  />
                 </mesh>
               );
             })
           )
         )}
-        {/* Borde del casillero */}
-        <mesh position={[0, 0, 0]}>
-          <boxGeometry args={[SLOT_SIZE * 3.1, SLOT_SIZE * 3.1, SLOT_SIZE * 3.1]} />
-          <meshStandardMaterial color="#222" wireframe opacity={0.2} transparent />
-        </mesh>
-        <OrbitControls enablePan={false} />
+
+        <OrbitControls 
+          enablePan={false} 
+          minDistance={3}
+          maxDistance={10}
+          enableDamping
+          dampingFactor={0.05}
+        />
       </Canvas>
     </div>
   );
