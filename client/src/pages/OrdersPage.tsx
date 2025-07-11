@@ -293,7 +293,7 @@ const OrdersPage: React.FC = () => {
     // Obtener IDs de productos que ya están en reservas existentes
     const productosEnReservas = new Set<string>();
     myAppointments.forEach(appointment => {
-      if (appointment.itemsToPickup) {
+      if (appointment.status !== 'cancelled' && appointment.status !== 'completed' && appointment.itemsToPickup) {
         appointment.itemsToPickup.forEach(item => {
           productosEnReservas.add(item.product._id);
         });
@@ -330,12 +330,11 @@ const OrdersPage: React.FC = () => {
 
     console.log('🔄 Productos disponibles para selección:', availableProducts.length);
 
-    // Por ahora, usar lógica simple de nuevos casilleros
-    // TODO: Implementar lógica de actualización de reservas existentes cuando el backend esté listo
-    console.log('🔄 Usando lógica de nuevos casilleros');
+    // Seleccionar automáticamente todos los productos disponibles
     availableProducts.forEach((product, idx) => {
       const originalIndex = Array.from(productIndexMap.entries()).find(([_, availableIdx]) => availableIdx === idx)?.[0];
       if (originalIndex !== undefined) {
+        // Asignar un casillero temporal (será optimizado en updateLockerAssignments)
         const defaultLocker = availableLockers.length > 0 ? availableLockers[0] : 1;
         newSelectedProducts.set(originalIndex, {
           quantity: 1,
@@ -346,6 +345,8 @@ const OrdersPage: React.FC = () => {
     
     console.log('🔄 Seleccionando automáticamente productos disponibles:', newSelectedProducts.size);
     setSelectedProducts(newSelectedProducts);
+    
+    // Llamar a updateLockerAssignments para optimizar con casilleros existentes
     updateLockerAssignments(newSelectedProducts);
   };
 
@@ -442,14 +443,14 @@ const OrdersPage: React.FC = () => {
     console.log('📋 Items a optimizar:', selectedItems);
 
     // Analizar reservas existentes para optimizar el uso de casilleros
-    const existingLockers = new Map<number, { usedVolume: number; items: Product3D[] }>();
+    const existingLockers = new Map<number, { usedVolume: number; items: Product3D[]; usedSlots: number }>();
     
     // Agrupar productos de reservas existentes por casillero
     myAppointments.forEach(appointment => {
-      if (appointment.itemsToPickup) {
+      if (appointment.status !== 'cancelled' && appointment.status !== 'completed' && appointment.itemsToPickup) {
         appointment.itemsToPickup.forEach(item => {
           const lockerNumber = item.lockerNumber;
-          const currentLocker = existingLockers.get(lockerNumber) || { usedVolume: 0, items: [] };
+          const currentLocker = existingLockers.get(lockerNumber) || { usedVolume: 0, items: [], usedSlots: 0 };
           
           // Agregar productos existentes al casillero con dimensiones reales
           const existingItem: Product3D = {
@@ -465,6 +466,14 @@ const OrdersPage: React.FC = () => {
           };
           currentLocker.items.push(existingItem);
           currentLocker.usedVolume += existingItem.volume * item.quantity;
+          
+          // Calcular slots usados por productos existentes
+          const itemSlots = calculateSlotsNeeded({
+            largo: existingItem.dimensions.length,
+            ancho: existingItem.dimensions.width,
+            alto: existingItem.dimensions.height
+          });
+          currentLocker.usedSlots += itemSlots;
           
           existingLockers.set(lockerNumber, currentLocker);
         });
@@ -484,38 +493,39 @@ const OrdersPage: React.FC = () => {
       const LOCKER_MAX_VOLUME = 125000; // 50x50x50 cm
       const LOCKER_MAX_SLOTS = 27; // 3x3x3 slots
       const availableVolume = LOCKER_MAX_VOLUME - existingLocker.usedVolume;
-      
-      // Calcular slots usados por productos existentes
-      const existingSlotsUsed = existingLocker.items.reduce((total, item) => {
-        const slotsUsed = calculateSlotsNeeded({
-          largo: item.dimensions?.length || 15,
-          ancho: item.dimensions?.width || 15,
-          alto: item.dimensions?.height || 15
-        });
-        return total + slotsUsed;
-      }, 0);
-      
-      const availableSlots = LOCKER_MAX_SLOTS - existingSlotsUsed;
+      const availableSlots = LOCKER_MAX_SLOTS - existingLocker.usedSlots;
       
       console.log(`🔍 Analizando casillero ${lockerNumber}:`);
       console.log(`   Espacio disponible: ${availableVolume.toLocaleString()} cm³`);
       console.log(`   Slots disponibles: ${availableSlots}/27`);
       
       if (availableVolume > 0 && availableSlots > 0) {
+        // Ordenar productos por volumen (más grandes primero) para optimizar mejor
+        const sortedItems = [...optimizedItems].sort((a, b) => b.volume - a.volume);
+        
         // Buscar productos que quepan en este casillero (por volumen Y slots)
-        const itemsThatFit = optimizedItems.filter(item => {
+        const itemsThatFit: Product3D[] = [];
+        let remainingVolume = availableVolume;
+        let remainingSlots = availableSlots;
+        
+        for (const item of sortedItems) {
           const itemSlots = calculateSlotsNeeded({
             largo: item.dimensions.length,
             ancho: item.dimensions.width,
             alto: item.dimensions.height
           });
-          return item.volume <= availableVolume && itemSlots <= availableSlots;
-        });
+          
+          if (item.volume <= remainingVolume && itemSlots <= remainingSlots) {
+            itemsThatFit.push(item);
+            remainingVolume -= item.volume;
+            remainingSlots -= itemSlots;
+          }
+        }
 
         console.log(`   Productos que caben en casillero ${lockerNumber}: ${itemsThatFit.length}`);
 
         if (itemsThatFit.length > 0) {
-          // Agregar TODOS los productos que quepan, no solo el más grande
+          // Agregar productos que quepan al casillero existente
           itemsThatFit.forEach(bestFit => {
             const itemSlots = calculateSlotsNeeded({
               largo: bestFit.dimensions.length,
@@ -556,7 +566,7 @@ const OrdersPage: React.FC = () => {
             }
           });
 
-          // Remover TODOS los productos agregados de la lista de productos a procesar
+          // Remover productos agregados de la lista de productos a procesar
           itemsThatFit.forEach(bestFit => {
             const itemIndexToRemove = optimizedItems.findIndex(item => item.id === bestFit.id);
             if (itemIndexToRemove >= 0) {
@@ -614,7 +624,8 @@ const OrdersPage: React.FC = () => {
       console.log('📊 Resultado Grid Packing para productos restantes:', result);
 
       // Calcular el siguiente número de casillero disponible
-      const maxExistingLocker = Math.max(...Array.from(newLockerAssignments.keys()), 0);
+      const existingLockerNumbers = Array.from(existingLockers.keys());
+      const maxExistingLocker = existingLockerNumbers.length > 0 ? Math.max(...existingLockerNumbers) : 0;
       
       result.lockers.forEach((locker, lockerIndex) => {
         const newLockerNumber = maxExistingLocker + lockerIndex + 1;
@@ -657,7 +668,7 @@ const OrdersPage: React.FC = () => {
       lockers: combinedLockers,
       failedProducts: [],
       rejectedProducts: [],
-      totalEfficiency: combinedLockers.reduce((sum, locker) => sum + (locker.usedSlots / 27), 0) / combinedLockers.length * 100,
+      totalEfficiency: combinedLockers.length > 0 ? combinedLockers.reduce((sum, locker) => sum + (locker.usedSlots / 27), 0) / combinedLockers.length * 100 : 0,
       totalUnusedSlots: combinedLockers.reduce((sum, locker) => sum + (27 - locker.usedSlots), 0),
       packingScore: combinedLockers.length > 0 ? 100 - (combinedLockers.reduce((sum, locker) => sum + (27 - locker.usedSlots), 0) / (combinedLockers.length * 27)) * 100 : 0,
       totalLockers: combinedLockers.length,
@@ -943,16 +954,58 @@ const OrdersPage: React.FC = () => {
   const handleScheduleAppointment = async (appointmentData: CreateAppointmentData) => {
     try {
       console.log('🚀 Enviando datos de cita al backend:', appointmentData);
+      console.log('📊 Casilleros en la reserva:', packingResult?.lockers);
       setSchedulingAppointment(true);
+      
+      // Verificar si hay casilleros existentes y nuevos
+      const existingLockerNumbers = new Set<number>();
+      const newLockerNumbers = new Set<number>();
+      
+      if (packingResult) {
+        packingResult.lockers.forEach(locker => {
+          const lockerNumber = parseInt(locker.id.replace('locker_', ''));
+          // Verificar si este casillero ya existe en reservas activas
+          const isExisting = myAppointments.some(appointment => 
+            appointment.status !== 'cancelled' && 
+            appointment.status !== 'completed' &&
+            appointment.itemsToPickup?.some(item => item.lockerNumber === lockerNumber)
+          );
+          
+          if (isExisting) {
+            existingLockerNumbers.add(lockerNumber);
+          } else {
+            newLockerNumbers.add(lockerNumber);
+          }
+        });
+      }
+      
+      console.log('🏪 Casilleros existentes en la reserva:', Array.from(existingLockerNumbers));
+      console.log('🆕 Casilleros nuevos en la reserva:', Array.from(newLockerNumbers));
+      
       const result = await appointmentService.createAppointment(appointmentData);
       
-      alert(`¡Casillero reservado exitosamente!\n\nFecha: ${new Date(appointmentData.scheduledDate).toLocaleDateString('es-CO')}\nHora: ${appointmentData.timeSlot}`);
+      // Mensaje personalizado según el tipo de reserva
+      let message = `¡Reserva creada exitosamente!\n\n`;
+      message += `Fecha: ${new Date(appointmentData.scheduledDate).toLocaleDateString('es-CO')}\n`;
+      message += `Hora: ${appointmentData.timeSlot}\n\n`;
+      
+      if (existingLockerNumbers.size > 0 && newLockerNumbers.size > 0) {
+        message += `📦 Productos agregados a ${existingLockerNumbers.size} casillero(s) existente(s)\n`;
+        message += `🆕 ${newLockerNumbers.size} casillero(s) nuevo(s) creado(s)`;
+      } else if (existingLockerNumbers.size > 0) {
+        message += `📦 Productos agregados a ${existingLockerNumbers.size} casillero(s) existente(s)`;
+      } else {
+        message += `🆕 ${newLockerNumbers.size} casillero(s) nuevo(s) creado(s)`;
+      }
+      
+      alert(message);
       
       // Recargar los datos
       const products = await orderService.getMyPurchasedProducts();
       setPurchasedProducts(products);
       setSelectedProducts(new Map());
       setLockerAssignments(new Map());
+      setPackingResult(null);
       setShowAppointmentScheduler(false);
       
       // Recargar las reservas
@@ -1283,6 +1336,27 @@ const OrdersPage: React.FC = () => {
                 >
                   <i className="bi bi-calendar-check me-1"></i>
                   Reservar Casillero
+                  {(() => {
+                    if (packingResult && packingResult.lockers.length > 0) {
+                      const existingLockers = packingResult.lockers.filter(locker => {
+                        const lockerNumber = parseInt(locker.id.replace('locker_', ''));
+                        return myAppointments.some(appointment => 
+                          appointment.status !== 'cancelled' && 
+                          appointment.status !== 'completed' &&
+                          appointment.itemsToPickup?.some(item => item.lockerNumber === lockerNumber)
+                        );
+                      });
+                      
+                      if (existingLockers.length > 0) {
+                        return (
+                          <span className="badge bg-light text-dark ms-1">
+                            +{existingLockers.length} existente(s)
+                          </span>
+                        );
+                      }
+                    }
+                    return null;
+                  })()}
                 </button>
                 
                 {/* Indicador de estado de casilleros */}
@@ -1365,53 +1439,113 @@ const OrdersPage: React.FC = () => {
                       Casilleros Optimizados (Bin Packing 3D)
                     </h4>
                   </div>
+                  
+                  {/* Mensaje informativo sobre optimización con casilleros existentes */}
+                  {(() => {
+                    const existingLockers = packingResult.lockers.filter(locker => {
+                      const lockerNumber = parseInt(locker.id.replace('locker_', ''));
+                      return myAppointments.some(appointment => 
+                        appointment.status !== 'cancelled' && 
+                        appointment.status !== 'completed' &&
+                        appointment.itemsToPickup?.some(item => item.lockerNumber === lockerNumber)
+                      );
+                    });
+                    
+                    if (existingLockers.length > 0) {
+                      const newLockers = packingResult.lockers.length - existingLockers.length;
+                      return (
+                        <div className="alert alert-info mb-3">
+                          <i className="bi bi-info-circle me-2"></i>
+                          <strong>Optimización Inteligente:</strong> El sistema ha optimizado tu selección para aprovechar el espacio disponible en casilleros existentes.
+                          {newLockers > 0 && (
+                            <span> Se crearán {newLockers} casillero(s) adicional(es) para los productos restantes.</span>
+                          )}
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
                   <div className="row">
-                    {packingResult.lockers.map((locker, index) => (
-                      <div key={locker.id} className="col-md-6 mb-4">
-                        <div className="card border-primary">
-                          <div className="card-header bg-primary text-white">
-                            <strong>Casillero {index + 1}</strong> &nbsp;|&nbsp; Slots usados: {locker.usedSlots}/27
-                          </div>
-                          <div className="card-body">
-                            <Locker3DCanvas 
-                              bin={locker}
-                              selectedProductId={(() => {
-                                // Resalta el primer producto seleccionado si existe
-                                const firstSelected = Array.from(selectedProducts.keys())[0];
-                                if (firstSelected !== undefined) {
-                                  const item = purchasedProducts[firstSelected];
-                                  return item?._id || item?.product?._id || null;
-                                }
-                                return null;
-                              })()}
-                            />
-                            
-                            {/* Barra de progreso de ocupación del casillero */}
-                            <div className="mt-3">
-                              <div className="d-flex justify-content-between align-items-center mb-2">
-                                <small className="text-muted">
-                                  <i className="bi bi-box me-1"></i>
-                                  Ocupación del casillero
-                                </small>
-                                <small className="text-muted">
-                                  {locker.usedSlots}/27 slots ({Math.round((locker.usedSlots / 27) * 100)}%)
-                                </small>
+                    {packingResult.lockers.map((locker, index) => {
+                      const lockerNumber = parseInt(locker.id.replace('locker_', ''));
+                      const isExistingLocker = myAppointments.some(appointment => 
+                        appointment.status !== 'cancelled' && 
+                        appointment.status !== 'completed' &&
+                        appointment.itemsToPickup?.some(item => item.lockerNumber === lockerNumber)
+                      );
+                      
+                      return (
+                        <div key={locker.id} className="col-md-6 mb-4">
+                          <div className={`card ${isExistingLocker ? 'border-success' : 'border-primary'}`}>
+                            <div className={`card-header ${isExistingLocker ? 'bg-success' : 'bg-primary'} text-white`}>
+                              <div className="d-flex justify-content-between align-items-center">
+                                <strong>
+                                  {isExistingLocker ? (
+                                    <>
+                                      <i className="bi bi-arrow-repeat me-1"></i>
+                                      Casillero {lockerNumber} (Existente)
+                                    </>
+                                  ) : (
+                                    <>
+                                      <i className="bi bi-plus-circle me-1"></i>
+                                      Casillero {lockerNumber} (Nuevo)
+                                    </>
+                                  )}
+                                </strong>
+                                <span>Slots: {locker.usedSlots}/27</span>
                               </div>
-                              <div className="progress" style={{ height: '8px' }}>
-                                <div 
-                                  className={`progress-bar ${locker.usedSlots / 27 >= 0.8 ? 'bg-danger' : locker.usedSlots / 27 >= 0.6 ? 'bg-warning' : 'bg-success'}`}
-                                  role="progressbar" 
-                                  style={{ width: `${(locker.usedSlots / 27) * 100}%` }}
-                                  aria-valuenow={locker.usedSlots} 
-                                  aria-valuemin={0} 
-                                  aria-valuemax={27}
-                                ></div>
+                            </div>
+                            <div className="card-body">
+                              <Locker3DCanvas 
+                                bin={locker}
+                                selectedProductId={(() => {
+                                  // Resalta el primer producto seleccionado si existe
+                                  const firstSelected = Array.from(selectedProducts.keys())[0];
+                                  if (firstSelected !== undefined) {
+                                    const item = purchasedProducts[firstSelected];
+                                    return item?._id || item?.product?._id || null;
+                                  }
+                                  return null;
+                                })()}
+                              />
+                              
+                              {/* Barra de progreso de ocupación del casillero */}
+                              <div className="mt-3">
+                                <div className="d-flex justify-content-between align-items-center mb-2">
+                                  <small className="text-muted">
+                                    <i className="bi bi-box me-1"></i>
+                                    Ocupación del casillero
+                                  </small>
+                                  <small className="text-muted">
+                                    {locker.usedSlots}/27 slots ({Math.round((locker.usedSlots / 27) * 100)}%)
+                                  </small>
+                                </div>
+                                <div className="progress" style={{ height: '8px' }}>
+                                  <div 
+                                    className={`progress-bar ${locker.usedSlots / 27 >= 0.8 ? 'bg-danger' : locker.usedSlots / 27 >= 0.6 ? 'bg-warning' : 'bg-success'}`}
+                                    role="progressbar" 
+                                    style={{ width: `${(locker.usedSlots / 27) * 100}%` }}
+                                    aria-valuenow={locker.usedSlots} 
+                                    aria-valuemin={0} 
+                                    aria-valuemax={27}
+                                  ></div>
+                                </div>
                               </div>
+                              
+                              {/* Información adicional para casilleros existentes */}
+                              {isExistingLocker && (
+                                <div className="mt-2">
+                                  <small className="text-success">
+                                    <i className="bi bi-info-circle me-1"></i>
+                                    Productos nuevos agregados a este casillero existente
+                                  </small>
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -1593,39 +1727,38 @@ const OrdersPage: React.FC = () => {
             console.log('❌ No se pudo obtener orderId válido - no hay productos seleccionados con orderId');
             return '';
           })()}
-          itemsToPickup={packingResult.lockers.map((locker, idx) => {
-            // Mapear los productos del bin packing a los productos reales seleccionados
-            const productsInLocker = locker.packedProducts.map(packedItem => {
-              // Buscar el producto original en selectedProducts usando el ID
-              const originalProductEntry = Array.from(selectedProducts.entries()).find(([itemIndex, selection]) => {
-                const item = purchasedProducts[itemIndex];
-                return item._id === packedItem.product.id || item.product?._id === packedItem.product.id;
-              });
+          itemsToPickup={(() => {
+            console.log('🔍 Generando itemsToPickup para AppointmentScheduler');
+            console.log('📊 PackingResult:', packingResult);
+            console.log('📋 SelectedProducts:', selectedProducts);
+            
+            const items = packingResult.lockers.map((locker, idx) => {
+              const lockerNumber = parseInt(locker.id.replace('locker_', ''));
               
-              if (originalProductEntry) {
-                const [itemIndex, selection] = originalProductEntry;
-                const item = purchasedProducts[itemIndex];
-                return {
-                  name: item.product?.nombre || packedItem.product.name,
-                  count: 1,
-                  productId: item._id // Usar el ID real del IndividualProduct
-                };
-              }
-              
-              // Fallback si no se encuentra
+              // Obtener productos seleccionados que están asignados a este casillero
+              const productsInThisLocker = Array.from(selectedProducts.entries())
+                .filter(([itemIndex, selection]) => selection.lockerNumber === lockerNumber)
+                .map(([itemIndex, selection]) => {
+                  const item = purchasedProducts[itemIndex];
+                  return {
+                    name: item.product?.nombre || `Producto ${itemIndex + 1}`,
+                    count: 1,
+                    productId: item._id // Usar el ID real del IndividualProduct
+                  };
+                });
+
+              console.log(`📦 Casillero ${lockerNumber} - Productos asignados:`, productsInThisLocker);
+
               return {
-                name: packedItem.product.name,
-                count: 1,
-                productId: packedItem.product.id
+                lockerIndex: idx + 1,
+                quantity: productsInThisLocker.length,
+                products: productsInThisLocker
               };
             });
-
-            return {
-              lockerIndex: idx + 1,
-              quantity: productsInLocker.length,
-              products: productsInLocker
-            };
-          })}
+            
+            console.log('🎯 ItemsToPickup final:', items);
+            return items;
+          })()}
           loading={schedulingAppointment}
         />
       )}
