@@ -1019,12 +1019,123 @@ const OrdersPage: React.FC = () => {
     }
   };
 
+  // Función para generar datos de packing combinados para todas las reservas activas
+  const generateCombinedPackingForAllAppointments = () => {
+    try {
+      console.log('🔍 Generando packing combinado para todas las reservas activas');
+      
+      // Obtener todas las reservas activas
+      const activeAppointments = myAppointments.filter(
+        appointment => appointment.status !== 'cancelled' && appointment.status !== 'completed'
+      );
+      
+      console.log(`📅 Reservas activas encontradas: ${activeAppointments.length}`);
+      
+      // Agrupar productos por casillero
+      const lockerProducts = new Map<number, Array<{
+        id: string;
+        name: string;
+        dimensions: { length: number; width: number; height: number };
+        quantity: number;
+        volume: number;
+        appointmentId: string;
+      }>>();
+      
+      activeAppointments.forEach(appointment => {
+        console.log(`📋 Procesando reserva ${appointment._id.slice(-6)}`);
+        
+        appointment.itemsToPickup?.forEach((item: any) => {
+          const lockerNumber = item.lockerNumber;
+          
+          if (!lockerProducts.has(lockerNumber)) {
+            lockerProducts.set(lockerNumber, []);
+          }
+          
+          // Usar las dimensiones que vienen directamente del producto en la reserva
+          let dimensions = { length: 15, width: 15, height: 15 };
+          let volume = 15 * 15 * 15;
+          
+          // Verificar si el producto tiene dimensiones en la reserva
+          if (item.product.dimensiones) {
+            dimensions = {
+              length: item.product.dimensiones.largo || 15,
+              width: item.product.dimensiones.ancho || 15,
+              height: item.product.dimensiones.alto || 15
+            };
+            volume = dimensions.length * dimensions.width * dimensions.height;
+          } else {
+            // Fallback: buscar en productos comprados
+            const individualProduct = purchasedProducts.find(p => 
+              p._id === item.product._id || p.product?._id === item.product._id
+            );
+            
+            if (individualProduct) {
+              const dimensiones = getDimensiones(individualProduct);
+              if (dimensiones) {
+                dimensions = {
+                  length: dimensiones.largo,
+                  width: dimensiones.ancho,
+                  height: dimensiones.alto
+                };
+                volume = getVolumen(individualProduct);
+              }
+            }
+          }
+          
+          lockerProducts.get(lockerNumber)!.push({
+            id: item.product._id,
+            name: item.product.nombre,
+            dimensions,
+            quantity: item.quantity,
+            volume,
+            appointmentId: appointment._id
+          });
+        });
+      });
+      
+      console.log('🏪 Productos agrupados por casillero:', lockerProducts);
+      
+      // Generar visualización para cada casillero
+      const combinedLockers: Locker3D[] = [];
+      
+      lockerProducts.forEach((products, lockerNumber) => {
+        console.log(`🎨 Generando visualización para casillero ${lockerNumber} con ${products.length} productos`);
+        
+        // Convertir al formato Product3D
+        const products3D: Product3D[] = products.map(product => ({
+          id: product.id,
+          name: product.name,
+          dimensions: product.dimensions,
+          quantity: product.quantity,
+          volume: product.volume
+        }));
+        
+        // Realizar bin packing para este casillero
+        const result = gridPackingService.packProducts3D(products3D);
+        
+        if (result.lockers.length > 0) {
+          const combinedLocker = {
+            ...result.lockers[0],
+            id: `locker_${lockerNumber}`,
+            lockerNumber: lockerNumber,
+            products: products // Mantener información de qué reserva tiene cada producto
+          };
+          combinedLockers.push(combinedLocker);
+        }
+      });
+      
+      console.log('📊 Resultado del packing combinado:', combinedLockers);
+      return combinedLockers;
+    } catch (error) {
+      console.error('Error al generar packing combinado:', error);
+      return [];
+    }
+  };
 
-
-  // Función para generar datos de packing para una reserva
+  // Función para generar datos de packing para una reserva (mantener para compatibilidad)
   const generatePackingForAppointment = (appointment: Appointment) => {
     try {
-      console.log('🔍 Generando packing para reserva:', appointment._id);
+      console.log('🔍 Generando packing para reserva individual:', appointment._id);
       console.log('📦 Productos en la reserva:', appointment.itemsToPickup);
       
       // Convertir productos de la reserva al formato Product3D
@@ -1579,13 +1690,13 @@ const OrdersPage: React.FC = () => {
                     </div>
                   </div>
                 ) : myAppointments.length > 0 ? (
-                  <div className="row">
-                    {myAppointments
-                      .filter(appointment => appointment.status !== 'cancelled' && appointment.status !== 'completed')
-                      .map((appointment) => {
-                        const appointmentPacking = generatePackingForAppointment(appointment);
-                        return (
-                          <div key={appointment._id} className="col-12 mb-4">
+                  <>
+                    {/* Lista de reservas individuales */}
+                    <div className="row mb-4">
+                      {myAppointments
+                        .filter(appointment => appointment.status !== 'cancelled' && appointment.status !== 'completed')
+                        .map((appointment) => (
+                          <div key={appointment._id} className="col-12 mb-3">
                             <div className="card border-success">
                               <div className="card-header bg-success text-white">
                                 <div className="d-flex justify-content-between align-items-center">
@@ -1632,62 +1743,89 @@ const OrdersPage: React.FC = () => {
                                     </div>
                                   </div>
                                 </div>
-                                
-                                {/* Visualización 3D de los casilleros de esta reserva */}
-                                {appointmentPacking && (
-                                  <div className="mt-4">
-                                    <h6 className="mb-3">
-                                      <i className="bi bi-grid-3x3-gap me-2"></i>
-                                      Visualización de Casilleros
-                                    </h6>
-                                    <div className="row">
-                                      {appointmentPacking.lockers.map((locker, index) => (
-                                        <div key={locker.id} className="col-md-6 mb-3">
-                                          <div className="card border-primary">
-                                            <div className="card-header bg-primary text-white">
-                                              <strong>Casillero {index + 1}</strong> &nbsp;|&nbsp; Slots usados: {locker.usedSlots}/27
-                                            </div>
-                                            <div className="card-body">
-                                              <Locker3DCanvas 
-                                                bin={locker}
-                                                selectedProductId={null}
-                                              />
-                                              
-                                              {/* Barra de progreso de ocupación del casillero */}
-                                              <div className="mt-3">
-                                                <div className="d-flex justify-content-between align-items-center mb-2">
-                                                  <small className="text-muted">
-                                                    <i className="bi bi-box me-1"></i>
-                                                    Ocupación del casillero
-                                                  </small>
-                                                  <small className="text-muted">
-                                                    {locker.usedSlots}/27 slots ({Math.round((locker.usedSlots / 27) * 100)}%)
-                                                  </small>
-                                                </div>
-                                                <div className="progress" style={{ height: '8px' }}>
-                                                  <div 
-                                                    className={`progress-bar ${locker.usedSlots / 27 >= 0.8 ? 'bg-danger' : locker.usedSlots / 27 >= 0.6 ? 'bg-warning' : 'bg-success'}`}
-                                                    role="progressbar" 
-                                                    style={{ width: `${(locker.usedSlots / 27) * 100}%` }}
-                                                    aria-valuenow={locker.usedSlots} 
-                                                    aria-valuemin={0} 
-                                                    aria-valuemax={27}
-                                                  ></div>
-                                                </div>
-                                              </div>
-                                            </div>
-                                          </div>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
                               </div>
                             </div>
                           </div>
+                        ))}
+                    </div>
+
+                    {/* Visualización combinada de todos los casilleros */}
+                    {(() => {
+                      const combinedPacking = generateCombinedPackingForAllAppointments();
+                      if (combinedPacking.length > 0) {
+                        return (
+                          <div className="mt-4">
+                            <h6 className="mb-3">
+                              <i className="bi bi-grid-3x3-gap me-2"></i>
+                              Visualización Combinada de Casilleros
+                            </h6>
+                            <div className="alert alert-info">
+                              <i className="bi bi-info-circle me-2"></i>
+                              <strong>Estado Real:</strong> Esta visualización muestra el estado actual de todos los casilleros considerando todas tus reservas activas.
+                            </div>
+                            <div className="row">
+                              {combinedPacking.map((locker) => (
+                                <div key={locker.id} className="col-md-6 mb-3">
+                                  <div className="card border-primary">
+                                    <div className="card-header bg-primary text-white">
+                                      <strong>Casillero {(locker as any).lockerNumber}</strong> &nbsp;|&nbsp; Slots usados: {locker.usedSlots}/27
+                                    </div>
+                                    <div className="card-body">
+                                      <Locker3DCanvas 
+                                        bin={locker}
+                                        selectedProductId={null}
+                                      />
+                                      
+                                      {/* Barra de progreso de ocupación del casillero */}
+                                      <div className="mt-3">
+                                        <div className="d-flex justify-content-between align-items-center mb-2">
+                                          <small className="text-muted">
+                                            <i className="bi bi-box me-1"></i>
+                                            Ocupación del casillero
+                                          </small>
+                                          <small className="text-muted">
+                                            {locker.usedSlots}/27 slots ({Math.round((locker.usedSlots / 27) * 100)}%)
+                                          </small>
+                                        </div>
+                                        <div className="progress" style={{ height: '8px' }}>
+                                          <div 
+                                            className={`progress-bar ${locker.usedSlots / 27 >= 0.8 ? 'bg-danger' : locker.usedSlots / 27 >= 0.6 ? 'bg-warning' : 'bg-success'}`}
+                                            role="progressbar" 
+                                            style={{ width: `${(locker.usedSlots / 27) * 100}%` }}
+                                            aria-valuenow={locker.usedSlots} 
+                                            aria-valuemin={0} 
+                                            aria-valuemax={27}
+                                          ></div>
+                                        </div>
+                                      </div>
+
+                                      {/* Mostrar productos en este casillero */}
+                                      {(locker as any).products && (
+                                        <div className="mt-3">
+                                          <small className="text-muted">
+                                            <i className="bi bi-box-seam me-1"></i>
+                                            Productos en este casillero:
+                                          </small>
+                                          <div className="mt-1">
+                                            {(locker as any).products.map((product: any, idx: number) => (
+                                              <span key={idx} className="badge bg-light text-dark me-1 mb-1">
+                                                {product.name} (Reserva #{product.appointmentId.slice(-6)})
+                                              </span>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
                         );
-                      })}
-                  </div>
+                      }
+                      return null;
+                    })()}
+                  </>
                 ) : (
                   <div className="alert alert-info text-center">
                     <i className="bi bi-calendar-x me-2"></i>
