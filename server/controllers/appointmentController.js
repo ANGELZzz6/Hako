@@ -520,4 +520,254 @@ exports.deleteAppointment = async (req, res) => {
     console.error('Error al eliminar cita:', error);
     res.status(500).json({ error: 'Error interno del servidor' });
   }
+};
+
+// Agregar productos a una reserva existente
+exports.addProductsToAppointment = async (req, res) => {
+  try {
+    const { appointmentId } = req.params;
+    const { products } = req.body;
+    
+    console.log('🔄 Agregando productos a reserva existente:', appointmentId);
+    console.log('📦 Productos a agregar:', products);
+    
+    // Validar datos requeridos
+    if (!products || !Array.isArray(products) || products.length === 0) {
+      return res.status(400).json({ error: 'Datos incompletos para agregar productos' });
+    }
+    
+    // Verificar que la reserva existe y pertenece al usuario
+    const appointment = await Appointment.findOne({ 
+      _id: appointmentId, 
+      user: req.user.id,
+      status: { $nin: ['cancelled', 'completed'] }
+    });
+    
+    if (!appointment) {
+      return res.status(404).json({ error: 'Reserva no encontrada o no disponible para modificación' });
+    }
+    
+    // Validar que los productos individuales existen y están disponibles
+    const validProducts = [];
+    for (const productData of products) {
+      const individualProduct = await IndividualProduct.findOne({
+        _id: productData.productId,
+        user: req.user.id,
+        status: 'available'
+      }).populate('product');
+      
+      if (!individualProduct) {
+        return res.status(400).json({ error: `Producto individual ${productData.productId} no encontrado o no disponible` });
+      }
+      
+      if (individualProduct.status !== 'available') {
+        return res.status(400).json({ error: `El producto ya está ${individualProduct.status}` });
+      }
+      
+      validProducts.push({
+        product: individualProduct.product._id,
+        quantity: productData.quantity || 1,
+        lockerNumber: productData.lockerNumber,
+        individualProductId: individualProduct._id
+      });
+    }
+    
+    // Marcar productos individuales como reservados
+    for (const product of validProducts) {
+      const individualProduct = await IndividualProduct.findById(product.individualProductId);
+      if (individualProduct) {
+        individualProduct.status = 'reserved';
+        individualProduct.assignedLocker = product.lockerNumber;
+        individualProduct.reservedAt = new Date();
+        await individualProduct.save();
+      }
+    }
+    
+    // Agregar productos a la reserva existente
+    const currentItems = appointment.itemsToPickup || [];
+    appointment.itemsToPickup = [...currentItems, ...validProducts];
+    
+    await appointment.save();
+    
+    console.log(`✅ Agregados ${validProducts.length} productos a la reserva ${appointmentId}`);
+    
+    res.json({
+      message: 'Productos agregados exitosamente a la reserva',
+      appointment: {
+        id: appointment._id,
+        scheduledDate: appointment.scheduledDate,
+        timeSlot: appointment.timeSlot,
+        status: appointment.status,
+        totalProducts: appointment.itemsToPickup.length
+      },
+      addedProducts: validProducts.length
+    });
+    
+  } catch (error) {
+    console.error('Error al agregar productos a la reserva:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
+// Crear múltiples reservas (una por casillero)
+exports.createMultipleAppointments = async (req, res) => {
+  try {
+    const { appointments } = req.body;
+    
+    console.log('🔍 Backend recibió múltiples reservas:', appointments);
+    
+    // Validar datos requeridos
+    if (!appointments || !Array.isArray(appointments) || appointments.length === 0) {
+      return res.status(400).json({ error: 'Datos incompletos para crear las reservas' });
+    }
+    
+    const createdAppointments = [];
+    const errors = [];
+    
+    // Procesar cada reserva
+    for (const appointmentData of appointments) {
+      try {
+        const { orderId, scheduledDate, timeSlot, itemsToPickup } = appointmentData;
+        
+        // Validar datos requeridos para esta reserva
+        if (!orderId || !scheduledDate || !timeSlot || !itemsToPickup || !Array.isArray(itemsToPickup)) {
+          errors.push(`Reserva inválida: datos incompletos`);
+          continue;
+        }
+        
+        // Verificar que la orden existe y pertenece al usuario
+        const order = await Order.findOne({ 
+          _id: orderId, 
+          user: req.user.id,
+          status: { $in: ['paid', 'ready_for_pickup'] }
+        });
+        
+        if (!order) {
+          errors.push(`Orden no encontrada o no disponible para reserva`);
+          continue;
+        }
+        
+        // Validar fecha y hora
+        const selectedDate = new Date(scheduledDate);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        if (selectedDate < today) {
+          errors.push(`No se pueden agendar citas en fechas pasadas`);
+          continue;
+        }
+        
+        // Obtener casilleros para esta reserva
+        const requestedLockers = itemsToPickup.map(item => item.lockerNumber);
+        
+        // Verificar disponibilidad de los casilleros específicos
+        const availability = await Appointment.checkLockerAvailability(selectedDate, timeSlot, requestedLockers);
+        if (!availability.available) {
+          errors.push(`Casilleros ${availability.conflictingLockers.join(', ')} no disponibles en ${scheduledDate} a las ${timeSlot}`);
+          continue;
+        }
+        
+        // Validar que los productos individuales existen y están disponibles
+        const validItems = [];
+        for (const pickupItem of itemsToPickup) {
+          const individualProduct = await IndividualProduct.findOne({
+            _id: pickupItem.product,
+            user: req.user.id,
+            status: 'available'
+          }).populate('product');
+          
+          if (!individualProduct) {
+            errors.push(`Producto individual no encontrado o no disponible`);
+            continue;
+          }
+          
+          if (individualProduct.status !== 'available') {
+            errors.push(`El producto ya está ${individualProduct.status}`);
+            continue;
+          }
+          
+          validItems.push({
+            product: individualProduct.product._id,
+            quantity: 1,
+            lockerNumber: pickupItem.lockerNumber,
+            individualProductId: individualProduct._id
+          });
+        }
+        
+        if (validItems.length === 0) {
+          errors.push(`No hay productos válidos para esta reserva`);
+          continue;
+        }
+        
+        // Marcar productos individuales como reservados
+        for (const item of validItems) {
+          const individualProduct = await IndividualProduct.findById(item.individualProductId);
+          if (individualProduct) {
+            individualProduct.status = 'reserved';
+            individualProduct.assignedLocker = item.lockerNumber;
+            individualProduct.reservedAt = new Date();
+            await individualProduct.save();
+          }
+        }
+        
+        // Crear la cita
+        const appointment = new Appointment({
+          user: req.user.id,
+          order: orderId,
+          scheduledDate: selectedDate,
+          timeSlot,
+          itemsToPickup: validItems
+        });
+        
+        await appointment.save();
+        
+        // Actualizar estado de la orden si es necesario
+        if (order.status === 'paid') {
+          order.status = 'ready_for_pickup';
+          await order.save();
+        }
+        
+        createdAppointments.push({
+          id: appointment._id,
+          scheduledDate: appointment.scheduledDate,
+          timeSlot: appointment.timeSlot,
+          status: appointment.status,
+          lockerNumber: requestedLockers[0] // Asumimos que todos los productos están en el mismo casillero
+        });
+        
+        console.log(`✅ Reserva creada para casillero ${requestedLockers[0]} en ${scheduledDate} a las ${timeSlot}`);
+        
+      } catch (error) {
+        console.error('Error al crear reserva individual:', error);
+        errors.push(`Error interno al crear reserva: ${error.message}`);
+      }
+    }
+    
+    // Si hay errores pero también reservas creadas, devolver ambos
+    if (errors.length > 0 && createdAppointments.length > 0) {
+      return res.status(207).json({
+        message: 'Algunas reservas se crearon exitosamente, pero hubo errores',
+        appointments: createdAppointments,
+        errors: errors
+      });
+    }
+    
+    // Si solo hay errores, devolver error
+    if (errors.length > 0) {
+      return res.status(400).json({
+        error: 'Error al crear las reservas',
+        details: errors
+      });
+    }
+    
+    // Todo exitoso
+    res.status(201).json({
+      message: 'Todas las reservas creadas exitosamente',
+      appointments: createdAppointments
+    });
+    
+  } catch (error) {
+    console.error('Error al crear múltiples reservas:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
 }; 

@@ -12,6 +12,9 @@ router.get('/available-slots/:date', auth, appointmentController.getAvailableTim
 // Crear una nueva cita
 router.post('/', auth, appointmentController.createAppointment);
 
+// Crear múltiples reservas (una por casillero)
+router.post('/multiple', auth, appointmentController.createMultipleAppointments);
+
 // Obtener citas del usuario
 router.get('/my-appointments', auth, appointmentController.getMyAppointments);
 
@@ -20,6 +23,9 @@ router.get('/my-appointments/:appointmentId', auth, appointmentController.getMyA
 
 // Cancelar una cita del usuario
 router.post('/my-appointments/:appointmentId/cancel', auth, appointmentController.cancelAppointment);
+
+// Agregar productos a una reserva existente
+router.post('/my-appointments/:appointmentId/add-products', auth, appointmentController.addProductsToAppointment);
 
 // ===== RUTAS DE ADMIN =====
 

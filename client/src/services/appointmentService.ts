@@ -116,6 +116,73 @@ class AppointmentService {
     }
   }
 
+  // Agregar productos a una reserva existente
+  async addProductsToAppointment(appointmentId: string, products: Array<{
+    productId: string;
+    quantity: number;
+    lockerNumber: number;
+  }>): Promise<{
+    message: string;
+    appointment: {
+      id: string;
+      scheduledDate: string;
+      timeSlot: string;
+      status: string;
+      totalProducts: number;
+    };
+    addedProducts: number;
+  }> {
+    try {
+      const response = await fetch(`${ENDPOINTS.APPOINTMENTS}/my-appointments/${appointmentId}/add-products`, {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify({ products }),
+      });
+      handle401(response);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error al agregar productos a la reserva');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error:', error);
+      throw error;
+    }
+  }
+
+  // Crear múltiples reservas (una por casillero)
+  async createMultipleAppointments(appointmentsData: CreateAppointmentData[]): Promise<{
+    message: string;
+    appointments: Array<{
+      id: string;
+      scheduledDate: string;
+      timeSlot: string;
+      status: string;
+      lockerNumber: number;
+    }>;
+  }> {
+    try {
+      const response = await fetch(`${ENDPOINTS.APPOINTMENTS}/multiple`, {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify({ appointments: appointmentsData }),
+      });
+      handle401(response);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error al crear las reservas');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error:', error);
+      throw error;
+    }
+  }
+
   // Obtener citas del usuario
   async getMyAppointments(): Promise<Appointment[]> {
     try {

@@ -180,31 +180,16 @@ const OrdersPage: React.FC = () => {
       console.log('🔄 Actualizando reserva existente:', appointmentId);
       console.log('📦 Nuevos productos a agregar:', newProducts);
       
-      // Obtener la reserva actual
-      const currentAppointment = myAppointments.find(app => app._id === appointmentId);
-      if (!currentAppointment) {
-        throw new Error('No se encontró la reserva especificada');
-      }
-
-      // Combinar productos existentes con nuevos
-      const existingItems = currentAppointment.itemsToPickup || [];
-      const updatedItems = [
-        ...existingItems,
-        ...newProducts.map(item => {
-          const foundProduct = purchasedProducts.find(p => p._id === item.productId);
-          return {
-            product: foundProduct?.product || { _id: item.productId, nombre: 'Producto' },
-            quantity: item.quantity,
-            lockerNumber: item.lockerNumber
-          };
-        })
-      ];
-
-      console.log('📋 Items actualizados:', updatedItems);
-
-      // Por ahora, mostrar mensaje de que la funcionalidad está en desarrollo
-      // TODO: Implementar endpoint de actualización en el backend
-      throw new Error('La funcionalidad de actualización de reservas está en desarrollo. Por favor, cancela la reserva actual y crea una nueva.');
+      // Usar el nuevo servicio para agregar productos a la reserva existente
+      const result = await appointmentService.addProductsToAppointment(appointmentId, newProducts);
+      
+      console.log('✅ Productos agregados exitosamente:', result);
+      
+      // Recargar las reservas para mostrar los cambios
+      const appointments = await appointmentService.getMyAppointments();
+      setMyAppointments(appointments);
+      
+      return result;
     } catch (error) {
       console.error('❌ Error al actualizar reserva:', error);
       throw error;
@@ -951,52 +936,138 @@ const OrdersPage: React.FC = () => {
   };
 
   // Manejar agendamiento de cita
-  const handleScheduleAppointment = async (appointmentData: CreateAppointmentData) => {
+  // Función para manejar reservas inteligentes (separar productos existentes vs nuevos)
+  const handleSmartReservation = async () => {
     try {
-      console.log('🚀 Enviando datos de cita al backend:', appointmentData);
-      console.log('📊 Casilleros en la reserva:', packingResult?.lockers);
-      setSchedulingAppointment(true);
+      console.log('🧠 Iniciando reserva inteligente...');
       
-      // Verificar si hay casilleros existentes y nuevos
-      const existingLockerNumbers = new Set<number>();
-      const newLockerNumbers = new Set<number>();
+      if (!packingResult || !packingResult.lockers.length) {
+        alert('No hay casilleros para reservar');
+        return;
+      }
+
+      // Verificar optimización de espacio
+      const hasFullLocker = packingResult.lockers.some(locker => {
+        const usagePercentage = (locker.usedSlots / 27) * 100;
+        return usagePercentage >= 80;
+      });
       
-      if (packingResult) {
-        packingResult.lockers.forEach(locker => {
-          const lockerNumber = parseInt(locker.id.replace('locker_', ''));
-          // Verificar si este casillero ya existe en reservas activas
-          const isExisting = myAppointments.some(appointment => 
+      if (!hasFullLocker) {
+        const totalSlots = packingResult.lockers.reduce((sum, locker) => sum + locker.usedSlots, 0);
+        const totalCapacity = packingResult.lockers.length * 27;
+        const overallUsage = (totalSlots / totalCapacity) * 100;
+        
+        const shouldContinue = confirm(
+          `⚠️ Optimización de espacio\n\n` +
+          `Tu selección actual usa ${overallUsage.toFixed(1)}% del espacio total.\n` +
+          `Para una mejor optimización, considera agregar más productos para llenar completamente al menos un casillero.\n\n` +
+          `¿Deseas continuar con la reserva de todas formas?`
+        );
+        
+        if (!shouldContinue) {
+          return;
+        }
+      }
+
+      // Separar casilleros existentes vs nuevos
+      const existingLockers: number[] = [];
+      const newLockers: number[] = [];
+      
+      packingResult.lockers.forEach(locker => {
+        const lockerNumber = parseInt(locker.id.replace('locker_', ''));
+        const isExisting = myAppointments.some(appointment => 
+          appointment.status !== 'cancelled' && 
+          appointment.status !== 'completed' &&
+          appointment.itemsToPickup?.some(item => item.lockerNumber === lockerNumber)
+        );
+        
+        if (isExisting) {
+          existingLockers.push(lockerNumber);
+        } else {
+          newLockers.push(lockerNumber);
+        }
+      });
+
+      console.log('📊 Casilleros existentes:', existingLockers);
+      console.log('🆕 Casilleros nuevos:', newLockers);
+
+      // Procesar productos para casilleros existentes
+      if (existingLockers.length > 0) {
+        console.log('🔄 Agregando productos a casilleros existentes...');
+        
+        for (const lockerNumber of existingLockers) {
+          // Encontrar la reserva existente para este casillero
+          const existingAppointment = myAppointments.find(appointment => 
             appointment.status !== 'cancelled' && 
             appointment.status !== 'completed' &&
             appointment.itemsToPickup?.some(item => item.lockerNumber === lockerNumber)
           );
-          
-          if (isExisting) {
-            existingLockerNumbers.add(lockerNumber);
-          } else {
-            newLockerNumbers.add(lockerNumber);
+
+          if (existingAppointment) {
+            // Obtener productos seleccionados para este casillero
+            const productsForThisLocker = Array.from(selectedProducts.entries())
+              .filter(([itemIndex, selection]) => selection.lockerNumber === lockerNumber)
+              .map(([itemIndex, selection]) => {
+                const item = purchasedProducts[itemIndex];
+                return {
+                  productId: item._id || '',
+                  quantity: 1,
+                  lockerNumber: lockerNumber
+                };
+              })
+              .filter(product => product.productId); // Solo productos con ID válido
+
+            if (productsForThisLocker.length > 0) {
+              console.log(`📦 Agregando ${productsForThisLocker.length} productos a reserva existente ${existingAppointment._id}`);
+              
+              // Agregar productos a la reserva existente
+              await updateExistingAppointment(existingAppointment._id, productsForThisLocker);
+            }
           }
-        });
+        }
       }
-      
-      console.log('🏪 Casilleros existentes en la reserva:', Array.from(existingLockerNumbers));
-      console.log('🆕 Casilleros nuevos en la reserva:', Array.from(newLockerNumbers));
-      
-      const result = await appointmentService.createAppointment(appointmentData);
-      
-      // Mensaje personalizado según el tipo de reserva
-      let message = `¡Reserva creada exitosamente!\n\n`;
-      message += `Fecha: ${new Date(appointmentData.scheduledDate).toLocaleDateString('es-CO')}\n`;
-      message += `Hora: ${appointmentData.timeSlot}\n\n`;
-      
-      if (existingLockerNumbers.size > 0 && newLockerNumbers.size > 0) {
-        message += `📦 Productos agregados a ${existingLockerNumbers.size} casillero(s) existente(s)\n`;
-        message += `🆕 ${newLockerNumbers.size} casillero(s) nuevo(s) creado(s)`;
-      } else if (existingLockerNumbers.size > 0) {
-        message += `📦 Productos agregados a ${existingLockerNumbers.size} casillero(s) existente(s)`;
+
+      // Si hay casilleros nuevos, mostrar modal de reserva
+      if (newLockers.length > 0) {
+        console.log('🆕 Mostrando modal para casilleros nuevos');
+        setShowAppointmentScheduler(true);
       } else {
-        message += `🆕 ${newLockerNumbers.size} casillero(s) nuevo(s) creado(s)`;
+        // Solo casilleros existentes, mostrar mensaje de éxito
+        alert('✅ Productos agregados exitosamente a tus reservas existentes');
+        
+        // Recargar datos
+        const products = await orderService.getMyPurchasedProducts();
+        setPurchasedProducts(products);
+        setSelectedProducts(new Map());
+        setLockerAssignments(new Map());
+        setPackingResult(null);
+        
+        // Recargar las reservas
+        const appointments = await appointmentService.getMyAppointments();
+        setMyAppointments(appointments);
       }
+
+    } catch (error: any) {
+      console.error('❌ Error en reserva inteligente:', error);
+      alert(error.message || 'Error al procesar la reserva inteligente');
+    }
+  };
+
+  const handleScheduleAppointment = async (appointmentsData: CreateAppointmentData[]) => {
+    try {
+      console.log('🚀 Enviando datos de múltiples reservas al backend:', appointmentsData);
+      setSchedulingAppointment(true);
+      
+      // Crear múltiples reservas
+      const result = await appointmentService.createMultipleAppointments(appointmentsData);
+      
+      // Mensaje personalizado
+      let message = `¡Reservas creadas exitosamente!\n\n`;
+      message += `Se crearon ${result.appointments.length} reserva(s):\n\n`;
+      
+      result.appointments.forEach(appointment => {
+        message += `📅 Casillero ${appointment.lockerNumber}: ${new Date(appointment.scheduledDate).toLocaleDateString('es-CO')} a las ${appointment.timeSlot}\n`;
+      });
       
       alert(message);
       
@@ -1013,7 +1084,7 @@ const OrdersPage: React.FC = () => {
       setMyAppointments(appointments);
       
     } catch (err: any) {
-      alert(err.message || 'Error al agendar la cita');
+      alert(err.message || 'Error al agendar las reservas');
     } finally {
       setSchedulingAppointment(false);
     }
@@ -1416,33 +1487,7 @@ const OrdersPage: React.FC = () => {
                 </button>
                 <button 
                   className="btn btn-success"
-                  onClick={() => {
-                    // Verificar si hay casilleros bien llenos para dar recomendación
-                    if (packingResult && packingResult.lockers.length > 0) {
-                      const hasFullLocker = packingResult.lockers.some(locker => {
-                        const usagePercentage = (locker.usedSlots / 27) * 100;
-                        return usagePercentage >= 80; // Al menos 80% lleno
-                      });
-                      
-                      if (!hasFullLocker) {
-                        const totalSlots = packingResult.lockers.reduce((sum, locker) => sum + locker.usedSlots, 0);
-                        const totalCapacity = packingResult.lockers.length * 27;
-                        const overallUsage = (totalSlots / totalCapacity) * 100;
-                        
-                        const shouldContinue = confirm(
-                          `⚠️ Optimización de espacio\n\n` +
-                          `Tu selección actual usa ${overallUsage.toFixed(1)}% del espacio total.\n` +
-                          `Para una mejor optimización, considera agregar más productos para llenar completamente al menos un casillero.\n\n` +
-                          `¿Deseas continuar con la reserva de todas formas?`
-                        );
-                        
-                        if (!shouldContinue) {
-                          return;
-                        }
-                      }
-                    }
-                    setShowAppointmentScheduler(true);
-                  }}
+                  onClick={handleSmartReservation}
                   disabled={claimingProducts}
                 >
                   <i className="bi bi-calendar-check me-1"></i>
@@ -1870,7 +1915,18 @@ const OrdersPage: React.FC = () => {
             console.log('📊 PackingResult:', packingResult);
             console.log('📋 SelectedProducts:', selectedProducts);
             
-            const items = packingResult.lockers.map((locker, idx) => {
+            // Si es reserva inteligente, solo incluir casilleros nuevos
+            const lockersToInclude = packingResult.lockers.filter(locker => {
+              const lockerNumber = parseInt(locker.id.replace('locker_', ''));
+              const isExisting = myAppointments.some(appointment => 
+                appointment.status !== 'cancelled' && 
+                appointment.status !== 'completed' &&
+                appointment.itemsToPickup?.some(item => item.lockerNumber === lockerNumber)
+              );
+              return !isExisting; // Solo casilleros nuevos
+            });
+            
+            const items = lockersToInclude.map((locker, idx) => {
               const lockerNumber = parseInt(locker.id.replace('locker_', ''));
               
               // Obtener productos seleccionados que están asignados a este casillero
@@ -1888,16 +1944,18 @@ const OrdersPage: React.FC = () => {
               console.log(`📦 Casillero ${lockerNumber} - Productos asignados:`, productsInThisLocker);
 
               return {
-                lockerIndex: idx + 1,
+                lockerIndex: idx + 1, // Mantener para compatibilidad
+                lockerNumber: lockerNumber, // Usar el número real del casillero
                 quantity: productsInThisLocker.length,
                 products: productsInThisLocker
               };
             });
             
-            console.log('🎯 ItemsToPickup final:', items);
+            console.log('🎯 ItemsToPickup final (solo casilleros nuevos):', items);
             return items;
           })()}
           loading={schedulingAppointment}
+          onlyNewLockers={true} // Solo mostrar casilleros nuevos
         />
       )}
 
