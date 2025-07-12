@@ -52,6 +52,8 @@ const OrdersPage: React.FC = () => {
   const [packingResult, setPackingResult] = useState<PackingResult | null>(null);
   const [showPackingOptimization, setShowPackingOptimization] = useState(false);
   const [recentlyUnlockedProducts, setRecentlyUnlockedProducts] = useState<Set<string>>(new Set());
+  const [cancellingAppointment, setCancellingAppointment] = useState(false);
+  const [reservingLocker, setReservingLocker] = useState(false);
 
   // Función para limpiar completamente todos los estados
   const forceCleanupStates = () => {
@@ -777,6 +779,7 @@ const OrdersPage: React.FC = () => {
     }
 
     try {
+      setCancellingAppointment(true);
       console.log('🔄 Cancelando reserva:', appointmentId);
       
       // Obtener información de la reserva antes de cancelarla
@@ -828,6 +831,8 @@ const OrdersPage: React.FC = () => {
     } catch (err: any) {
       console.error('❌ Error al cancelar reserva:', err);
       alert(err.message || 'Error al cancelar la reserva');
+    } finally {
+      setCancellingAppointment(false);
     }
   };
 
@@ -936,9 +941,10 @@ const OrdersPage: React.FC = () => {
   };
 
   // Manejar agendamiento de cita
-  // Función para manejar reservas inteligentes (separar productos existentes vs nuevos)
+  // Función para manejar reservas inteligentes (solo mostrar modal de agendamiento)
   const handleSmartReservation = async () => {
     try {
+      setReservingLocker(true);
       console.log('🧠 Iniciando reserva inteligente...');
       
       if (!packingResult || !packingResult.lockers.length) {
@@ -991,6 +997,47 @@ const OrdersPage: React.FC = () => {
       console.log('📊 Casilleros existentes:', existingLockers);
       console.log('🆕 Casilleros nuevos:', newLockers);
 
+      // Mostrar modal de agendamiento para todos los casilleros
+      console.log('🆕 Mostrando modal de agendamiento');
+      setShowAppointmentScheduler(true);
+
+    } catch (error: any) {
+      console.error('❌ Error en reserva inteligente:', error);
+      alert(error.message || 'Error al procesar la reserva inteligente');
+    } finally {
+      setReservingLocker(false);
+    }
+  };
+
+  const handleScheduleAppointment = async (appointmentsData: CreateAppointmentData[]) => {
+    try {
+      console.log('🚀 Iniciando proceso de agendamiento...');
+      setSchedulingAppointment(true);
+      
+      // Separar casilleros existentes vs nuevos
+      const existingLockers: number[] = [];
+      const newLockers: number[] = [];
+      
+      if (packingResult) {
+        packingResult.lockers.forEach(locker => {
+          const lockerNumber = parseInt(locker.id.replace('locker_', ''));
+          const isExisting = myAppointments.some(appointment => 
+            appointment.status !== 'cancelled' && 
+            appointment.status !== 'completed' &&
+            appointment.itemsToPickup?.some(item => item.lockerNumber === lockerNumber)
+          );
+          
+          if (isExisting) {
+            existingLockers.push(lockerNumber);
+          } else {
+            newLockers.push(lockerNumber);
+          }
+        });
+      }
+
+      console.log('📊 Casilleros existentes:', existingLockers);
+      console.log('🆕 Casilleros nuevos:', newLockers);
+
       // Procesar productos para casilleros existentes
       if (existingLockers.length > 0) {
         console.log('🔄 Agregando productos a casilleros existentes...');
@@ -1027,49 +1074,33 @@ const OrdersPage: React.FC = () => {
         }
       }
 
-      // Si hay casilleros nuevos, mostrar modal de reserva
+      // Crear múltiples reservas para casilleros nuevos
       if (newLockers.length > 0) {
-        console.log('🆕 Mostrando modal para casilleros nuevos');
-        setShowAppointmentScheduler(true);
-      } else {
-        // Solo casilleros existentes, mostrar mensaje de éxito
+        console.log('🚀 Enviando datos de múltiples reservas al backend:', appointmentsData);
+        
+        // Crear múltiples reservas
+        const result = await appointmentService.createMultipleAppointments(appointmentsData);
+        
+        // Mensaje personalizado
+        let message = `¡Reservas creadas exitosamente!\n\n`;
+        
+        if (existingLockers.length > 0) {
+          message += `✅ Productos agregados a ${existingLockers.length} reserva(s) existente(s)\n`;
+        }
+        
+        if (result.appointments.length > 0) {
+          message += `📅 Se crearon ${result.appointments.length} nueva(s) reserva(s):\n\n`;
+          
+          result.appointments.forEach(appointment => {
+            message += `📅 Casillero ${appointment.lockerNumber}: ${new Date(appointment.scheduledDate).toLocaleDateString('es-CO')} a las ${appointment.timeSlot}\n`;
+          });
+        }
+        
+        alert(message);
+      } else if (existingLockers.length > 0) {
+        // Solo casilleros existentes
         alert('✅ Productos agregados exitosamente a tus reservas existentes');
-        
-        // Recargar datos
-        const products = await orderService.getMyPurchasedProducts();
-        setPurchasedProducts(products);
-        setSelectedProducts(new Map());
-        setLockerAssignments(new Map());
-        setPackingResult(null);
-        
-        // Recargar las reservas
-        const appointments = await appointmentService.getMyAppointments();
-        setMyAppointments(appointments);
       }
-
-    } catch (error: any) {
-      console.error('❌ Error en reserva inteligente:', error);
-      alert(error.message || 'Error al procesar la reserva inteligente');
-    }
-  };
-
-  const handleScheduleAppointment = async (appointmentsData: CreateAppointmentData[]) => {
-    try {
-      console.log('🚀 Enviando datos de múltiples reservas al backend:', appointmentsData);
-      setSchedulingAppointment(true);
-      
-      // Crear múltiples reservas
-      const result = await appointmentService.createMultipleAppointments(appointmentsData);
-      
-      // Mensaje personalizado
-      let message = `¡Reservas creadas exitosamente!\n\n`;
-      message += `Se crearon ${result.appointments.length} reserva(s):\n\n`;
-      
-      result.appointments.forEach(appointment => {
-        message += `📅 Casillero ${appointment.lockerNumber}: ${new Date(appointment.scheduledDate).toLocaleDateString('es-CO')} a las ${appointment.timeSlot}\n`;
-      });
-      
-      alert(message);
       
       // Recargar los datos
       const products = await orderService.getMyPurchasedProducts();
@@ -1463,56 +1494,48 @@ const OrdersPage: React.FC = () => {
                 <button 
                   className="btn btn-outline-secondary"
                   onClick={handleClearSelection}
-                  disabled={claimingProducts}
+                  disabled={claimingProducts || reservingLocker}
                 >
                   <i className="bi bi-x-circle me-1"></i>
                   Limpiar Selección
                 </button>
                 <button 
-                  className="btn btn-primary"
-                  onClick={handleClaimSubmit}
-                  disabled={claimingProducts}
+                  className="btn btn-success"
+                  onClick={handleSmartReservation}
+                  disabled={claimingProducts || reservingLocker}
                 >
-                  {claimingProducts ? (
+                  {reservingLocker ? (
                     <>
-                      <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+                      <span className="spinner-border spinner-border-sm me-1" role="status"></span>
                       Procesando...
                     </>
                   ) : (
                     <>
-                      <i className="bi bi-box-seam me-1"></i>
-                      Reclamar {selectedProducts.size} Producto{selectedProducts.size > 1 ? 's' : ''}
+                      <i className="bi bi-calendar-check me-1"></i>
+                      Reservar Casillero
+                      {(() => {
+                        if (packingResult && packingResult.lockers.length > 0) {
+                          const existingLockers = packingResult.lockers.filter(locker => {
+                            const lockerNumber = parseInt(locker.id.replace('locker_', ''));
+                            return myAppointments.some(appointment => 
+                              appointment.status !== 'cancelled' && 
+                              appointment.status !== 'completed' &&
+                              appointment.itemsToPickup?.some(item => item.lockerNumber === lockerNumber)
+                            );
+                          });
+                          
+                          if (existingLockers.length > 0) {
+                            return (
+                              <span className="badge bg-light text-dark ms-1">
+                                +{existingLockers.length} existente(s)
+                              </span>
+                            );
+                          }
+                        }
+                        return null;
+                      })()}
                     </>
                   )}
-                </button>
-                <button 
-                  className="btn btn-success"
-                  onClick={handleSmartReservation}
-                  disabled={claimingProducts}
-                >
-                  <i className="bi bi-calendar-check me-1"></i>
-                  Reservar Casillero
-                  {(() => {
-                    if (packingResult && packingResult.lockers.length > 0) {
-                      const existingLockers = packingResult.lockers.filter(locker => {
-                        const lockerNumber = parseInt(locker.id.replace('locker_', ''));
-                        return myAppointments.some(appointment => 
-                          appointment.status !== 'cancelled' && 
-                          appointment.status !== 'completed' &&
-                          appointment.itemsToPickup?.some(item => item.lockerNumber === lockerNumber)
-                        );
-                      });
-                      
-                      if (existingLockers.length > 0) {
-                        return (
-                          <span className="badge bg-light text-dark ms-1">
-                            +{existingLockers.length} existente(s)
-                          </span>
-                        );
-                      }
-                    }
-                    return null;
-                  })()}
                 </button>
                 
                 {/* Indicador de estado de casilleros */}
@@ -1781,9 +1804,19 @@ const OrdersPage: React.FC = () => {
                                       <button
                                         className="btn btn-outline-danger btn-sm"
                                         onClick={() => handleCancelAppointment(appointment._id)}
+                                        disabled={cancellingAppointment}
                                       >
-                                        <i className="bi bi-x-circle me-1"></i>
-                                        Cancelar Reserva
+                                        {cancellingAppointment ? (
+                                          <>
+                                            <span className="spinner-border spinner-border-sm me-1" role="status"></span>
+                                            Cancelando...
+                                          </>
+                                        ) : (
+                                          <>
+                                            <i className="bi bi-x-circle me-1"></i>
+                                            Cancelar Reserva
+                                          </>
+                                        )}
                                       </button>
                                     </div>
                                   </div>
@@ -1892,73 +1925,210 @@ const OrdersPage: React.FC = () => {
       </div>
 
       {/* Modal de Agendamiento de Citas */}
-      {showAppointmentScheduler && packingResult && (
-        <AppointmentScheduler
-          isOpen={showAppointmentScheduler}
-          onClose={() => setShowAppointmentScheduler(false)}
-          onSchedule={handleScheduleAppointment}
-          orderId={(() => {
-            // Buscar el primer producto seleccionado que tenga orderId
-            const firstValid = Array.from(selectedProducts.keys())
-              .map(idx => validPurchasedProducts[idx])
-              .find(p => p && p.orderId);
-            if (firstValid) {
-              console.log('🔍 OrderId obtenido para cita:', firstValid.orderId);
-              console.log('📋 Producto seleccionado:', firstValid);
-              return firstValid.orderId || '';
-            }
-            console.log('❌ No se pudo obtener orderId válido - no hay productos seleccionados con orderId');
-            return '';
-          })()}
-          itemsToPickup={(() => {
-            console.log('🔍 Generando itemsToPickup para AppointmentScheduler');
-            console.log('📊 PackingResult:', packingResult);
-            console.log('📋 SelectedProducts:', selectedProducts);
-            
-            // Si es reserva inteligente, solo incluir casilleros nuevos
-            const lockersToInclude = packingResult.lockers.filter(locker => {
-              const lockerNumber = parseInt(locker.id.replace('locker_', ''));
-              const isExisting = myAppointments.some(appointment => 
-                appointment.status !== 'cancelled' && 
-                appointment.status !== 'completed' &&
-                appointment.itemsToPickup?.some(item => item.lockerNumber === lockerNumber)
+      {showAppointmentScheduler && packingResult && (() => {
+        // Determinar si solo hay casilleros existentes
+        const existingLockers: number[] = [];
+        const newLockers: number[] = [];
+        
+        packingResult.lockers.forEach(locker => {
+          const lockerNumber = parseInt(locker.id.replace('locker_', ''));
+          const isExisting = myAppointments.some(appointment => 
+            appointment.status !== 'cancelled' && 
+            appointment.status !== 'completed' &&
+            appointment.itemsToPickup?.some(item => item.lockerNumber === lockerNumber)
+          );
+          
+          if (isExisting) {
+            existingLockers.push(lockerNumber);
+          } else {
+            newLockers.push(lockerNumber);
+          }
+        });
+
+        const onlyExistingLockers = newLockers.length === 0 && existingLockers.length > 0;
+        
+        // Para casilleros existentes, contar solo los que realmente tienen productos asignados
+        const existingLockersWithProducts = onlyExistingLockers 
+          ? existingLockers.filter(lockerNumber => {
+              const hasSelectedProducts = Array.from(selectedProducts.entries()).some(
+                ([itemIndex, selection]) => selection.lockerNumber === lockerNumber
               );
-              return !isExisting; // Solo casilleros nuevos
-            });
-            
-            const items = lockersToInclude.map((locker, idx) => {
-              const lockerNumber = parseInt(locker.id.replace('locker_', ''));
+              return hasSelectedProducts;
+            })
+          : existingLockers;
+        
+        return (
+          <AppointmentScheduler
+            isOpen={showAppointmentScheduler}
+            onClose={() => setShowAppointmentScheduler(false)}
+            onSchedule={handleScheduleAppointment}
+            orderId={(() => {
+              // Buscar el primer producto seleccionado que tenga orderId
+              const firstValid = Array.from(selectedProducts.keys())
+                .map(idx => validPurchasedProducts[idx])
+                .find(p => p && p.orderId);
+              if (firstValid) {
+                console.log('🔍 OrderId obtenido para cita:', firstValid.orderId);
+                console.log('📋 Producto seleccionado:', firstValid);
+                return firstValid.orderId || '';
+              }
+              console.log('❌ No se pudo obtener orderId válido - no hay productos seleccionados con orderId');
+              return '';
+            })()}
+            itemsToPickup={(() => {
+              console.log('🔍 Generando itemsToPickup para AppointmentScheduler');
+              console.log('📊 PackingResult:', packingResult);
+              console.log('📋 SelectedProducts:', selectedProducts);
               
-              // Obtener productos seleccionados que están asignados a este casillero
-              const productsInThisLocker = Array.from(selectedProducts.entries())
-                .filter(([itemIndex, selection]) => selection.lockerNumber === lockerNumber)
-                .map(([itemIndex, selection]) => {
-                  const item = purchasedProducts[itemIndex];
-                  return {
-                    name: item.product?.nombre || `Producto ${itemIndex + 1}`,
-                    count: 1,
-                    productId: item._id // Usar el ID real del IndividualProduct
-                  };
-                });
+              // Si solo hay casilleros existentes, incluir solo los que tienen productos asignados
+              // Si hay casilleros nuevos, solo incluir los nuevos
+              const lockersToInclude = onlyExistingLockers 
+                ? packingResult.lockers.filter(locker => {
+                    const lockerNumber = parseInt(locker.id.replace('locker_', ''));
+                    // Solo incluir casilleros que tienen productos seleccionados
+                    const hasSelectedProducts = Array.from(selectedProducts.entries()).some(
+                      ([itemIndex, selection]) => selection.lockerNumber === lockerNumber
+                    );
+                    return hasSelectedProducts;
+                  })
+                : packingResult.lockers.filter(locker => {
+                    const lockerNumber = parseInt(locker.id.replace('locker_', ''));
+                    const isExisting = myAppointments.some(appointment => 
+                      appointment.status !== 'cancelled' && 
+                      appointment.status !== 'completed' &&
+                      appointment.itemsToPickup?.some(item => item.lockerNumber === lockerNumber)
+                    );
+                    return !isExisting; // Solo casilleros nuevos
+                  });
+              
+              const items = lockersToInclude.map((locker, idx) => {
+                const lockerNumber = parseInt(locker.id.replace('locker_', ''));
+                
+                // Obtener productos seleccionados que están asignados a este casillero
+                const productsInThisLocker = Array.from(selectedProducts.entries())
+                  .filter(([itemIndex, selection]) => selection.lockerNumber === lockerNumber)
+                  .map(([itemIndex, selection]) => {
+                    const item = purchasedProducts[itemIndex];
+                    return {
+                      name: item.product?.nombre || `Producto ${itemIndex + 1}`,
+                      count: 1,
+                      productId: item._id // Usar el ID real del IndividualProduct
+                    };
+                  });
 
-              console.log(`📦 Casillero ${lockerNumber} - Productos asignados:`, productsInThisLocker);
+                console.log(`📦 Casillero ${lockerNumber} - Productos asignados:`, productsInThisLocker);
 
-              return {
-                lockerIndex: idx + 1, // Mantener para compatibilidad
-                lockerNumber: lockerNumber, // Usar el número real del casillero
-                quantity: productsInThisLocker.length,
-                products: productsInThisLocker
-              };
-            });
-            
-            console.log('🎯 ItemsToPickup final (solo casilleros nuevos):', items);
-            return items;
-          })()}
-          loading={schedulingAppointment}
-          onlyNewLockers={true} // Solo mostrar casilleros nuevos
-        />
+                return {
+                  lockerIndex: idx + 1, // Mantener para compatibilidad
+                  lockerNumber: lockerNumber, // Usar el número real del casillero
+                  quantity: productsInThisLocker.length,
+                  products: productsInThisLocker
+                };
+              });
+              
+              console.log('🎯 ItemsToPickup final:', items);
+              return items;
+            })()}
+            loading={schedulingAppointment}
+            onlyNewLockers={!onlyExistingLockers} // Solo mostrar casilleros nuevos si no es solo existentes
+            onlyExistingLockers={onlyExistingLockers} // Nueva prop para indicar si solo hay existentes
+            existingLockersCount={existingLockersWithProducts.length} // Cantidad de casilleros existentes con productos
+          />
+        );
+      })()}
+
+      {/* Overlay de Loading para Cancelación de Reservas */}
+      {cancellingAppointment && (
+        <div 
+          className="position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center"
+          style={{
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            zIndex: 9999,
+            backdropFilter: 'blur(3px)'
+          }}
+        >
+          <div className="text-center text-white">
+            <div className="spinner-border text-light mb-3" style={{ width: '3rem', height: '3rem' }} role="status">
+              <span className="visually-hidden">Cancelando reserva...</span>
+            </div>
+            <h5 className="mb-2">Cancelando Reserva</h5>
+            <p className="mb-0">Liberando productos y actualizando el sistema...</p>
+            <div className="mt-3">
+              <div className="spinner-grow spinner-grow-sm text-light me-2" role="status">
+                <span className="visually-hidden">Procesando...</span>
+              </div>
+              <div className="spinner-grow spinner-grow-sm text-light me-2" role="status" style={{ animationDelay: '0.1s' }}>
+                <span className="visually-hidden">Procesando...</span>
+              </div>
+              <div className="spinner-grow spinner-grow-sm text-light" role="status" style={{ animationDelay: '0.2s' }}>
+                <span className="visually-hidden">Procesando...</span>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
+      {/* Overlay de Loading para Reservar Casillero */}
+      {reservingLocker && (
+        <div 
+          className="position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center"
+          style={{
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            zIndex: 9999,
+            backdropFilter: 'blur(3px)'
+          }}
+        >
+          <div className="text-center text-white">
+            <div className="spinner-border text-light mb-3" style={{ width: '3rem', height: '3rem' }} role="status">
+              <span className="visually-hidden">Procesando reserva...</span>
+            </div>
+            <h5 className="mb-2">Procesando Reserva</h5>
+            <p className="mb-0">Preparando casilleros y optimizando espacio...</p>
+            <div className="mt-3">
+              <div className="spinner-grow spinner-grow-sm text-light me-2" role="status">
+                <span className="visually-hidden">Procesando...</span>
+              </div>
+              <div className="spinner-grow spinner-grow-sm text-light me-2" role="status" style={{ animationDelay: '0.1s' }}>
+                <span className="visually-hidden">Procesando...</span>
+              </div>
+              <div className="spinner-grow spinner-grow-sm text-light" role="status" style={{ animationDelay: '0.2s' }}>
+                <span className="visually-hidden">Procesando...</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Overlay de Loading para Agendar Cita */}
+      {schedulingAppointment && (
+        <div 
+          className="position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center"
+          style={{
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            zIndex: 9999,
+            backdropFilter: 'blur(3px)'
+          }}
+        >
+          <div className="text-center text-white">
+            <div className="spinner-border text-light mb-3" style={{ width: '3rem', height: '3rem' }} role="status">
+              <span className="visually-hidden">Agendando cita...</span>
+            </div>
+            <h5 className="mb-2">Agendando Cita</h5>
+            <p className="mb-0">Creando reservas y agregando productos a casilleros...</p>
+            <div className="mt-3">
+              <div className="spinner-grow spinner-grow-sm text-light me-2" role="status">
+                <span className="visually-hidden">Procesando...</span>
+              </div>
+              <div className="spinner-grow spinner-grow-sm text-light me-2" role="status" style={{ animationDelay: '0.1s' }}>
+                <span className="visually-hidden">Procesando...</span>
+              </div>
+              <div className="spinner-grow spinner-grow-sm text-light" role="status" style={{ animationDelay: '0.2s' }}>
+                <span className="visually-hidden">Procesando...</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

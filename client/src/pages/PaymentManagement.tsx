@@ -14,6 +14,7 @@ const PaymentManagement = () => {
   const [error, setError] = useState('');
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDeletingAll, setIsDeletingAll] = useState(false);
   const [stats, setStats] = useState({
     totalPayments: 0,
     approvedPayments: 0,
@@ -89,6 +90,37 @@ const PaymentManagement = () => {
       setError('');
     } catch (err: any) {
       setError(err.message || 'Error al actualizar estado del pago');
+    }
+  };
+
+  const handleDeleteAllPayments = async () => {
+    if (!window.confirm('¿Estás seguro de que quieres eliminar TODOS los pagos? Esta acción es irreversible y eliminará todos los registros de pagos del sistema.')) {
+      return;
+    }
+
+    if (!window.confirm('⚠️ ADVERTENCIA FINAL: Esta acción eliminará permanentemente todos los pagos. ¿Estás completamente seguro?')) {
+      return;
+    }
+
+    try {
+      setIsDeletingAll(true);
+      setError('');
+      
+      const result = await paymentManagementService.deleteAllPayments();
+      
+      // Limpiar la lista de pagos
+      setPayments([]);
+      
+      // Recargar estadísticas
+      await loadStats();
+      
+      // Mostrar mensaje de éxito
+      alert(`✅ ${result.message}`);
+      
+    } catch (err: any) {
+      setError(err.message || 'Error al eliminar todos los pagos');
+    } finally {
+      setIsDeletingAll(false);
     }
   };
 
@@ -199,12 +231,34 @@ const PaymentManagement = () => {
             </div>
           </div>
 
-          {/* Barra de búsqueda */}
-          <SearchBar 
-            searchTerm={searchTerm}
-            onSearchChange={setSearchTerm}
-            placeholder="Buscar por ID, usuario, email o referencia..."
-          />
+          {/* Barra de búsqueda y acciones */}
+          <div className="d-flex justify-content-between align-items-center mb-3">
+            <div className="flex-grow-1 me-3">
+              <SearchBar 
+                searchTerm={searchTerm}
+                onSearchChange={setSearchTerm}
+                placeholder="Buscar por ID, usuario, email o referencia..."
+              />
+            </div>
+            <button
+              className="btn btn-danger"
+              onClick={handleDeleteAllPayments}
+              disabled={isDeletingAll || payments.length === 0}
+              title="Eliminar todos los pagos"
+            >
+              {isDeletingAll ? (
+                <>
+                  <i className="bi bi-hourglass-split me-2"></i>
+                  Eliminando...
+                </>
+              ) : (
+                <>
+                  <i className="bi bi-trash3 me-2"></i>
+                  Eliminar Todos
+                </>
+              )}
+            </button>
+          </div>
 
           {/* Mensaje de error */}
           {error && (

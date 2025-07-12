@@ -76,7 +76,7 @@ exports.createPreference = async (req, res) => {
         pending: `${process.env.FRONTEND_URL}/payment-result`
       },
       // auto_return: 'all', // Comentado para pruebas de webhook - habilitar en producción
-      notification_url: 'https://987cae12d43a.ngrok-free.app/api/payment/webhook/mercadopago',
+      notification_url: 'https://7494a5f8091c.ngrok-free.app/api/payment/webhook/mercadopago',
       external_reference: finalExternalReference,
       expires: true,
       expiration_date_to: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 minutos
@@ -239,7 +239,7 @@ exports.testConfig = async (req, res) => {
         failure: 'https://httpbin.org/status/200',
         pending: 'https://httpbin.org/status/200'
       },
-      notification_url: 'https://987cae12d43a.ngrok-free.app/api/payment/webhook/mercadopago',
+      notification_url: 'https://7494a5f8091c.ngrok-free.app/api/payment/webhook/mercadopago',
       external_reference: `TEST_${Date.now()}`,
       expires: true,
       expiration_date_to: new Date(Date.now() + 30 * 60 * 1000).toISOString()
@@ -290,7 +290,13 @@ exports.testConfig = async (req, res) => {
 };
 
 // Webhook de Mercado Pago
+// Set para rastrear webhooks en proceso
+const processingWebhooks = new Set();
+
 exports.mercadoPagoWebhook = async (req, res) => {
+  // Declarar paymentId al inicio para que esté disponible en todo el scope
+  let paymentId = null;
+  
   try {
     console.log('🔔 Webhook Mercado Pago recibido:', req.body, req.query);
 
@@ -302,7 +308,7 @@ exports.mercadoPagoWebhook = async (req, res) => {
     }
 
     // Mercado Pago puede enviar info en body o query
-    const paymentId = req.body.data && req.body.data.id
+    paymentId = req.body.data && req.body.data.id
       ? req.body.data.id
       : req.query.id;
     const topic = req.body.type || req.query.topic;
@@ -314,6 +320,15 @@ exports.mercadoPagoWebhook = async (req, res) => {
 
     // Solo procesar si es un pago
     if (topic === 'payment' && paymentId) {
+      // Verificar si este webhook ya está siendo procesado
+      if (processingWebhooks.has(paymentId)) {
+        console.log(`⏳ Webhook para pago ${paymentId} ya está siendo procesado. Saltando.`);
+        return res.status(200).send('OK');
+      }
+      
+      // Marcar este webhook como en proceso
+      processingWebhooks.add(paymentId);
+      
       try {
         // Consultar el estado real del pago usando la API de Mercado Pago
         const axios = require('axios');
@@ -366,7 +381,20 @@ exports.mercadoPagoWebhook = async (req, res) => {
           currency: paymentInfo.currency || 'COP',
           external_reference: paymentInfo.external_reference,
           date_created: new Date(paymentInfo.date_created),
-          date_approved: paymentInfo.status === 'approved' ? new Date(paymentInfo.date_approved || Date.now()) : null
+          date_approved: paymentInfo.status === 'approved' ? new Date(paymentInfo.date_approved || Date.now()) : null,
+          // Agregar información del pagador
+          payer: {
+            email: paymentInfo.payer?.email || '',
+            name: paymentInfo.payer?.name || '',
+            surname: paymentInfo.payer?.surname || ''
+          },
+          // Agregar productos comprados específicos de este pago
+          purchased_items: selected_items.map(item => ({
+            product_id: item.id || item.product_id || item._id,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            product_name: item.title || item.name
+          }))
         };
 
         // Usar findOneAndUpdate con upsert para evitar condiciones de carrera
@@ -384,18 +412,12 @@ exports.mercadoPagoWebhook = async (req, res) => {
         if (payment.createdAt.getTime() === payment.updatedAt.getTime()) {
           console.log('💾 Pago nuevo guardado en la base de datos');
         } else {
-          console.log(`ℹ️ Pago ${paymentInfo.id} ya existía. Saltando procesamiento.`);
+          console.log(`ℹ️ Pago ${paymentInfo.id} ya existía. Verificando productos individuales...`);
           
-          // Verificar si ya existen productos individuales para este pago
-          const IndividualProduct = require('../models/IndividualProduct');
-          const existingIndividualProducts = await IndividualProduct.find({
-            'payment.mp_payment_id': paymentInfo.id.toString()
-          });
-          
-          if (existingIndividualProducts.length > 0) {
-            console.log(`ℹ️ Ya existen ${existingIndividualProducts.length} productos individuales para este pago.`);
-          } else if (paymentInfo.status === 'approved') {
-            console.log('🔄 Creando productos individuales para pago existente...');
+          // Si el pago está aprobado, siempre intentar crear productos individuales
+          // (la función maneja internamente la verificación de duplicados)
+          if (paymentInfo.status === 'approved') {
+            console.log('🔄 Verificando y creando productos individuales faltantes...');
             await createIndividualProductsForPayment(paymentInfo, payment);
           }
           
@@ -600,6 +622,11 @@ exports.mercadoPagoWebhook = async (req, res) => {
   } catch (error) {
     console.error('❌ Error general en webhook Mercado Pago:', error);
     res.status(500).send('Error');
+  } finally {
+    // Siempre remover el pago del set de procesamiento, incluso si hay error
+    if (paymentId && processingWebhooks.has(paymentId)) {
+      processingWebhooks.delete(paymentId);
+    }
   }
 };
 
@@ -607,39 +634,38 @@ exports.mercadoPagoWebhook = async (req, res) => {
 exports.getAllPayments = async (req, res) => {
   try {
     const Payment = require('../models/Payment');
-    const Order = require('../models/Order');
     
+    console.log('📊 Calculando estadísticas de pagos...');
+    
+    // Obtener todos los pagos para debug
     const payments = await Payment.find()
       .populate('user_id', 'nombre email')
+      .populate('purchased_items.product_id', 'title picture_url')
       .sort({ date_created: -1 })
       .exec();
     
-    // Para cada pago, buscar la orden asociada y agregar información de productos
-    const paymentsWithProducts = await Promise.all(payments.map(async (payment) => {
+    // Para cada pago, usar los purchased_items del modelo Payment
+    const paymentsWithProducts = payments.map((payment) => {
       const paymentObj = payment.toObject();
       
-      // Buscar orden asociada por mp_payment_id
-      const associatedOrder = await Order.findOne({
-        'payment.mp_payment_id': payment.mp_payment_id
-      }).populate('items.product', 'title picture_url');
-      
-      if (associatedOrder) {
-        // Agregar información de productos desde la orden
-        paymentObj.purchased_items = associatedOrder.items.map(item => ({
-          id: item.product._id,
-          title: item.product.title,
-          picture_url: item.product.picture_url,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          total_price: item.total_price
-        }));
+      // Usar los purchased_items del modelo Payment
+      if (payment.purchased_items && payment.purchased_items.length > 0) {
+        paymentObj.purchased_items = payment.purchased_items
+          .filter(item => item.product_id) // Filtrar items sin product_id
+          .map(item => ({
+            id: item.product_id._id || item.product_id,
+            title: item.product_id?.title || item.product_name || 'Producto desconocido',
+            picture_url: item.product_id?.picture_url || '',
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            total_price: item.quantity * item.unit_price
+          }));
       } else {
-        // Si no hay orden asociada, usar array vacío
         paymentObj.purchased_items = [];
       }
       
       return paymentObj;
-    }));
+    });
     
     res.json(paymentsWithProducts);
   } catch (error) {
@@ -659,10 +685,10 @@ exports.getPaymentById = async (req, res) => {
     }
     
     const Payment = require('../models/Payment');
-    const Order = require('../models/Order');
     
     const payment = await Payment.findById(paymentId)
       .populate('user_id', 'nombre email')
+      .populate('purchased_items.product_id', 'title picture_url')
       .exec();
     
     if (!payment) {
@@ -671,23 +697,19 @@ exports.getPaymentById = async (req, res) => {
     
     const paymentObj = payment.toObject();
     
-    // Buscar orden asociada por mp_payment_id
-    const associatedOrder = await Order.findOne({
-      'payment.mp_payment_id': payment.mp_payment_id
-    }).populate('items.product', 'title picture_url');
-    
-    if (associatedOrder) {
-      // Agregar información de productos desde la orden
-      paymentObj.purchased_items = associatedOrder.items.map(item => ({
-        id: item.product._id,
-        title: item.product.title,
-        picture_url: item.product.picture_url,
-        quantity: item.quantity,
-        unit_price: item.unit_price,
-        total_price: item.total_price
-      }));
+    // Usar los purchased_items del modelo Payment
+    if (payment.purchased_items && payment.purchased_items.length > 0) {
+      paymentObj.purchased_items = payment.purchased_items
+        .filter(item => item.product_id) // Filtrar items sin product_id
+        .map(item => ({
+          id: item.product_id._id || item.product_id,
+          title: item.product_id?.title || item.product_name || 'Producto desconocido',
+          picture_url: item.product_id?.picture_url || '',
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          total_price: item.quantity * item.unit_price
+        }));
     } else {
-      // Si no hay orden asociada, usar array vacío
       paymentObj.purchased_items = [];
     }
     
@@ -802,8 +824,49 @@ exports.deletePayment = async (req, res) => {
   }
 };
 
+// Eliminar todos los pagos (para admin)
+exports.deleteAllPayments = async (req, res) => {
+  try {
+    const Payment = require('../models/Payment');
+    
+    // Contar cuántos pagos se van a eliminar
+    const count = await Payment.countDocuments();
+    
+    if (count === 0) {
+      return res.status(404).json({ message: 'No hay pagos para eliminar' });
+    }
+    
+    // Eliminar todos los pagos
+    await Payment.deleteMany({});
+    
+    console.log(`🗑️ Eliminados ${count} pagos del sistema`);
+    
+    res.json({ 
+      message: `${count} pagos eliminados correctamente`,
+      deletedCount: count
+    });
+  } catch (error) {
+    console.error('Error al eliminar todos los pagos:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+};
+
 // Función auxiliar para crear productos individuales para un pago
+// Set para rastrear pagos en proceso
+const processingPayments = new Set();
+
 async function createIndividualProductsForPayment(paymentInfo, payment) {
+  const paymentId = paymentInfo.id.toString();
+  
+  // Verificar si este pago ya está siendo procesado
+  if (processingPayments.has(paymentId)) {
+    console.log(`⏳ Pago ${paymentId} ya está siendo procesado. Saltando creación duplicada.`);
+    return;
+  }
+  
+  // Marcar este pago como en proceso
+  processingPayments.add(paymentId);
+  
   try {
     const Order = require('../models/Order');
     const IndividualProduct = require('../models/IndividualProduct');
@@ -817,23 +880,13 @@ async function createIndividualProductsForPayment(paymentInfo, payment) {
       return;
     }
     
-    // Verificar si ya existen productos individuales para este pago específico
-    const existingIndividualProducts = await IndividualProduct.find({
-      'payment.mp_payment_id': paymentInfo.id.toString()
-    });
-    
-    if (existingIndividualProducts.length > 0) {
-      console.log(`ℹ️ Ya existen ${existingIndividualProducts.length} productos individuales para el pago ${paymentInfo.id}. Saltando creación.`);
-      return;
-    }
-    
     // Buscar la orden asociada al pago
     const order = await Order.findOne({
-      'payment.mp_payment_id': paymentInfo.id.toString()
+      'payment.mp_payment_id': paymentId
     });
     
     if (!order) {
-      console.log('⚠️ No se encontró orden asociada al pago:', paymentInfo.id);
+      console.log('⚠️ No se encontró orden asociada al pago:', paymentId);
       return;
     }
     
@@ -841,35 +894,63 @@ async function createIndividualProductsForPayment(paymentInfo, payment) {
     let nuevosCreados = 0;
     
     for (const selectedItem of selected_items) {
+      const productId = selectedItem.id || selectedItem.product_id;
+      
       // Obtener el producto original para copiar las dimensiones
       const Product = require('../models/Product');
-      const originalProduct = await Product.findById(selectedItem.id || selectedItem.product_id);
+      const originalProduct = await Product.findById(productId);
       
       if (!originalProduct) {
-        console.log('⚠️ Producto original no encontrado:', selectedItem.id || selectedItem.product_id);
+        console.log('⚠️ Producto original no encontrado:', productId);
         continue;
       }
       
-      console.log(`📦 Creando ${selectedItem.quantity} productos individuales para "${originalProduct.nombre}" (producto recién comprado)`);
+      // Contar cuántos productos individuales ya existen para este producto específico en esta orden
+      // (sin importar el mp_payment_id para evitar duplicados en compras múltiples)
+      const existingCount = await IndividualProduct.countDocuments({
+        order: order._id,
+        product: productId
+      });
       
-      for (let i = 0; i < selectedItem.quantity; i++) {
+      // Calcular cuántos productos individuales deberían existir según la orden
+      const orderItem = order.items.find(item => item.product.toString() === productId);
+      const expectedCount = orderItem ? orderItem.quantity : 0;
+      
+      // Calcular cuántos productos individuales faltan por crear
+      const missingCount = expectedCount - existingCount;
+      
+      console.log(`🔍 Verificación para "${originalProduct.nombre}":`);
+      console.log(`   - Producto ID: ${productId}`);
+      console.log(`   - Orden ID: ${order._id}`);
+      console.log(`   - Cantidad en orden: ${expectedCount}`);
+      console.log(`   - Productos individuales existentes: ${existingCount}`);
+      console.log(`   - Productos individuales faltantes: ${missingCount}`);
+      
+      if (missingCount <= 0) {
+        console.log(`ℹ️ Ya existen ${existingCount} productos individuales para "${originalProduct.nombre}" (esperados: ${expectedCount}). Saltando.`);
+        continue;
+      }
+      
+      console.log(`📦 Creando ${missingCount} productos individuales para "${originalProduct.nombre}" (existen: ${existingCount}, esperados: ${expectedCount})`);
+      
+      for (let i = 0; i < missingCount; i++) {
         const individualProduct = new IndividualProduct({
           user: user_id,
-          order: order._id, // Asociar a la orden encontrada
-          product: selectedItem.id || selectedItem.product_id,
-          individualIndex: i + 1,
+          order: order._id,
+          product: productId,
+          individualIndex: existingCount + i + 1, // Continuar desde donde se quedó
           status: 'available',
           unitPrice: selectedItem.unit_price,
-          dimensiones: originalProduct.dimensiones, // Copiar dimensiones del producto original
+          dimensiones: originalProduct.dimensiones,
           payment: {
-            mp_payment_id: paymentInfo.id.toString(),
+            mp_payment_id: paymentId,
             status: paymentInfo.status
           }
         });
         await individualProduct.save();
         nuevosCreados++;
       }
-      console.log(`✅ Creados ${selectedItem.quantity} productos individuales para "${originalProduct.nombre}"`);
+      console.log(`✅ Creados ${missingCount} productos individuales para "${originalProduct.nombre}"`);
     }
     
     if (nuevosCreados === 0) {
@@ -878,10 +959,13 @@ async function createIndividualProductsForPayment(paymentInfo, payment) {
       console.log(`🎉 Total de productos individuales nuevos creados: ${nuevosCreados}`);
     }
     
-    console.log('✅ Productos individuales creados exitosamente para el pago:', paymentInfo.id);
+    console.log('✅ Productos individuales creados exitosamente para el pago:', paymentId);
     
   } catch (error) {
     console.error('❌ Error creando productos individuales:', error);
+  } finally {
+    // Siempre remover el pago del set de procesamiento, incluso si hay error
+    processingPayments.delete(paymentId);
   }
 }
 
@@ -896,5 +980,6 @@ module.exports = {
   getPaymentById: exports.getPaymentById,
   getPaymentStats: exports.getPaymentStats,
   updatePaymentStatus: exports.updatePaymentStatus,
-  deletePayment: exports.deletePayment
+  deletePayment: exports.deletePayment,
+  deleteAllPayments: exports.deleteAllPayments
 }; 

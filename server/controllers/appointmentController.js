@@ -295,7 +295,7 @@ exports.cancelAppointment = async (req, res) => {
     const appointment = await Appointment.findOne({ 
       _id: appointmentId, 
       user: req.user.id 
-    });
+    }).populate('itemsToPickup.product');
     
     if (!appointment) {
       return res.status(404).json({ error: 'Cita no encontrada' });
@@ -311,6 +311,46 @@ exports.cancelAppointment = async (req, res) => {
       return res.status(400).json({ error: 'No se puede cancelar una cita en el pasado' });
     }
     
+    console.log('🔄 Cancelando reserva:', appointmentId);
+    console.log('📦 Productos en la reserva:', appointment.itemsToPickup.length);
+    
+    // Liberar productos individuales que estaban reservados
+    const liberatedProducts = [];
+    for (const pickupItem of appointment.itemsToPickup) {
+      try {
+        // Buscar el producto individual por el ID del producto
+        const individualProduct = await IndividualProduct.findOne({
+          product: pickupItem.product._id,
+          user: req.user.id,
+          status: 'reserved',
+          assignedLocker: pickupItem.lockerNumber
+        });
+        
+        if (individualProduct) {
+          console.log(`🔓 Liberando producto individual: ${individualProduct._id}`);
+          
+          // Liberar el producto individual
+          individualProduct.status = 'available';
+          individualProduct.assignedLocker = undefined;
+          individualProduct.reservedAt = undefined;
+          await individualProduct.save();
+          
+          liberatedProducts.push({
+            productId: individualProduct._id,
+            productName: pickupItem.product.nombre,
+            lockerNumber: pickupItem.lockerNumber
+          });
+          
+          console.log(`✅ Producto liberado: ${pickupItem.product.nombre}`);
+        } else {
+          console.log(`⚠️ No se encontró producto individual para: ${pickupItem.product.nombre}`);
+        }
+      } catch (productError) {
+        console.error(`❌ Error liberando producto ${pickupItem.product.nombre}:`, productError);
+      }
+    }
+    
+    // Marcar la cita como cancelada
     appointment.status = 'cancelled';
     appointment.cancelledAt = new Date();
     appointment.cancelledBy = 'user';
@@ -318,13 +358,16 @@ exports.cancelAppointment = async (req, res) => {
     
     await appointment.save();
     
+    console.log(`✅ Reserva cancelada exitosamente. ${liberatedProducts.length} productos liberados.`);
+    
     res.json({
-      message: 'Cita cancelada exitosamente',
+      message: `Cita cancelada exitosamente. ${liberatedProducts.length} productos han sido liberados.`,
       appointment: {
         id: appointment._id,
         status: appointment.status,
         cancelledAt: appointment.cancelledAt
-      }
+      },
+      liberatedProducts: liberatedProducts
     });
     
   } catch (error) {
@@ -379,10 +422,55 @@ exports.updateAppointmentStatus = async (req, res) => {
     
     const appointment = await Appointment.findById(appointmentId)
       .populate('user', 'nombre email')
-      .populate('order', 'status');
+      .populate('order', 'status')
+      .populate('itemsToPickup.product');
     
     if (!appointment) {
       return res.status(404).json({ error: 'Cita no encontrada' });
+    }
+    
+    // Si se está cancelando la cita, liberar productos individuales
+    if (status === 'cancelled' && appointment.status !== 'cancelled') {
+      console.log('🔄 Cancelando reserva desde admin:', appointmentId);
+      console.log('📦 Productos en la reserva:', appointment.itemsToPickup.length);
+      
+      // Liberar productos individuales que estaban reservados
+      const liberatedProducts = [];
+      for (const pickupItem of appointment.itemsToPickup) {
+        try {
+          // Buscar el producto individual por el ID del producto
+          const individualProduct = await IndividualProduct.findOne({
+            product: pickupItem.product._id,
+            user: appointment.user._id,
+            status: 'reserved',
+            assignedLocker: pickupItem.lockerNumber
+          });
+          
+          if (individualProduct) {
+            console.log(`🔓 Liberando producto individual: ${individualProduct._id}`);
+            
+            // Liberar el producto individual
+            individualProduct.status = 'available';
+            individualProduct.assignedLocker = undefined;
+            individualProduct.reservedAt = undefined;
+            await individualProduct.save();
+            
+            liberatedProducts.push({
+              productId: individualProduct._id,
+              productName: pickupItem.product.nombre,
+              lockerNumber: pickupItem.lockerNumber
+            });
+            
+            console.log(`✅ Producto liberado: ${pickupItem.product.nombre}`);
+          } else {
+            console.log(`⚠️ No se encontró producto individual para: ${pickupItem.product.nombre}`);
+          }
+        } catch (productError) {
+          console.error(`❌ Error liberando producto ${pickupItem.product.nombre}:`, productError);
+        }
+      }
+      
+      console.log(`✅ Reserva cancelada desde admin. ${liberatedProducts.length} productos liberados.`);
     }
     
     // Actualizar estado
@@ -404,6 +492,9 @@ exports.updateAppointmentStatus = async (req, res) => {
         appointment.order.status = 'picked_up';
         await appointment.order.save();
       }
+    } else if (status === 'cancelled') {
+      appointment.cancelledAt = new Date();
+      appointment.cancelledBy = 'admin';
     }
     
     if (notes) {
@@ -468,7 +559,8 @@ exports.deleteAppointment = async (req, res) => {
     const { appointmentId } = req.params;
     
     const appointment = await Appointment.findById(appointmentId)
-      .populate('order', 'status');
+      .populate('order', 'status')
+      .populate('itemsToPickup.product');
     
     if (!appointment) {
       return res.status(404).json({ error: 'Cita no encontrada' });
@@ -479,14 +571,53 @@ exports.deleteAppointment = async (req, res) => {
       return res.status(400).json({ error: 'No se puede eliminar una cita completada' });
     }
     
-    // Si la cita tiene productos asignados, liberar los casilleros
+    console.log('🗑️ Eliminando reserva (admin):', appointmentId);
+    console.log('📦 Productos en la reserva:', appointment.itemsToPickup.length);
+    
+    // Liberar productos individuales que estaban reservados
+    const liberatedProducts = [];
+    for (const pickupItem of appointment.itemsToPickup) {
+      try {
+        // Buscar el producto individual por el ID del producto
+        const individualProduct = await IndividualProduct.findOne({
+          product: pickupItem.product._id,
+          user: appointment.user,
+          status: 'reserved',
+          assignedLocker: pickupItem.lockerNumber
+        });
+        
+        if (individualProduct) {
+          console.log(`🔓 Liberando producto individual: ${individualProduct._id}`);
+          
+          // Liberar el producto individual
+          individualProduct.status = 'available';
+          individualProduct.assignedLocker = undefined;
+          individualProduct.reservedAt = undefined;
+          await individualProduct.save();
+          
+          liberatedProducts.push({
+            productId: individualProduct._id,
+            productName: pickupItem.product.nombre,
+            lockerNumber: pickupItem.lockerNumber
+          });
+          
+          console.log(`✅ Producto liberado: ${pickupItem.product.nombre}`);
+        } else {
+          console.log(`⚠️ No se encontró producto individual para: ${pickupItem.product.nombre}`);
+        }
+      } catch (productError) {
+        console.error(`❌ Error liberando producto ${pickupItem.product.nombre}:`, productError);
+      }
+    }
+    
+    // Si la cita tiene productos asignados, liberar los casilleros en la orden
     if (appointment.order && appointment.itemsToPickup.length > 0) {
       const order = appointment.order;
       
       // Reducir la cantidad reclamada de los productos
       for (const pickupItem of appointment.itemsToPickup) {
         const orderItem = order.items.find(item => 
-          item.product.toString() === pickupItem.product
+          item.product.toString() === pickupItem.product._id
         );
         
         if (orderItem) {
@@ -505,15 +636,18 @@ exports.deleteAppointment = async (req, res) => {
     // Eliminar la cita
     await Appointment.findByIdAndDelete(appointmentId);
     
+    console.log(`✅ Reserva eliminada exitosamente. ${liberatedProducts.length} productos liberados.`);
+    
     res.json({
-      message: 'Cita eliminada exitosamente',
+      message: `Cita eliminada exitosamente. ${liberatedProducts.length} productos han sido liberados.`,
       deletedAppointment: {
         id: appointment._id,
         user: appointment.user,
         scheduledDate: appointment.scheduledDate,
         timeSlot: appointment.timeSlot,
         status: appointment.status
-      }
+      },
+      liberatedProducts: liberatedProducts
     });
     
   } catch (error) {

@@ -27,6 +27,11 @@ export interface Payment {
     nombre: string;
     email: string;
   };
+  payer: {
+    email: string;
+    name?: string;
+    surname?: string;
+  };
   purchased_items: PaymentItem[];
   date_created: string;
   date_approved?: string;
@@ -136,6 +141,25 @@ class PaymentManagementService {
       }
     } catch (error) {
       console.error('Error en deletePayment:', error);
+      throw error;
+    }
+  }
+
+  async deleteAllPayments(): Promise<{ message: string; deletedCount: number }> {
+    try {
+      const response = await fetch(`${API_URL}/payment/admin/all`, {
+        method: 'DELETE',
+        headers: this.getHeaders(),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Error al eliminar todos los pagos');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error en deleteAllPayments:', error);
       throw error;
     }
   }

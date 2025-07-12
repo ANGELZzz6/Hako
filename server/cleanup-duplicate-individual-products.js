@@ -1,18 +1,28 @@
 const mongoose = require('mongoose');
-require('dotenv').config();
+const path = require('path');
 
-// Conectar a la base de datos
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/hako', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-});
+// Cargar variables de entorno desde el directorio padre
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
 const IndividualProduct = require('./models/IndividualProduct');
 const Payment = require('./models/Payment');
+const Order = require('./models/Order');
 
 async function cleanupDuplicateIndividualProducts() {
   try {
     console.log('🧹 Iniciando limpieza de productos individuales duplicados...');
+    
+    // Verificar si tenemos la URI de MongoDB
+    const mongoUri = process.env.MONGODB_URI;
+    if (!mongoUri) {
+      console.error('❌ Error: MONGODB_URI no está configurado en las variables de entorno');
+      console.log('💡 Asegúrate de que el archivo .env existe y contiene MONGODB_URI');
+      return;
+    }
+    
+    // Conectar a la base de datos
+    await mongoose.connect(mongoUri);
+    console.log('✅ Conectado a MongoDB');
     
     // Obtener todos los pagos únicos
     const payments = await Payment.find({}, 'mp_payment_id');
@@ -26,7 +36,7 @@ async function cleanupDuplicateIndividualProducts() {
       // Buscar productos individuales para este pago
       const individualProducts = await IndividualProduct.find({
         'payment.mp_payment_id': mpPaymentId
-      });
+      }).populate('order', 'items');
       
       if (individualProducts.length > 0) {
         console.log(`\n🔍 Pago ${mpPaymentId}: ${individualProducts.length} productos individuales encontrados`);
@@ -46,7 +56,6 @@ async function cleanupDuplicateIndividualProducts() {
           const [orderId, productId] = key.split('_');
           
           // Obtener la orden para saber la cantidad correcta
-          const Order = require('./models/Order');
           const order = await Order.findById(orderId);
           
           if (order) {
@@ -76,15 +85,21 @@ async function cleanupDuplicateIndividualProducts() {
       }
     }
     
-    console.log(`\n🎉 Limpieza completada! Total de productos individuales eliminados: ${totalRemoved}`);
+    console.log(`\n🎉 Limpieza completada!`);
+    console.log(`📊 Total de productos individuales eliminados: ${totalRemoved}`);
+    
+    // Mostrar estadísticas finales
+    const totalIndividualProducts = await IndividualProduct.countDocuments();
+    console.log(`📊 Total de productos individuales restantes: ${totalIndividualProducts}`);
     
   } catch (error) {
     console.error('❌ Error durante la limpieza:', error);
   } finally {
-    mongoose.connection.close();
-    console.log('🔌 Conexión a la base de datos cerrada');
+    await mongoose.connection.close();
+    console.log('🔌 Conexión cerrada');
+    process.exit(0);
   }
 }
 
-// Ejecutar la limpieza
+// Ejecutar la función
 cleanupDuplicateIndividualProducts(); 
