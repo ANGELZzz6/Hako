@@ -184,11 +184,10 @@ appointmentSchema.statics.checkAvailability = async function(date, timeSlot, exc
 
 // Método estático para obtener horarios disponibles
 appointmentSchema.statics.getAvailableTimeSlots = async function(date) {
-  // Horarios disponibles (puedes ajustar según tus necesidades)
+  // Horarios disponibles (de 8:00 a 22:00, cada hora)
   const allTimeSlots = [
-    '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
-    '14:00', '14:30', '15:00', '15:30', '16:00', '16:30',
-    '17:00', '17:30', '18:00', '18:30'
+    '08:00', '09:00', '10:00', '11:00', '12:00', '13:00',
+    '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00'
   ];
   
   const availableSlots = [];

@@ -221,6 +221,31 @@ class AppointmentService {
     }
   }
 
+  // Actualizar una cita del usuario
+  async updateMyAppointment(
+    appointmentId: string, 
+    data: { scheduledDate?: string; timeSlot?: string; lockerNumber?: number }
+  ): Promise<{ message: string; appointment: Appointment }> {
+    try {
+      const response = await fetch(`${ENDPOINTS.APPOINTMENTS}/my-appointments/${appointmentId}`, {
+        method: 'PUT',
+        headers: this.getHeaders(),
+        body: JSON.stringify(data),
+      });
+      handle401(response);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error al actualizar la reserva');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error:', error);
+      throw error;
+    }
+  }
+
   // Cancelar una cita del usuario
   async cancelAppointment(appointmentId: string, reason?: string): Promise<{
     message: string;

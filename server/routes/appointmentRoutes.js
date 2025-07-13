@@ -21,6 +21,9 @@ router.get('/my-appointments', auth, appointmentController.getMyAppointments);
 // Obtener una cita específica del usuario
 router.get('/my-appointments/:appointmentId', auth, appointmentController.getMyAppointment);
 
+// Actualizar una cita del usuario
+router.put('/my-appointments/:appointmentId', auth, appointmentController.updateMyAppointment);
+
 // Cancelar una cita del usuario
 router.post('/my-appointments/:appointmentId/cancel', auth, appointmentController.cancelAppointment);
 

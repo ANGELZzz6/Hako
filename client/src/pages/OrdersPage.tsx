@@ -54,6 +54,111 @@ const OrdersPage: React.FC = () => {
   const [recentlyUnlockedProducts, setRecentlyUnlockedProducts] = useState<Set<string>>(new Set());
   const [cancellingAppointment, setCancellingAppointment] = useState(false);
   const [reservingLocker, setReservingLocker] = useState(false);
+  const [updatingAppointment, setUpdatingAppointment] = useState(false);
+  const [showEditAppointmentModal, setShowEditAppointmentModal] = useState(false);
+  const [selectedAppointmentForEdit, setSelectedAppointmentForEdit] = useState<Appointment | null>(null);
+  const [editAppointmentDate, setEditAppointmentDate] = useState('');
+  const [editAppointmentTime, setEditAppointmentTime] = useState('');
+  const [editAppointmentLocker, setEditAppointmentLocker] = useState(1);
+
+  // Función utilitaria para crear fechas locales correctamente
+  const createLocalDate = (dateString: string): Date => {
+    // Si la fecha viene en formato "YYYY-MM-DD", crear una fecha local
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+      const [year, month, day] = dateString.split('-');
+      return new Date(Number(year), Number(month) - 1, Number(day));
+    }
+    // Si ya es una fecha completa, usarla tal como está
+    return new Date(dateString);
+  };
+
+  // Función para obtener fechas disponibles (corregida para zona horaria local)
+  const getAvailableDates = () => {
+    const dates = [];
+    const today = new Date();
+    
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(today);
+      date.setDate(today.getDate() + i);
+      
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const dateStr = `${year}-${month}-${day}`;
+      
+      // Formato legible para mostrar al usuario
+      const readableDate = date.toLocaleDateString('es-CO', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+      
+      dates.push({
+        value: dateStr,
+        label: readableDate,
+        isToday: i === 0
+      });
+    }
+    
+    console.log('📅 Fechas disponibles:', dates);
+    return dates;
+  };
+
+  // Función para generar horarios disponibles basada en la fecha (corregida)
+  const getAvailableTimeSlotsForDate = (date: string) => {
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    
+    // Verificar si es hoy comparando con la primera fecha disponible
+    const availableDates = getAvailableDates();
+    const isToday = date === availableDates[0].value;
+    
+    console.log('🕐 Verificando horarios para fecha:', date);
+    console.log('🕐 Fecha actual:', availableDates[0].value);
+    console.log('🕐 Hora actual:', `${currentHour}:${currentMinute.toString().padStart(2, '0')}`);
+    console.log('🕐 ¿Es hoy?:', isToday);
+    
+    const timeSlots = [
+      '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', 
+      '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00'
+    ];
+    
+    if (isToday) {
+      const filteredSlots = timeSlots.filter(time => {
+        const [hours, minutes] = time.split(':');
+        const slotHour = parseInt(hours);
+        const slotMinute = parseInt(minutes);
+        
+        const isFuture = slotHour > currentHour || (slotHour === currentHour && slotMinute > currentMinute);
+        
+        console.log(`🕐 ${time}: hora=${slotHour}, minuto=${slotMinute}, ¿es futuro?=${isFuture}`);
+        
+        return isFuture;
+      });
+      
+      console.log('🕐 Horarios filtrados para hoy:', filteredSlots);
+      return filteredSlots;
+    }
+    
+    console.log('🕐 No es hoy, retornando todos los horarios:', timeSlots);
+    return timeSlots;
+  };
+
+  // Actualizar horarios cuando cambie la fecha
+  useEffect(() => {
+    if (editAppointmentDate) {
+      const availableSlots = getAvailableTimeSlotsForDate(editAppointmentDate);
+      console.log('🕐 Horarios disponibles para', editAppointmentDate, ':', availableSlots);
+      
+      // Si el horario actual no está disponible, seleccionar el primero disponible
+      if (!availableSlots.includes(editAppointmentTime)) {
+        console.log('⚠️ Horario actual no disponible, cambiando a:', availableSlots[0] || '08:00');
+        setEditAppointmentTime(availableSlots[0] || '08:00');
+      }
+    }
+  }, [editAppointmentDate]);
 
   // Función para limpiar completamente todos los estados
   const forceCleanupStates = () => {
@@ -772,6 +877,39 @@ const OrdersPage: React.FC = () => {
     alert(message);
   };
 
+  // Función para verificar si se puede modificar una reserva (1+ hora de anticipación)
+  const canModifyAppointment = (appointment: Appointment): boolean => {
+    const appointmentDateTime = createLocalDate(appointment.scheduledDate);
+    const [hours, minutes] = appointment.timeSlot.split(':');
+    appointmentDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+    
+    const now = new Date();
+    const timeDifference = appointmentDateTime.getTime() - now.getTime();
+    const hoursDifference = timeDifference / (1000 * 60 * 60);
+    
+    return hoursDifference >= 1;
+  };
+
+  // Función para obtener el tiempo restante hasta la reserva
+  const getTimeUntilAppointment = (appointment: Appointment): string => {
+    const appointmentDateTime = createLocalDate(appointment.scheduledDate);
+    const [hours, minutes] = appointment.timeSlot.split(':');
+    appointmentDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+    
+    const now = new Date();
+    const timeDifference = appointmentDateTime.getTime() - now.getTime();
+    const hoursDifference = Math.floor(timeDifference / (1000 * 60 * 60));
+    const minutesDifference = Math.floor((timeDifference % (1000 * 60 * 60)) / (1000 * 60));
+    
+    if (hoursDifference > 0) {
+      return `${hoursDifference}h ${minutesDifference}m`;
+    } else if (minutesDifference > 0) {
+      return `${minutesDifference}m`;
+    } else {
+      return 'Menos de 1 minuto';
+    }
+  };
+
   // Cancelar reserva
   const handleCancelAppointment = async (appointmentId: string) => {
     if (!confirm('¿Estás seguro de que quieres cancelar esta reserva?')) {
@@ -905,6 +1043,61 @@ const OrdersPage: React.FC = () => {
       }
     } else {
       console.log('❌ No se encontraron productos disponibles para selección automática');
+    }
+  };
+
+  // Función para abrir modal de edición de reserva
+  const handleEditAppointment = (appointment: Appointment) => {
+    if (!canModifyAppointment(appointment)) {
+      alert('Solo se pueden modificar reservas con al menos 1 hora de anticipación');
+      return;
+    }
+    
+    // Usar la función utilitaria para obtener la fecha correcta
+    const appointmentDateTime = createLocalDate(appointment.scheduledDate);
+    const appointmentDate = appointmentDateTime.toISOString().split('T')[0];
+    const availableDates = getAvailableDates();
+    const todayDate = availableDates[0].value;
+    
+    console.log('🔍 Abriendo modal de edición:', {
+      appointmentDate,
+      appointmentTime: appointment.timeSlot,
+      appointmentLocker: appointment.itemsToPickup[0]?.lockerNumber,
+      todayDate,
+      availableDates: availableDates.map(d => d.value)
+    });
+    
+    setSelectedAppointmentForEdit(appointment);
+    setEditAppointmentDate(appointmentDate);
+    setEditAppointmentTime(appointment.timeSlot);
+    setEditAppointmentLocker(appointment.itemsToPickup[0]?.lockerNumber || 1);
+    setShowEditAppointmentModal(true);
+  };
+
+  // Función para actualizar reserva
+  const handleUpdateAppointment = async (appointmentId: string, data: { scheduledDate?: string; timeSlot?: string; lockerNumber?: number }) => {
+    try {
+      setUpdatingAppointment(true);
+      
+      const result = await appointmentService.updateMyAppointment(appointmentId, data);
+      
+      // Recargar las reservas
+      const appointments = await appointmentService.getMyAppointments();
+      setMyAppointments(appointments);
+      
+      // Cerrar modal
+      setShowEditAppointmentModal(false);
+      setSelectedAppointmentForEdit(null);
+      setEditAppointmentDate('');
+      setEditAppointmentTime('');
+      setEditAppointmentLocker(1);
+      
+      alert(result.message);
+      
+    } catch (err: any) {
+      alert(err.message || 'Error al actualizar la reserva');
+    } finally {
+      setUpdatingAppointment(false);
     }
   };
 
@@ -1798,9 +1991,30 @@ const OrdersPage: React.FC = () => {
                                       <strong>Productos:</strong><br />
                                       {appointment.itemsToPickup.length} producto{appointment.itemsToPickup.length > 1 ? 's' : ''}
                                     </p>
+                                    <p className="mb-1">
+                                      <strong>Tiempo restante:</strong><br />
+                                      <span className={canModifyAppointment(appointment) ? 'text-success' : 'text-danger'}>
+                                        {getTimeUntilAppointment(appointment)}
+                                      </span>
+                                    </p>
                                   </div>
                                   <div className="col-md-6">
-                                    <div className="d-flex justify-content-end">
+                                    <div className="d-flex justify-content-end gap-2">
+                                      {canModifyAppointment(appointment) ? (
+                                        <button
+                                          className="btn btn-outline-primary btn-sm"
+                                          onClick={() => handleEditAppointment(appointment)}
+                                          disabled={updatingAppointment}
+                                        >
+                                          <i className="bi bi-pencil me-1"></i>
+                                          Modificar Reserva
+                                        </button>
+                                      ) : (
+                                        <small className="text-muted d-flex align-items-center">
+                                          <i className="bi bi-clock me-1"></i>
+                                          No modificable (menos de 1h)
+                                        </small>
+                                      )}
                                       <button
                                         className="btn btn-outline-danger btn-sm"
                                         onClick={() => handleCancelAppointment(appointment._id)}
@@ -1923,6 +2137,191 @@ const OrdersPage: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Modal de Edición de Reserva */}
+      {showEditAppointmentModal && selectedAppointmentForEdit && (
+        <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
+          <div className="modal-dialog modal-lg">
+            <div className="modal-content">
+              <div className="modal-header bg-primary text-white">
+                <h5 className="modal-title">
+                  <i className="bi bi-pencil me-2"></i>
+                  Modificar Reserva #{selectedAppointmentForEdit._id.slice(-6)}
+                </h5>
+                <button
+                  type="button"
+                  className="btn-close btn-close-white"
+                  onClick={() => {
+                    setShowEditAppointmentModal(false);
+                    setSelectedAppointmentForEdit(null);
+                    setEditAppointmentDate('');
+                    setEditAppointmentTime('');
+                    setEditAppointmentLocker(1);
+                  }}
+                ></button>
+              </div>
+              <div className="modal-body">
+                <div className="row">
+                  <div className="col-md-6">
+                    <div className="mb-3">
+                      <label className="form-label">
+                        <strong>Fecha Actual:</strong>
+                      </label>
+                      <p className="form-control-plaintext">
+                        {new Date(selectedAppointmentForEdit.scheduledDate).toLocaleDateString('es-CO')}
+                      </p>
+                    </div>
+                    <div className="mb-3">
+                      <label className="form-label">
+                        <strong>Hora Actual:</strong>
+                      </label>
+                      <p className="form-control-plaintext">
+                        {selectedAppointmentForEdit.timeSlot}
+                      </p>
+                    </div>
+                    <div className="mb-3">
+                      <label className="form-label">
+                        <strong>Casillero Actual:</strong>
+                      </label>
+                      <p className="form-control-plaintext">
+                        {selectedAppointmentForEdit.itemsToPickup.map((item: any) => item.lockerNumber).join(', ')}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="col-md-6">
+                    <div className="mb-3">
+                      <label htmlFor="newDate" className="form-label">
+                        <strong>Nueva Fecha:</strong>
+                      </label>
+                      <select
+                        className="form-select"
+                        value={editAppointmentDate}
+                        onChange={(e) => setEditAppointmentDate(e.target.value)}
+                      >
+                        {getAvailableDates().map(date => (
+                          <option key={date.value} value={date.value}>
+                            {date.label} {date.isToday && '(Hoy)'}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="mb-3">
+                      <label htmlFor="newTime" className="form-label">
+                        <strong>Nueva Hora:</strong>
+                      </label>
+                      <select 
+                        className="form-select" 
+                        value={editAppointmentTime}
+                        onChange={(e) => setEditAppointmentTime(e.target.value)}
+                      >
+                        {getAvailableTimeSlotsForDate(editAppointmentDate).map(time => (
+                          <option key={time} value={time}>
+                            {time}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="mb-3">
+                      <label htmlFor="newLocker" className="form-label">
+                        <strong>Nuevo Casillero:</strong>
+                      </label>
+                      <select 
+                        className="form-select" 
+                        value={editAppointmentLocker}
+                        onChange={(e) => setEditAppointmentLocker(parseInt(e.target.value))}
+                      >
+                        {Array.from({ length: 12 }, (_, i) => i + 1).map(num => (
+                          <option key={num} value={num}>Casillero {num}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="alert alert-info">
+                  <i className="bi bi-info-circle me-2"></i>
+                  <strong>Información:</strong> Solo se pueden modificar reservas con al menos 1 hora de anticipación. 
+                  Las reservas solo se pueden programar hasta 7 días adelante del día actual.
+                  Para el día actual, solo se pueden seleccionar horas futuras.
+                  Los cambios se aplicarán a todos los productos de esta reserva.
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    setShowEditAppointmentModal(false);
+                    setSelectedAppointmentForEdit(null);
+                    setEditAppointmentDate('');
+                    setEditAppointmentTime('');
+                    setEditAppointmentLocker(1);
+                  }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => {
+                    if (!editAppointmentDate || !editAppointmentTime) {
+                      alert('Por favor completa todos los campos');
+                      return;
+                    }
+                    
+                    // Validar que la fecha no sea más de 7 días adelante
+                    const selectedDate = createLocalDate(editAppointmentDate);
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const maxDate = new Date();
+                    maxDate.setDate(today.getDate() + 7);
+                    maxDate.setHours(23, 59, 59, 999);
+                    
+                    if (selectedDate > maxDate) {
+                      alert('No se pueden programar reservas con más de 7 días de anticipación');
+                      return;
+                    }
+                    
+                    // Si es el día actual, validar que la hora no haya pasado
+                    const now = new Date();
+                    const isToday = selectedDate.getTime() === today.getTime();
+                    
+                    if (isToday) {
+                      const [hours, minutes] = editAppointmentTime.split(':');
+                      const selectedTime = new Date();
+                      selectedTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+                      
+                      if (selectedTime <= now) {
+                        alert('No se pueden agendar citas en horas que ya han pasado');
+                        return;
+                      }
+                    }
+                    
+                    handleUpdateAppointment(selectedAppointmentForEdit._id, {
+                      scheduledDate: editAppointmentDate,
+                      timeSlot: editAppointmentTime,
+                      lockerNumber: editAppointmentLocker
+                    });
+                  }}
+                  disabled={updatingAppointment}
+                >
+                  {updatingAppointment ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm me-1" role="status"></span>
+                      Actualizando...
+                    </>
+                  ) : (
+                    <>
+                      <i className="bi bi-check-circle me-1"></i>
+                      Actualizar Reserva
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal de Agendamiento de Citas */}
       {showAppointmentScheduler && packingResult && (() => {

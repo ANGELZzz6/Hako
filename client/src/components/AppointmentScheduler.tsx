@@ -81,9 +81,8 @@ const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
           uniqueLockers.add(lockerNumber);
           console.log(`✅ Agregando nuevo casillero ${lockerNumber}`);
           
-          // Fecha por defecto (mañana)
-          const tomorrow = new Date();
-          tomorrow.setDate(tomorrow.getDate() + 1);
+          // Fecha por defecto (hoy)
+          const today = new Date();
           
           const productsForThisLocker = itemsToPickup
             .filter(i => (i.lockerNumber || 1) === lockerNumber)
@@ -93,7 +92,7 @@ const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
           
           schedules.push({
             lockerNumber,
-            date: tomorrow.toISOString().split('T')[0],
+            date: today.toISOString().split('T')[0],
             timeSlot: '08:00',
             products: productsForThisLocker
           });
@@ -107,22 +106,79 @@ const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
     }
   }, [itemsToPickup, existingAppointment]);
 
+  // Cargar horarios cuando se inicializa el componente
+  useEffect(() => {
+    if (lockerSchedules.length > 0) {
+      loadTimeSlots(lockerSchedules[0].date);
+    }
+  }, [lockerSchedules]);
+
   // Generar fechas disponibles (próximos 7 días)
+  // Función utilitaria para crear fechas locales correctamente
+  const createLocalDate = (dateString: string): Date => {
+    // Si la fecha viene en formato "YYYY-MM-DD", crear una fecha local
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+      const [year, month, day] = dateString.split('-');
+      return new Date(Number(year), Number(month) - 1, Number(day));
+    }
+    // Si ya es una fecha completa, usarla tal como está
+    return new Date(dateString);
+  };
+
   const getAvailableDates = () => {
     const dates = [];
     const today = new Date();
+    // Solo mostrar 7 días adelante (incluyendo hoy)
     for (let i = 0; i < 7; i++) {
       const date = new Date(today);
       date.setDate(today.getDate() + i);
       dates.push(date.toISOString().split('T')[0]);
     }
+    
+    console.log('📅 Fechas disponibles:', {
+      today: today.toISOString().split('T')[0],
+      dates: dates
+    });
+    
     return dates;
   };
 
   // Generar horarios de 1 hora (por ejemplo, 08:00, 09:00, ..., 19:00)
   const getHourlyTimeSlots = () => {
     const slots = [];
-    for (let hour = 8; hour <= 19; hour++) {
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    
+    // Verificar si alguna de las fechas seleccionadas es hoy
+    const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+    const isToday = lockerSchedules.some(schedule => schedule.date === todayStr);
+    
+    console.log('🔍 Verificando horarios:', {
+      isToday,
+      currentHour,
+      currentMinute,
+      todayStr,
+      lockerSchedules: lockerSchedules.map(s => ({ date: s.date, timeSlot: s.timeSlot }))
+    });
+    
+    for (let hour = 8; hour <= 22; hour++) {
+      // Si es el día actual, solo mostrar horas futuras
+      if (isToday) {
+        // Si la hora ya pasó, saltarla
+        if (hour < currentHour) {
+          console.log(`⏭️ Saltando hora ${hour}:00 (ya pasó)`);
+          continue;
+        }
+        
+        // Si es la hora actual, verificar si los minutos ya pasaron
+        if (hour === currentHour && currentMinute >= 0) {
+          console.log(`⏭️ Saltando hora ${hour}:00 (minutos ya pasaron)`);
+          continue;
+        }
+      }
+      
+      console.log(`✅ Agregando hora ${hour}:00`);
       slots.push({
         time: `${hour.toString().padStart(2, '0')}:00`,
         available: true,
@@ -131,6 +187,8 @@ const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
         totalLockers: 12
       });
     }
+    
+    console.log('📋 Horarios disponibles:', slots.map(s => s.time));
     return slots;
   };
 
@@ -273,7 +331,7 @@ const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
                     Fecha de Reserva
                   </label>
                   <div className="form-control-plaintext">
-                    {new Date(existingAppointment.scheduledDate).toLocaleDateString('es-CO', {
+                    {createLocalDate(existingAppointment.scheduledDate).toLocaleDateString('es-CO', {
                       weekday: 'long',
                       year: 'numeric',
                       month: 'long',

@@ -2,6 +2,17 @@ const Appointment = require('../models/Appointment');
 const Order = require('../models/Order');
 const IndividualProduct = require('../models/IndividualProduct');
 
+// Función utilitaria para crear fechas locales correctamente
+const createLocalDate = (dateString) => {
+  // Si la fecha viene en formato "YYYY-MM-DD", crear una fecha local
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+    const [year, month, day] = dateString.split('-');
+    return new Date(Number(year), Number(month) - 1, Number(day));
+  }
+  // Si ya es una fecha completa, usarla tal como está
+  return new Date(dateString);
+};
+
 // Obtener horarios disponibles para una fecha
 exports.getAvailableTimeSlots = async (req, res) => {
   try {
@@ -12,7 +23,7 @@ exports.getAvailableTimeSlots = async (req, res) => {
     }
     
     // Validar formato de fecha
-    const selectedDate = new Date(date);
+    const selectedDate = createLocalDate(date);
     if (isNaN(selectedDate.getTime())) {
       return res.status(400).json({ error: 'Formato de fecha inválido' });
     }
@@ -24,7 +35,39 @@ exports.getAvailableTimeSlots = async (req, res) => {
       return res.status(400).json({ error: 'No se pueden agendar citas en fechas pasadas' });
     }
     
+    // No permitir fechas más de 7 días adelante
+    const maxDate = new Date();
+    maxDate.setDate(today.getDate() + 7);
+    maxDate.setHours(23, 59, 59, 999);
+    
+    if (selectedDate > maxDate) {
+      return res.status(400).json({ error: 'No se pueden consultar horarios con más de 7 días de anticipación' });
+    }
+    
     const availableSlots = await Appointment.getAvailableTimeSlots(selectedDate);
+    
+    // Si es el día actual, filtrar horas que ya han pasado
+    const isToday = selectedDate.getTime() === today.getTime();
+    if (isToday) {
+      const now = new Date();
+      const currentHour = now.getHours();
+      const currentMinute = now.getMinutes();
+      
+      // Filtrar slots que ya han pasado
+      const filteredSlots = availableSlots.filter(slot => {
+        const [hours, minutes] = slot.time.split(':');
+        const slotHour = parseInt(hours);
+        const slotMinute = parseInt(minutes);
+        
+        // Si la hora del slot es menor a la hora actual, o si es la misma hora pero los minutos ya pasaron
+        return slotHour > currentHour || (slotHour === currentHour && slotMinute > currentMinute);
+      });
+      
+      return res.json({
+        date: date,
+        timeSlots: filteredSlots
+      });
+    }
     
     res.json({
       date: date,
@@ -75,12 +118,35 @@ exports.createAppointment = async (req, res) => {
     }
     
     // Validar fecha y hora
-    const selectedDate = new Date(scheduledDate);
+    const selectedDate = createLocalDate(scheduledDate);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
     if (selectedDate < today) {
       return res.status(400).json({ error: 'No se pueden agendar citas en fechas pasadas' });
+    }
+    
+    // Validar que la fecha no sea más de 7 días adelante
+    const maxDate = new Date();
+    maxDate.setDate(today.getDate() + 7);
+    maxDate.setHours(23, 59, 59, 999);
+    
+    if (selectedDate > maxDate) {
+      return res.status(400).json({ error: 'No se pueden agendar citas con más de 7 días de anticipación' });
+    }
+    
+    // Si es el día actual, validar que la hora no haya pasado
+    const now = new Date();
+    const isToday = selectedDate.getTime() === today.getTime();
+    
+    if (isToday && timeSlot) {
+      const [hours, minutes] = timeSlot.split(':');
+      const selectedTime = new Date();
+      selectedTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+      
+      if (selectedTime <= now) {
+        return res.status(400).json({ error: 'No se pueden agendar citas en horas que ya han pasado' });
+      }
     }
     
     // Validar que los productos individuales existen y están disponibles
@@ -282,6 +348,131 @@ exports.getMyAppointment = async (req, res) => {
     res.json(appointment);
   } catch (error) {
     console.error('Error al obtener cita:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
+// Actualizar una cita del usuario
+exports.updateMyAppointment = async (req, res) => {
+  try {
+    const { appointmentId } = req.params;
+    const { scheduledDate, timeSlot, lockerNumber } = req.body;
+    
+    // Buscar la cita y verificar que pertenece al usuario
+    const appointment = await Appointment.findOne({ 
+      _id: appointmentId, 
+      user: req.user.id 
+    });
+    
+    if (!appointment) {
+      return res.status(404).json({ error: 'Cita no encontrada' });
+    }
+    
+    // Verificar que la cita no esté cancelada o completada
+    if (appointment.status === 'cancelled' || appointment.status === 'completed') {
+      return res.status(400).json({ error: 'No se puede modificar una cita cancelada o completada' });
+    }
+    
+    // Verificar que la cita tenga al menos 1 hora de anticipación
+    const appointmentDateTime = createLocalDate(appointment.scheduledDate);
+    const [hours, minutes] = appointment.timeSlot.split(':');
+    appointmentDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+    
+    const now = new Date();
+    const timeDifference = appointmentDateTime.getTime() - now.getTime();
+    const hoursDifference = timeDifference / (1000 * 60 * 60);
+    
+    if (hoursDifference < 1) {
+      return res.status(400).json({ 
+        error: 'Solo se pueden modificar reservas con al menos 1 hora de anticipación' 
+      });
+    }
+    
+    // Validar fecha y hora nueva
+    if (scheduledDate && timeSlot) {
+      const newDate = createLocalDate(scheduledDate);
+      const [newHours, newMinutes] = timeSlot.split(':');
+      newDate.setHours(parseInt(newHours), parseInt(newMinutes), 0, 0);
+      
+      // Verificar que la nueva fecha no sea en el pasado
+      if (newDate <= now) {
+        return res.status(400).json({ error: 'No se pueden agendar citas en el pasado' });
+      }
+      
+      // Validar que la nueva fecha no sea más de 7 días adelante
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const maxDate = new Date();
+      maxDate.setDate(today.getDate() + 7);
+      maxDate.setHours(23, 59, 59, 999);
+      
+      if (newDate > maxDate) {
+        return res.status(400).json({ error: 'No se pueden agendar citas con más de 7 días de anticipación' });
+      }
+      
+      // Si es el día actual, validar que la hora no haya pasado
+      const isToday = newDate.getTime() === today.getTime();
+      
+      if (isToday && timeSlot) {
+        const [hours, minutes] = timeSlot.split(':');
+        const selectedTime = new Date();
+        selectedTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+        
+        if (selectedTime <= now) {
+          return res.status(400).json({ error: 'No se pueden agendar citas en horas que ya han pasado' });
+        }
+      }
+      
+      // Verificar disponibilidad del casillero en la nueva fecha/hora
+      const requestedLockers = appointment.itemsToPickup.map(item => 
+        lockerNumber || item.lockerNumber
+      );
+      
+      const availability = await Appointment.checkLockerAvailability(newDate, timeSlot, requestedLockers);
+      
+      if (!availability.available) {
+        return res.status(400).json({ 
+          error: `Casillero(s) no disponible(s) en la fecha y hora seleccionada: ${availability.conflicts.join(', ')}` 
+        });
+      }
+      
+      // Actualizar fecha y hora
+      appointment.scheduledDate = newDate;
+      appointment.timeSlot = timeSlot;
+    }
+    
+    // Actualizar número de casillero si se proporciona
+    if (lockerNumber) {
+      // Verificar que el nuevo casillero esté disponible
+      const appointmentDate = appointment.scheduledDate;
+      const availability = await Appointment.checkLockerAvailability(appointmentDate, appointment.timeSlot, [lockerNumber]);
+      
+      if (!availability.available) {
+        return res.status(400).json({ 
+          error: `Casillero ${lockerNumber} no disponible en la fecha y hora de la reserva` 
+        });
+      }
+      
+      // Actualizar número de casillero en todos los items
+      appointment.itemsToPickup.forEach(item => {
+        item.lockerNumber = lockerNumber;
+      });
+    }
+    
+    // Guardar los cambios
+    await appointment.save();
+    
+    // Poblar datos para la respuesta
+    await appointment.populate('order', 'total_amount status');
+    await appointment.populate('itemsToPickup.product', 'nombre imagen_url descripcion dimensiones');
+    
+    res.json({
+      message: 'Reserva actualizada exitosamente',
+      appointment
+    });
+    
+  } catch (error) {
+    console.error('Error al actualizar cita:', error);
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 };
@@ -789,6 +980,31 @@ exports.createMultipleAppointments = async (req, res) => {
         if (selectedDate < today) {
           errors.push(`No se pueden agendar citas en fechas pasadas`);
           continue;
+        }
+        
+        // Validar que la fecha no sea más de 7 días adelante
+        const maxDate = new Date();
+        maxDate.setDate(today.getDate() + 7);
+        maxDate.setHours(23, 59, 59, 999);
+        
+        if (selectedDate > maxDate) {
+          errors.push(`No se pueden agendar citas con más de 7 días de anticipación`);
+          continue;
+        }
+        
+        // Si es el día actual, validar que la hora no haya pasado
+        const now = new Date();
+        const isToday = selectedDate.getTime() === today.getTime();
+        
+        if (isToday && timeSlot) {
+          const [hours, minutes] = timeSlot.split(':');
+          const selectedTime = new Date();
+          selectedTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+          
+          if (selectedTime <= now) {
+            errors.push(`No se pueden agendar citas en horas que ya han pasado`);
+            continue;
+          }
         }
         
         // Obtener casilleros para esta reserva
