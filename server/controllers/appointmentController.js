@@ -135,18 +135,19 @@ exports.createAppointment = async (req, res) => {
       return res.status(400).json({ error: 'No se pueden agendar citas con más de 7 días de anticipación' });
     }
     
-    // Si es el día actual, validar que la hora no haya pasado
+    // Validar que la reserva tenga al menos 1 hora de anticipación
     const now = new Date();
-    const isToday = selectedDate.getTime() === today.getTime();
+    const appointmentDateTime = new Date(selectedDate);
+    const [hours, minutes] = timeSlot.split(':');
+    appointmentDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
     
-    if (isToday && timeSlot) {
-      const [hours, minutes] = timeSlot.split(':');
-      const selectedTime = new Date();
-      selectedTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-      
-      if (selectedTime <= now) {
-        return res.status(400).json({ error: 'No se pueden agendar citas en horas que ya han pasado' });
-      }
+    const timeDifference = appointmentDateTime.getTime() - now.getTime();
+    const hoursDifference = timeDifference / (1000 * 60 * 60);
+    
+    if (hoursDifference < 1) {
+      return res.status(400).json({ 
+        error: 'Solo se pueden crear reservas con al menos 1 hora de anticipación' 
+      });
     }
     
     // Validar que los productos individuales existen y están disponibles
@@ -973,7 +974,7 @@ exports.createMultipleAppointments = async (req, res) => {
         }
         
         // Validar fecha y hora
-        const selectedDate = new Date(scheduledDate);
+        const selectedDate = createLocalDate(scheduledDate);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         
@@ -992,19 +993,18 @@ exports.createMultipleAppointments = async (req, res) => {
           continue;
         }
         
-        // Si es el día actual, validar que la hora no haya pasado
+        // Validar que la reserva tenga al menos 1 hora de anticipación
         const now = new Date();
-        const isToday = selectedDate.getTime() === today.getTime();
+        const appointmentDateTime = new Date(selectedDate);
+        const [hours, minutes] = timeSlot.split(':');
+        appointmentDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
         
-        if (isToday && timeSlot) {
-          const [hours, minutes] = timeSlot.split(':');
-          const selectedTime = new Date();
-          selectedTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-          
-          if (selectedTime <= now) {
-            errors.push(`No se pueden agendar citas en horas que ya han pasado`);
-            continue;
-          }
+        const timeDifference = appointmentDateTime.getTime() - now.getTime();
+        const hoursDifference = timeDifference / (1000 * 60 * 60);
+        
+        if (hoursDifference < 1) {
+          errors.push(`Solo se pueden crear reservas con al menos 1 hora de anticipación`);
+          continue;
         }
         
         // Obtener casilleros para esta reserva
