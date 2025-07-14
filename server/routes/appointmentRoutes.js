@@ -30,6 +30,9 @@ router.post('/my-appointments/:appointmentId/cancel', auth, appointmentControlle
 // Agregar productos a una reserva existente
 router.post('/my-appointments/:appointmentId/add-products', auth, appointmentController.addProductsToAppointment);
 
+// Obtener casilleros disponibles para una fecha y hora específica
+router.get('/available-lockers/:date/:timeSlot', auth, appointmentController.getAvailableLockersForDateTime);
+
 // ===== RUTAS DE ADMIN =====
 
 // Obtener todas las citas (admin)

@@ -394,6 +394,30 @@ class AppointmentService {
       throw error;
     }
   }
+
+  // Obtener disponibilidad de casilleros para una fecha y hora específica
+  async getAvailableLockersForDateTime(date: string, timeSlot: string): Promise<{
+    date: string;
+    timeSlot: string;
+    total: number;
+    occupied: number[];
+    available: number[];
+  }> {
+    try {
+      const response = await fetch(`${ENDPOINTS.APPOINTMENTS}/available-lockers/${date}/${timeSlot}`, {
+        headers: this.getHeaders(),
+      });
+      handle401(response);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error al obtener disponibilidad de casilleros');
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error:', error);
+      throw error;
+    }
+  }
 }
 
 const appointmentService = new AppointmentService();

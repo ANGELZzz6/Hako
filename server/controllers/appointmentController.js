@@ -400,6 +400,44 @@ exports.updateMyAppointment = async (req, res) => {
         return res.status(400).json({ error: 'No se pueden agendar citas en el pasado' });
       }
       
+      // Verificar que el usuario no tenga otras reservas para el mismo casillero, fecha y hora
+      const requestedLockers = appointment.itemsToPickup.map(item => 
+        lockerNumber || item.lockerNumber
+      );
+      
+      const existingUserAppointments = await Appointment.find({
+        user: req.user.id,
+        scheduledDate: newDate,
+        timeSlot: timeSlot,
+        status: { $in: ['scheduled', 'confirmed'] },
+        _id: { $ne: appointmentId } // Excluir la cita actual
+      });
+      
+      // Verificar si hay conflictos con casilleros
+      for (const existingAppointment of existingUserAppointments) {
+        for (const item of existingAppointment.itemsToPickup) {
+          if (requestedLockers.includes(item.lockerNumber)) {
+            return res.status(400).json({ 
+              error: `Ya tienes una reserva para el casillero ${item.lockerNumber} en la fecha y hora seleccionada` 
+            });
+          }
+        }
+      }
+      
+      // Verificar que el nuevo casillero no esté siendo usado por otros usuarios
+      const otherUsersAppointments = await Appointment.find({
+        scheduledDate: newDate,
+        timeSlot: timeSlot,
+        status: { $in: ['scheduled', 'confirmed'] },
+        'itemsToPickup.lockerNumber': { $in: requestedLockers }
+      });
+      
+      if (otherUsersAppointments.length > 0) {
+        return res.status(400).json({ 
+          error: `Los casilleros ${requestedLockers.join(', ')} ya están ocupados por otros usuarios en la fecha y hora seleccionada` 
+        });
+      }
+      
       // Validar que la nueva fecha no sea más de 7 días adelante
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -425,15 +463,12 @@ exports.updateMyAppointment = async (req, res) => {
       }
       
       // Verificar disponibilidad del casillero en la nueva fecha/hora
-      const requestedLockers = appointment.itemsToPickup.map(item => 
-        lockerNumber || item.lockerNumber
-      );
-      
-      const availability = await Appointment.checkLockerAvailability(newDate, timeSlot, requestedLockers);
+      // Excluir la cita actual de la validación para evitar conflictos consigo misma
+      const availability = await Appointment.checkLockerAvailability(newDate, timeSlot, requestedLockers, appointmentId);
       
       if (!availability.available) {
         return res.status(400).json({ 
-          error: `Casillero(s) no disponible(s) en la fecha y hora seleccionada: ${availability.conflicts.join(', ')}` 
+          error: `Casillero(s) no disponible(s) en la fecha y hora seleccionada: ${availability.conflictingLockers.join(', ')}` 
         });
       }
       
@@ -444,9 +479,53 @@ exports.updateMyAppointment = async (req, res) => {
     
     // Actualizar número de casillero si se proporciona
     if (lockerNumber) {
+      // Obtener la cantidad de productos/items que tendrá la reserva
+      const itemsCount = appointment.itemsToPickup.length;
+
+      // Buscar todas las reservas del usuario para esa fecha/hora, excepto la actual
+      const existingUserAppointments = await Appointment.find({
+        user: req.user.id,
+        scheduledDate: appointment.scheduledDate,
+        timeSlot: appointment.timeSlot,
+        status: { $in: ['scheduled', 'confirmed'] },
+        _id: { $ne: appointmentId }
+      });
+
+      // Contar cuántos productos ya tiene el usuario en ese casillero en otras reservas
+      let totalCasilleroOcupado = 0;
+      for (const existingAppointment of existingUserAppointments) {
+        for (const item of existingAppointment.itemsToPickup) {
+          if (item.lockerNumber === lockerNumber) {
+            totalCasilleroOcupado++;
+          }
+        }
+      }
+
+      // Si ya hay productos en ese casillero, bloquear la actualización
+      if (totalCasilleroOcupado > 0) {
+        return res.status(400).json({
+          error: `Ya tienes ${totalCasilleroOcupado} producto(s) reservado(s) en el casillero ${lockerNumber} en la fecha y hora seleccionada. No puedes duplicar casilleros en reservas distintas.`
+        });
+      }
+
+      // Verificar que el nuevo casillero no esté siendo usado por otros usuarios
+      const otherUsersAppointments = await Appointment.find({
+        scheduledDate: appointment.scheduledDate,
+        timeSlot: appointment.timeSlot,
+        status: { $in: ['scheduled', 'confirmed'] },
+        'itemsToPickup.lockerNumber': lockerNumber
+      });
+      
+      if (otherUsersAppointments.length > 0) {
+        return res.status(400).json({ 
+          error: `El casillero ${lockerNumber} ya está ocupado por otro usuario en la fecha y hora de esta reserva` 
+        });
+      }
+      
       // Verificar que el nuevo casillero esté disponible
+      // Excluir la cita actual de la validación para evitar conflictos consigo misma
       const appointmentDate = appointment.scheduledDate;
-      const availability = await Appointment.checkLockerAvailability(appointmentDate, appointment.timeSlot, [lockerNumber]);
+      const availability = await Appointment.checkLockerAvailability(appointmentDate, appointment.timeSlot, [lockerNumber], appointmentId);
       
       if (!availability.available) {
         return res.status(400).json({ 
@@ -1118,6 +1197,41 @@ exports.createMultipleAppointments = async (req, res) => {
     
   } catch (error) {
     console.error('Error al crear múltiples reservas:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+}; 
+
+// Obtener casilleros disponibles para una fecha y hora específica
+exports.getAvailableLockersForDateTime = async (req, res) => {
+  try {
+    const { date, timeSlot } = req.params;
+    if (!date || !timeSlot) {
+      return res.status(400).json({ error: 'Fecha y hora requeridas' });
+    }
+    const selectedDate = new Date(date);
+    if (isNaN(selectedDate.getTime())) {
+      return res.status(400).json({ error: 'Formato de fecha inválido' });
+    }
+    // Validar formato de hora
+    if (!/^\d{2}:\d{2}$/.test(timeSlot)) {
+      return res.status(400).json({ error: 'Formato de hora inválido' });
+    }
+    // Total de casilleros (ajustar si cambia el total)
+    const totalLockers = 12;
+    const allLockers = Array.from({ length: totalLockers }, (_, i) => i + 1);
+    // Consultar ocupados
+    const availability = await Appointment.checkLockerAvailability(selectedDate, timeSlot, allLockers);
+    const occupied = availability.occupiedLockers;
+    const available = allLockers.filter(num => !occupied.includes(num));
+    res.json({
+      date,
+      timeSlot,
+      total: totalLockers,
+      occupied,
+      available
+    });
+  } catch (error) {
+    console.error('Error al obtener disponibilidad de casilleros:', error);
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 }; 

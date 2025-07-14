@@ -77,10 +77,16 @@ const OrdersPage: React.FC = () => {
     const dates = [];
     const today = new Date();
     
+    // Crear fecha de hoy de manera explícita para evitar problemas de zona horaria
+    const todayStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+    
+    console.log('📅 OrdersPage - Fecha actual detectada:', todayStr);
+    
     for (let i = 0; i < 7; i++) {
       const date = new Date(today);
       date.setDate(today.getDate() + i);
       
+      // Usar la misma lógica que AppointmentScheduler para evitar problemas de zona horaria
       const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, '0');
       const day = String(date.getDate()).padStart(2, '0');
@@ -99,9 +105,11 @@ const OrdersPage: React.FC = () => {
         label: readableDate,
         isToday: i === 0
       });
+      
+      console.log(`📅 OrdersPage - Día ${i}: ${dateStr}`);
     }
     
-    console.log('📅 Fechas disponibles:', dates);
+    console.log('📅 OrdersPage - Fechas disponibles finales:', dates.map(d => d.value));
     return dates;
   };
 
@@ -146,6 +154,66 @@ const OrdersPage: React.FC = () => {
     return timeSlots;
   };
 
+  // Función para obtener casilleros disponibles para edición
+  const getAvailableLockersForEdit = (date: string, timeSlot: string, appointmentId: string): number[] => {
+    const allLockers = Array.from({ length: 12 }, (_, i) => i + 1);
+    
+    // Si no hay fecha o hora seleccionada, mostrar todos los casilleros
+    if (!date || !timeSlot) {
+      return allLockers;
+    }
+
+    console.log('🔍 Buscando casilleros ocupados para fecha:', date, 'hora:', timeSlot);
+    console.log('🔍 Reserva que se está editando:', appointmentId);
+
+    // Obtener casilleros ocupados por el usuario en la fecha y hora seleccionada
+    const occupiedLockers = new Set<number>();
+    
+    myAppointments.forEach(appointment => {
+      // Excluir la reserva actual que se está editando
+      if (appointment._id === appointmentId) {
+        console.log('⏭️ Excluyendo reserva actual:', appointment._id);
+        return;
+      }
+      
+      // Solo considerar reservas activas para la misma fecha y hora
+      if (appointment.status === 'scheduled' || appointment.status === 'confirmed') {
+        // Usar la función createLocalDate para comparar fechas correctamente
+        const appointmentDateTime = createLocalDate(appointment.scheduledDate);
+        const year = appointmentDateTime.getFullYear();
+        const month = String(appointmentDateTime.getMonth() + 1).padStart(2, '0');
+        const day = String(appointmentDateTime.getDate()).padStart(2, '0');
+        const appointmentDateLocal = `${year}-${month}-${day}`;
+        
+        console.log('🔍 Comparando reserva:', appointment._id);
+        console.log('   Fecha original de la reserva:', appointment.scheduledDate);
+        console.log('   Fecha de la reserva (local):', appointmentDateLocal);
+        console.log('   Fecha mostrada de la reserva:', appointmentDateTime.toLocaleDateString('es-CO'));
+        console.log('   Hora de la reserva:', appointment.timeSlot);
+        console.log('   Fecha seleccionada:', date);
+        console.log('   Hora seleccionada:', timeSlot);
+        console.log('   ¿Coinciden fecha y hora?', appointmentDateLocal === date && appointment.timeSlot === timeSlot);
+        
+        if (appointmentDateLocal === date && appointment.timeSlot === timeSlot) {
+          console.log('❌ Casillero ocupado por reserva:', appointment._id);
+          // Agregar todos los casilleros usados en esta reserva
+          appointment.itemsToPickup.forEach(item => {
+            occupiedLockers.add(item.lockerNumber);
+            console.log('   Casillero ocupado:', item.lockerNumber);
+          });
+        }
+      }
+    });
+
+    console.log('🔒 Casilleros ocupados encontrados:', Array.from(occupiedLockers));
+    
+    // Retornar solo los casilleros que no están ocupados
+    const availableLockers = allLockers.filter(locker => !occupiedLockers.has(locker));
+    console.log('✅ Casilleros disponibles:', availableLockers);
+    
+    return availableLockers;
+  };
+
   // Actualizar horarios cuando cambie la fecha
   useEffect(() => {
     if (editAppointmentDate) {
@@ -159,6 +227,20 @@ const OrdersPage: React.FC = () => {
       }
     }
   }, [editAppointmentDate]);
+
+  // Actualizar casilleros disponibles cuando cambie la fecha o hora
+  useEffect(() => {
+    if (editAppointmentDate && editAppointmentTime && selectedAppointmentForEdit) {
+      const availableLockers = getAvailableLockersForEdit(editAppointmentDate, editAppointmentTime, selectedAppointmentForEdit._id);
+      console.log('🔒 Casilleros disponibles para edición:', availableLockers);
+      
+      // Si el casillero actual no está disponible, seleccionar el primero disponible
+      if (!availableLockers.includes(editAppointmentLocker)) {
+        console.log('⚠️ Casillero actual no disponible, cambiando a:', availableLockers[0] || 1);
+        setEditAppointmentLocker(availableLockers[0] || 1);
+      }
+    }
+  }, [editAppointmentDate, editAppointmentTime, selectedAppointmentForEdit]);
 
   // Función para limpiar completamente todos los estados
   const forceCleanupStates = () => {
@@ -1052,23 +1134,29 @@ const OrdersPage: React.FC = () => {
       alert('Solo se pueden modificar reservas con al menos 1 hora de anticipación');
       return;
     }
-    
-    // Usar la función utilitaria para obtener la fecha correcta
+
+    // Obtener la fecha local en formato YYYY-MM-DD
     const appointmentDateTime = createLocalDate(appointment.scheduledDate);
-    const appointmentDate = appointmentDateTime.toISOString().split('T')[0];
+    const year = appointmentDateTime.getFullYear();
+    const month = String(appointmentDateTime.getMonth() + 1).padStart(2, '0');
+    const day = String(appointmentDateTime.getDate()).padStart(2, '0');
+    const appointmentDateLocal = `${year}-${month}-${day}`;
+
     const availableDates = getAvailableDates();
     const todayDate = availableDates[0].value;
-    
+
     console.log('🔍 Abriendo modal de edición:', {
-      appointmentDate,
+      appointmentDateLocal,
       appointmentTime: appointment.timeSlot,
       appointmentLocker: appointment.itemsToPickup[0]?.lockerNumber,
       todayDate,
-      availableDates: availableDates.map(d => d.value)
+      availableDates: availableDates.map(d => d.value),
+      fechaOriginal: appointment.scheduledDate,
+      fechaLocal: appointmentDateTime.toLocaleDateString('es-CO')
     });
-    
+
     setSelectedAppointmentForEdit(appointment);
-    setEditAppointmentDate(appointmentDate);
+    setEditAppointmentDate(appointmentDateLocal); // Usar fecha local
     setEditAppointmentTime(appointment.timeSlot);
     setEditAppointmentLocker(appointment.itemsToPickup[0]?.lockerNumber || 1);
     setShowEditAppointmentModal(true);
@@ -2230,7 +2318,7 @@ const OrdersPage: React.FC = () => {
                         value={editAppointmentLocker}
                         onChange={(e) => setEditAppointmentLocker(parseInt(e.target.value))}
                       >
-                        {Array.from({ length: 12 }, (_, i) => i + 1).map(num => (
+                        {getAvailableLockersForEdit(editAppointmentDate, editAppointmentTime, selectedAppointmentForEdit._id).map(num => (
                           <option key={num} value={num}>Casillero {num}</option>
                         ))}
                       </select>
