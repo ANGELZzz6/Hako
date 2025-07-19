@@ -12,6 +12,7 @@ import type { Order, OrderItem } from '../types/order';
 import type { CreateAppointmentData } from '../services/appointmentService';
 import Locker3DCanvas from '../components/Locker3DCanvas';
 import type { Appointment } from '../services/appointmentService';
+import userService from '../services/userService';
 
 const statusLabels: Record<string, string> = {
   pending: 'Pendiente de pago',
@@ -60,6 +61,8 @@ const OrdersPage: React.FC = () => {
   const [editAppointmentDate, setEditAppointmentDate] = useState('');
   const [editAppointmentTime, setEditAppointmentTime] = useState('');
   const [editAppointmentLocker, setEditAppointmentLocker] = useState(1);
+  const [penalizedDates, setPenalizedDates] = useState<string[]>([]);
+  const [penaltyWarning, setPenaltyWarning] = useState<string>('');
 
   // Función utilitaria para crear fechas locales correctamente
   const createLocalDate = (dateString: string): Date => {
@@ -76,40 +79,23 @@ const OrdersPage: React.FC = () => {
   const getAvailableDates = () => {
     const dates = [];
     const today = new Date();
-    
-    // Crear fecha de hoy de manera explícita para evitar problemas de zona horaria
-    const todayStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
-    
-    console.log('📅 OrdersPage - Fecha actual detectada:', todayStr);
-    
     for (let i = 0; i < 7; i++) {
       const date = new Date(today);
       date.setDate(today.getDate() + i);
-      
-      // Usar la misma lógica que AppointmentScheduler para evitar problemas de zona horaria
       const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, '0');
       const day = String(date.getDate()).padStart(2, '0');
       const dateStr = `${year}-${month}-${day}`;
-      
-      // Formato legible para mostrar al usuario
-      const readableDate = date.toLocaleDateString('es-CO', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
-      
+      const isPenalized = penalizedDates.includes(dateStr);
       dates.push({
         value: dateStr,
-        label: readableDate,
-        isToday: i === 0
+        label: date.toLocaleDateString('es-CO', {
+          weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+        }),
+        isToday: i === 0,
+        isPenalized
       });
-      
-      console.log(`📅 OrdersPage - Día ${i}: ${dateStr}`);
     }
-    
-    console.log('📅 OrdersPage - Fechas disponibles finales:', dates.map(d => d.value));
     return dates;
   };
 
@@ -621,7 +607,12 @@ const OrdersPage: React.FC = () => {
     
     // Agrupar productos de reservas existentes por casillero
     myAppointments.forEach(appointment => {
-      if (appointment.status !== 'cancelled' && appointment.status !== 'completed' && appointment.itemsToPickup) {
+      if (
+        appointment.status !== 'cancelled' &&
+        appointment.status !== 'completed' &&
+        canAddProductsToAppointment(appointment) &&
+        appointment.itemsToPickup
+      ) {
         appointment.itemsToPickup.forEach(item => {
           const lockerNumber = item.lockerNumber;
           const currentLocker = existingLockers.get(lockerNumber) || { usedVolume: 0, items: [], usedSlots: 0 };
@@ -793,16 +784,28 @@ const OrdersPage: React.FC = () => {
     // Para los productos restantes, usar Grid Packing para crear nuevos casilleros
     if (optimizedItems.length > 0) {
       console.log('📦 Productos restantes para nuevos casilleros:', optimizedItems);
-      
       const result = gridPackingService.packProducts3D(optimizedItems);
       console.log('📊 Resultado Grid Packing para productos restantes:', result);
 
-      // Calcular el siguiente número de casillero disponible
-      const existingLockerNumbers = Array.from(existingLockers.keys());
-      const maxExistingLocker = existingLockerNumbers.length > 0 ? Math.max(...existingLockerNumbers) : 0;
-      
+      // Obtener todos los lockerNumbers ocupados por cualquier reserva activa
+      const allOccupiedLockerNumbers = new Set<number>();
+      myAppointments.forEach(appointment => {
+        if (appointment.status !== 'cancelled' && appointment.status !== 'completed' && appointment.itemsToPickup) {
+          appointment.itemsToPickup.forEach(item => {
+            allOccupiedLockerNumbers.add(item.lockerNumber);
+          });
+        }
+      });
+
+      let nextLockerNumber = 1;
       result.lockers.forEach((locker, lockerIndex) => {
-        const newLockerNumber = maxExistingLocker + lockerIndex + 1;
+        // Buscar el primer número de casillero disponible
+        while (allOccupiedLockerNumbers.has(nextLockerNumber)) {
+          nextLockerNumber++;
+        }
+        const newLockerNumber = nextLockerNumber;
+        allOccupiedLockerNumbers.add(newLockerNumber);
+
         const items = locker.packedProducts.map((packedItem, itemIndex) => {
           const originalItemIndex = selectedItems.findIndex(item => item.id === packedItem.product.id);
           return {
@@ -812,7 +815,7 @@ const OrdersPage: React.FC = () => {
             productName: packedItem.product.name,
           };
         });
-        
+
         newLockerAssignments.set(newLockerNumber, {
           totalVolume: items.reduce((sum, i) => sum + i.volume, 0),
           items,
@@ -1129,36 +1132,34 @@ const OrdersPage: React.FC = () => {
   };
 
   // Función para abrir modal de edición de reserva
-  const handleEditAppointment = (appointment: Appointment) => {
-    if (!canModifyAppointment(appointment)) {
-      alert('Solo se pueden modificar reservas con al menos 1 hora de anticipación');
-      return;
+  const handleEditAppointment = (appointment: Appointment, forceEdit = false) => {
+    let initialDate = '';
+    let initialTime = '';
+    let initialLocker = appointment.itemsToPickup[0]?.lockerNumber || 1;
+
+    if (forceEdit) {
+      // Sugerir fecha de hoy y primer horario disponible
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      initialDate = `${year}-${month}-${day}`;
+      const availableTimes = getAvailableTimeSlotsForDate(initialDate);
+      initialTime = availableTimes[0] || '08:00';
+    } else {
+      // Usar la fecha/hora original de la reserva
+      const appointmentDateTime = createLocalDate(appointment.scheduledDate);
+      const year = appointmentDateTime.getFullYear();
+      const month = String(appointmentDateTime.getMonth() + 1).padStart(2, '0');
+      const day = String(appointmentDateTime.getDate()).padStart(2, '0');
+      initialDate = `${year}-${month}-${day}`;
+      initialTime = appointment.timeSlot;
     }
 
-    // Obtener la fecha local en formato YYYY-MM-DD
-    const appointmentDateTime = createLocalDate(appointment.scheduledDate);
-    const year = appointmentDateTime.getFullYear();
-    const month = String(appointmentDateTime.getMonth() + 1).padStart(2, '0');
-    const day = String(appointmentDateTime.getDate()).padStart(2, '0');
-    const appointmentDateLocal = `${year}-${month}-${day}`;
-
-    const availableDates = getAvailableDates();
-    const todayDate = availableDates[0].value;
-
-    console.log('🔍 Abriendo modal de edición:', {
-      appointmentDateLocal,
-      appointmentTime: appointment.timeSlot,
-      appointmentLocker: appointment.itemsToPickup[0]?.lockerNumber,
-      todayDate,
-      availableDates: availableDates.map(d => d.value),
-      fechaOriginal: appointment.scheduledDate,
-      fechaLocal: appointmentDateTime.toLocaleDateString('es-CO')
-    });
-
     setSelectedAppointmentForEdit(appointment);
-    setEditAppointmentDate(appointmentDateLocal); // Usar fecha local
-    setEditAppointmentTime(appointment.timeSlot);
-    setEditAppointmentLocker(appointment.itemsToPickup[0]?.lockerNumber || 1);
+    setEditAppointmentDate(initialDate);
+    setEditAppointmentTime(initialTime);
+    setEditAppointmentLocker(initialLocker);
     setShowEditAppointmentModal(true);
   };
 
@@ -1291,6 +1292,12 @@ const OrdersPage: React.FC = () => {
   };
 
   const handleScheduleAppointment = async (appointmentsData: CreateAppointmentData[]) => {
+    const penalized = appointmentsData.some(app => penalizedDates.includes(app.scheduledDate));
+    if (penalized) {
+      setPenaltyWarning('No puedes reservar para un día en el que tuviste una reserva vencida. Elige otro día.');
+      return;
+    }
+    setPenaltyWarning('');
     try {
       console.log('🚀 Iniciando proceso de agendamiento...');
       setSchedulingAppointment(true);
@@ -1741,6 +1748,41 @@ const OrdersPage: React.FC = () => {
     );
   };
 
+  useEffect(() => {
+    // Al cargar, obtener penalizaciones del usuario
+    const fetchPenalties = async () => {
+      try {
+        const user = await userService.getMyProfile();
+        if (user.reservationPenalties) {
+          setPenalizedDates(user.reservationPenalties.map(p => p.date.slice(0, 10)));
+        }
+      } catch (err) {
+        console.error('Error obteniendo penalizaciones:', err);
+      }
+    };
+    if (isAuthenticated) fetchPenalties();
+  }, [isAuthenticated]);
+
+  // Utilidad para saber si una reserva está vencida (fecha/hora pasada, no cancelada ni completada)
+  const isAppointmentExpired = (appointment: Appointment) => {
+    if (appointment.status === 'cancelled' || appointment.status === 'completed') return false;
+    const appointmentDateTime = createLocalDate(appointment.scheduledDate);
+    const [hours, minutes] = appointment.timeSlot.split(':');
+    appointmentDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+    return appointmentDateTime < new Date();
+  };
+
+  // Utilidad para saber si una reserva tiene más de 1 hora de anticipación
+  const canAddProductsToAppointment = (appointment: Appointment) => {
+    const appointmentDateTime = createLocalDate(appointment.scheduledDate);
+    const [hours, minutes] = appointment.timeSlot.split(':');
+    appointmentDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+    const now = new Date();
+    const timeDifference = appointmentDateTime.getTime() - now.getTime();
+    const hoursDifference = timeDifference / (1000 * 60 * 60);
+    return hoursDifference >= 1;
+  };
+
   return (
     <div className="container py-5">
       <div className="row justify-content-center">
@@ -2044,7 +2086,7 @@ const OrdersPage: React.FC = () => {
                     <div className="row mb-4">
                       {myAppointments
                         .filter(appointment => appointment.status !== 'cancelled' && appointment.status !== 'completed')
-                        .map((appointment) => (
+                        .map(appointment => (
                           <div key={appointment._id} className="col-12 mb-3">
                             <div className="card border-success">
                               <div className="card-header bg-success text-white">
@@ -2088,7 +2130,20 @@ const OrdersPage: React.FC = () => {
                                   </div>
                                   <div className="col-md-6">
                                     <div className="d-flex justify-content-end gap-2">
-                                      {canModifyAppointment(appointment) ? (
+                                      {isAppointmentExpired(appointment) ? (
+                                        <button
+                                          className="btn btn-outline-warning btn-sm"
+                                          onClick={() => {
+                                            handleEditAppointment(appointment, true);
+                                            setTimeout(() => {
+                                              alert('Debes reclamar tus productos, si no lo haces no podrás reservar para el día de hoy.');
+                                            }, 300);
+                                          }}
+                                        >
+                                          <i className="bi bi-arrow-repeat me-1"></i>
+                                          Volver a reservar
+                                        </button>
+                                      ) : canModifyAppointment(appointment) ? (
                                         <button
                                           className="btn btn-outline-primary btn-sm"
                                           onClick={() => handleEditAppointment(appointment)}
@@ -2287,8 +2342,8 @@ const OrdersPage: React.FC = () => {
                         onChange={(e) => setEditAppointmentDate(e.target.value)}
                       >
                         {getAvailableDates().map(date => (
-                          <option key={date.value} value={date.value}>
-                            {date.label} {date.isToday && '(Hoy)'}
+                          <option key={date.value} value={date.value} disabled={date.isPenalized}>
+                            {date.label} {date.isToday && '(Hoy)'}{date.isPenalized && ' (Bloqueado)'}
                           </option>
                         ))}
                       </select>
@@ -2614,6 +2669,13 @@ const OrdersPage: React.FC = () => {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {penaltyWarning && (
+        <div className="alert alert-danger text-center">
+          <i className="bi bi-exclamation-triangle me-2"></i>
+          {penaltyWarning}
         </div>
       )}
 

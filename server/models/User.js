@@ -119,6 +119,14 @@ const userSchema = new mongoose.Schema({
             issuer: { type: String },
             createdAt: { type: Date, default: Date.now }
         }
+    ],
+    // Penalizaciones por reservas vencidas
+    reservationPenalties: [
+        {
+            date: { type: Date, required: true }, // Día bloqueado
+            reason: { type: String, default: 'Reserva vencida' },
+            createdAt: { type: Date, default: Date.now }
+        }
     ]
 }, {
     timestamps: true

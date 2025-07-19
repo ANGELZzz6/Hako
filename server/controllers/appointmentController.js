@@ -121,6 +121,19 @@ exports.createAppointment = async (req, res) => {
     const selectedDate = createLocalDate(scheduledDate);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+
+    // Verificar penalización por reserva vencida
+    const user = await require('../models/User').findById(req.user.id);
+    if (user && user.reservationPenalties) {
+      const penalty = user.reservationPenalties.find(p => {
+        const d = new Date(p.date);
+        d.setHours(0, 0, 0, 0);
+        return d.getTime() === selectedDate.getTime();
+      });
+      if (penalty) {
+        return res.status(403).json({ error: `No puedes reservar para este día (${selectedDate.toLocaleDateString('es-CO')}) porque tuviste una reserva vencida. Debes elegir otro día.` });
+      }
+    }
     
     if (selectedDate < today) {
       return res.status(400).json({ error: 'No se pueden agendar citas en fechas pasadas' });
@@ -358,6 +371,28 @@ exports.updateMyAppointment = async (req, res) => {
   try {
     const { appointmentId } = req.params;
     const { scheduledDate, timeSlot, lockerNumber } = req.body;
+    // Penalización: no permitir reprogramar para el día de una reserva vencida
+    const userAppointments = await Appointment.find({ user: req.user.id });
+    const penalizedDates = new Set();
+    userAppointments.forEach(app => {
+      if (app.status !== 'cancelled' && app.status !== 'completed') {
+        const appDate = new Date(app.scheduledDate);
+        appDate.setHours(0, 0, 0, 0);
+        const appDateTime = new Date(app.scheduledDate);
+        const [h, m] = app.timeSlot.split(':');
+        appDateTime.setHours(parseInt(h), parseInt(m), 0, 0);
+        if (appDateTime < new Date()) {
+          penalizedDates.add(appDate.getTime());
+        }
+      }
+    });
+    if (scheduledDate) {
+      const newDate = createLocalDate(scheduledDate);
+      newDate.setHours(0, 0, 0, 0);
+      if (penalizedDates.has(newDate.getTime())) {
+        return res.status(403).json({ error: 'No puedes volver a reservar para el día en que se venció tu reserva. Elige otro día.' });
+      }
+    }
     
     // Buscar la cita y verificar que pertenece al usuario
     const appointment = await Appointment.findOne({ 
@@ -382,8 +417,10 @@ exports.updateMyAppointment = async (req, res) => {
     const now = new Date();
     const timeDifference = appointmentDateTime.getTime() - now.getTime();
     const hoursDifference = timeDifference / (1000 * 60 * 60);
-    
-    if (hoursDifference < 1) {
+
+    // Permitir modificar reservas vencidas (fecha/hora pasada), pero no canceladas ni completadas
+    const isPast = appointmentDateTime < now;
+    if (!isPast && hoursDifference < 1) {
       return res.status(400).json({ 
         error: 'Solo se pueden modificar reservas con al menos 1 hora de anticipación' 
       });
@@ -394,10 +431,16 @@ exports.updateMyAppointment = async (req, res) => {
       const newDate = createLocalDate(scheduledDate);
       const [newHours, newMinutes] = timeSlot.split(':');
       newDate.setHours(parseInt(newHours), parseInt(newMinutes), 0, 0);
-      
+      const now = new Date();
       // Verificar que la nueva fecha no sea en el pasado
       if (newDate <= now) {
         return res.status(400).json({ error: 'No se pueden agendar citas en el pasado' });
+      }
+      // Si la nueva fecha/hora es para menos de 1 hora en el futuro, bloquear
+      const timeDifference = newDate.getTime() - now.getTime();
+      const hoursDifference = timeDifference / (1000 * 60 * 60);
+      if (hoursDifference < 1) {
+        return res.status(400).json({ error: 'Solo se pueden modificar reservas con al menos 1 hora de anticipación' });
       }
       
       // Verificar que el usuario no tenga otras reservas para el mismo casillero, fecha y hora
@@ -950,6 +993,19 @@ exports.addProductsToAppointment = async (req, res) => {
     
     if (!appointment) {
       return res.status(404).json({ error: 'Reserva no encontrada o no disponible para modificación' });
+    }
+    
+    // Validar que la reserva tenga al menos 1 hora de anticipación
+    const appointmentDateTime = createLocalDate(appointment.scheduledDate);
+    const [hours, minutes] = appointment.timeSlot.split(':');
+    appointmentDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+    const now = new Date();
+    const diffMs = appointmentDateTime.getTime() - now.getTime();
+    console.log('appointmentDateTime:', appointmentDateTime, appointmentDateTime.getTime());
+    console.log('now:', now, now.getTime());
+    console.log('Diferencia (min):', diffMs / (1000 * 60));
+    if (diffMs < 58 * 60 * 1000) {
+      return res.status(400).json({ error: 'No se pueden agregar productos a reservas con menos de 1 hora de anticipación. Por favor, crea una nueva reserva.' });
     }
     
     // Validar que los productos individuales existen y están disponibles

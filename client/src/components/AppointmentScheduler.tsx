@@ -269,25 +269,6 @@ const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
       return;
     }
 
-    // Validar que todas las reservas tengan al menos 1 hora de anticipación
-    const now = new Date();
-    const invalidTimeSchedules = lockerSchedules.filter(schedule => {
-      const appointmentDateTime = createLocalDate(schedule.date);
-      const [hours, minutes] = schedule.timeSlot.split(':');
-      appointmentDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-      
-      const timeDifference = appointmentDateTime.getTime() - now.getTime();
-      const hoursDifference = timeDifference / (1000 * 60 * 60);
-      
-      return hoursDifference < 1;
-    });
-
-    if (invalidTimeSchedules.length > 0) {
-      console.log('❌ Schedules con tiempo insuficiente:', invalidTimeSchedules);
-      alert('Solo se pueden crear reservas con al menos 1 hora de anticipación. Por favor selecciona una fecha y hora posterior.');
-      return;
-    }
-
     // Si es una reserva existente, agregar productos
     if (existingAppointment && onAddProducts) {
       console.log('📅 Agregando productos a reserva existente');

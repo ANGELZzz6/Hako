@@ -18,6 +18,7 @@ export interface User {
   fechaNacimiento?: string;
   genero?: string;
   bio?: string;
+  reservationPenalties?: Array<{ date: string; reason: string; createdAt: string }>;
 }
 
 export interface CreateUserData {
@@ -230,6 +231,23 @@ class UserService {
     if (!response.ok) throw new Error('No se pudo guardar la tarjeta');
     handle401(response);
     return await response.json();
+  }
+
+  async getMyProfile(): Promise<User> {
+    try {
+      const response = await fetch(`/api/users/profile/${authService.getUserId()}`, {
+        headers: this.getAuthHeaders(),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Error al obtener perfil');
+      }
+      handle401(response);
+      return await response.json();
+    } catch (error) {
+      console.error('Error:', error);
+      throw error;
+    }
   }
 }
 
