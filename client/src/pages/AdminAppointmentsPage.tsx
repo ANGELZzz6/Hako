@@ -160,7 +160,7 @@ const AdminAppointmentsPage: React.FC = () => {
   };
 
   return (
-    <div className="admin-dashboard">
+    <div className="admin-dashboard" data-theme="light">
       <header className="admin-header-bar">
         <div className="header-content">
           <div className="header-left">

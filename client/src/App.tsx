@@ -45,6 +45,7 @@ import OrdersPage from './pages/OrdersPage';
 import AdminOrdersPage from './pages/AdminOrdersPage';
 
 import AdminAppointmentsPage from './pages/AdminAppointmentsPage';
+import orderService from './services/orderService';
 
 // Importar fuente Montserrat
 import '@fontsource/montserrat/300.css';
@@ -74,6 +75,7 @@ const AppContent = () => {
   const { cart, refreshCart, setCart, clearCart } = useCart();
 
   const [showSplash, setShowSplash] = useState(!isAuthenticated);
+  const [showReservationAlert, setShowReservationAlert] = useState(false);
 
   // Efecto para cargar productos
   useEffect(() => {
@@ -145,6 +147,24 @@ const AppContent = () => {
       cleanupPaymentState();
     }
   }, [location.pathname]);
+
+  // Efecto para verificar productos sin reservar solo si está autenticado y en Home
+  useEffect(() => {
+    const checkUnreservedProducts = async () => {
+      if (isAuthenticated && location.pathname === '/') {
+        try {
+          const items = await orderService.getMyPurchasedProducts();
+          const hasUnreserved = items.some(item => !item.isReserved);
+          setShowReservationAlert(hasUnreserved);
+        } catch (err) {
+          setShowReservationAlert(false);
+        }
+      } else {
+        setShowReservationAlert(false);
+      }
+    };
+    checkUnreservedProducts();
+  }, [isAuthenticated, location.pathname]);
 
   // Función para cambiar el tema
   const toggleTheme = () => {
@@ -318,6 +338,18 @@ const AppContent = () => {
 
     return (
       <>
+        {/* Aviso de productos sin reservar */}
+        {showReservationAlert && (
+          <div className="alert alert-warning d-flex flex-column flex-md-row justify-content-center align-items-center gap-3 mb-4 text-center" role="alert">
+            <span className="d-flex align-items-center gap-2" style={{ fontSize: '1.15rem' }}>
+              <i className="bi bi-box2-heart" style={{ color: '#d32f2f', fontSize: '1.5rem' }}></i>
+              ¡Tienes productos sin reservar! Haz tu reserva para recogerlos.
+            </span>
+            <button className="btn btn-primary mt-2 mt-md-0" onClick={() => navigate('/mis-pedidos')}>
+              Ir a Reservar
+            </button>
+          </div>
+        )}
         {/* Hero Section */}
         <section className="hero-section">
           <FallingLines />
@@ -348,7 +380,7 @@ const AppContent = () => {
               </div>
               {/* Columna del Texto */}
               <div className="col-md-6 text-center text-md-start">
-                <BoxAnimation />
+                <BoxAnimation highlightRandomCell={showReservationAlert} />
                 <h1 className="display-4 fade-in">Bienvenido a Hako</h1>
                 <p className="lead fade-in">Descubre nuestros productos exclusivos con los mejores precios</p>
                 <div className="d-flex gap-3 justify-content-center justify-content-md-start mt-4">

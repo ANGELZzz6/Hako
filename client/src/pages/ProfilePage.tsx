@@ -77,6 +77,7 @@ const ProfilePage: React.FC = () => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
+    if (name === 'email') return; // No permitir cambios en el email
     setProfileData(prev => ({
       ...prev,
       [name]: value
@@ -91,7 +92,9 @@ const ProfilePage: React.FC = () => {
 
     try {
       if (!currentUser) throw new Error('Usuario no autenticado');
-      const result = await userService.updateUser(currentUser.id, profileData);
+      // Excluir el email del objeto enviado para actualización
+      const { email, ...restProfileData } = profileData;
+      const result = await userService.updateUser(currentUser.id, restProfileData);
       const updatedUser = await userService.getUserById(currentUser.id);
       if (!updatedUser.id && updatedUser._id) updatedUser.id = updatedUser._id;
       localStorage.setItem('user', JSON.stringify(updatedUser));
@@ -263,8 +266,8 @@ const ProfilePage: React.FC = () => {
                   className="form-control"
                   name="email"
                   value={profileData.email}
-                  onChange={handleInputChange}
-                  disabled={!isEditing}
+                  disabled
+                  readOnly
                   required
                 />
               </div>

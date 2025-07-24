@@ -248,7 +248,7 @@ const AdminSupportPage = () => {
   }
 
   return (
-    <div className="support-management">
+    <div className="support-management" data-theme="light">
       {/* Barra superior */}
       <header className="user-header-bar">
         <div className="header-content">

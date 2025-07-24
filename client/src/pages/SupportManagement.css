@@ -1000,8 +1000,8 @@
 }
 
 /* MODO OSCURO SOLO PARA EL FONDO DE SOPORTE */
-[data-theme='dark'] .support-management {
-  background-color: #464646 !important; /* gris oscuro, solo fondo */
+/* [data-theme='dark'] .support-management {
+  background-color: #464646 !important;
 }
 [data-theme='dark'] .support-main-content {
   background: none !important;
@@ -1032,4 +1032,5 @@
 }
 [data-theme='dark'] .support-main-content .form-control::placeholder {
   color: #888 !important;
-} 
+}
+*/ 

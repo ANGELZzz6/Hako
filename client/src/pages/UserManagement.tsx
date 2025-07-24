@@ -89,7 +89,7 @@ const UserManagement = () => {
   };
 
   return (
-    <div className="user-management">
+    <div className="user-management" data-theme="light">
       {/* Barra superior */}
       <header className="user-header-bar">
         <div className="header-content">

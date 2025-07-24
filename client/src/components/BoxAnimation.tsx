@@ -8,7 +8,11 @@ interface FallingLogoItem {
   x: number;
 }
 
-const BoxAnimation: React.FC = () => {
+interface BoxAnimationProps {
+  highlightRandomCell?: boolean;
+}
+
+const BoxAnimation: React.FC<BoxAnimationProps> = ({ highlightRandomCell }) => {
   const shelfRef = useRef<HTMLDivElement>(null);
   const [fallingLogos, setFallingLogos] = useState<FallingLogoItem[]>([]);
 
@@ -48,6 +52,17 @@ const BoxAnimation: React.FC = () => {
     }))
   );
 
+  // Elegir una casilla al azar para resaltar si highlightRandomCell está activo
+  const [highlightedIndex, setHighlightedIndex] = useState<number | null>(null);
+  useEffect(() => {
+    if (highlightRandomCell) {
+      // Solo para la estantería frontal (4x3 = 12 celdas)
+      setHighlightedIndex(Math.floor(Math.random() * 12));
+    } else {
+      setHighlightedIndex(null);
+    }
+  }, [highlightRandomCell]);
+
   return (
     <div className="shelf-container">
       {fallingLogos.map(logo => (
@@ -61,11 +76,22 @@ const BoxAnimation: React.FC = () => {
         <div className="shelf-front">
           {shelves.map((row, rowIndex) => (
             <div key={`row-${rowIndex}`} className="shelf-row">
-              {row.map((shelf) => (
-                <div key={shelf.id} className="shelf-cell" onClick={handleCellClick}>
-                  <i className="bi bi-box2-heart shelf-icon"></i>
-                </div>
-              ))}
+              {row.map((shelf, colIndex) => {
+                const flatIndex = rowIndex * 3 + colIndex;
+                return (
+                  <div
+                    key={shelf.id}
+                    className={`shelf-cell${highlightRandomCell && highlightedIndex === flatIndex ? ' shelf-cell-highlighted' : ''}`}
+                    onClick={handleCellClick}
+                    style={{ position: 'relative' }}
+                  >
+                    {highlightRandomCell && highlightedIndex === flatIndex && (
+                      <div className="shelf-bubble">¡Resérvame!</div>
+                    )}
+                    <i className="bi bi-box2-heart shelf-icon"></i>
+                  </div>
+                );
+              })}
             </div>
           ))}
         </div>

@@ -181,7 +181,7 @@ const SupportPage = () => {
   };
 
   return (
-    <div className="support-management">
+    <div className="support-management" data-theme="light">
       <main className="support-main-content">
         <div className="container" style={{ maxWidth: 600 }}>
           <h2 className="mb-4 text-center">¿Necesitas ayuda?</h2>
