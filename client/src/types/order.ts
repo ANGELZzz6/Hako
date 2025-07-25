@@ -34,6 +34,7 @@ export interface OrderItem {
   originalItemId?: string;
   individualIndex?: number;
   totalInOrder?: number;
+  variants?: Record<string, string>; // <--- Añadido para variantes seleccionadas
 }
 
 export interface Order {

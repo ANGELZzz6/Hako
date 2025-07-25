@@ -20,12 +20,19 @@ export interface VariantOption {
   price: number;
   stock: number;
   isActive: boolean;
+  dimensiones?: {
+    largo: number;
+    ancho: number;
+    alto: number;
+    peso: number;
+  };
 }
 
 export interface VariantAttribute {
   name: string;
   required: boolean;
   options: VariantOption[];
+  definesDimensions?: boolean; // Indica si este atributo define dimensiones
 }
 
 export interface ProductVariants {
@@ -104,6 +111,28 @@ export interface ProductSearchResponse {
     hasNext: boolean;
     hasPrev: boolean;
   };
+}
+
+/**
+ * Obtiene las dimensiones de una variante seleccionada, o del producto base si la variante no tiene dimensiones propias.
+ * @param product El producto base
+ * @param selectedVariants Un objeto con los atributos y valores seleccionados
+ * @returns Las dimensiones correspondientes
+ */
+export function getVariantOrProductDimensions(product: Product, selectedVariants?: Record<string, string>) {
+  if (product.variants && product.variants.enabled && selectedVariants) {
+    const attr = product.variants.attributes.find(a => a.definesDimensions);
+    if (attr) {
+      const selectedValue = selectedVariants[attr.name];
+      if (selectedValue) {
+        const option = attr.options.find(opt => opt.value === selectedValue);
+        if (option && option.dimensiones) {
+          return option.dimensiones;
+        }
+      }
+    }
+  }
+  return product.dimensiones;
 }
 
 class ProductService {

@@ -235,7 +235,11 @@ class UserService {
 
   async getMyProfile(): Promise<User> {
     try {
-      const response = await fetch(`/api/users/profile/${authService.getUserId()}`, {
+      const currentUser = authService.getCurrentUser();
+      if (!currentUser || !currentUser.id) {
+        throw new Error('Usuario no autenticado o sin ID.');
+      }
+      const response = await fetch(`/api/users/profile/${currentUser.id}`, {
         headers: this.getAuthHeaders(),
       });
       if (!response.ok) {

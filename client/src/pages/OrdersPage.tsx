@@ -13,6 +13,7 @@ import type { CreateAppointmentData } from '../services/appointmentService';
 import Locker3DCanvas from '../components/Locker3DCanvas';
 import type { Appointment } from '../services/appointmentService';
 import userService from '../services/userService';
+import { getVariantOrProductDimensions } from '../services/productService';
 
 const statusLabels: Record<string, string> = {
   pending: 'Pendiente de pago',
@@ -339,7 +340,16 @@ const OrdersPage: React.FC = () => {
   };
 
   // Utilidad para obtener dimensiones y volumen
-  const getDimensiones = (item: OrderItem) => item.dimensiones || item.product?.dimensiones;
+  const getDimensiones = (item: OrderItem) => {
+    // Si el item tiene variantes seleccionadas y el producto tiene variantes, usar dimensiones de la variante
+    if (item.variants && item.product?.variants) {
+      return getVariantOrProductDimensions(item.product, item.variants);
+    }
+    // Si el item tiene dimensiones propias, usarlas
+    if (item.dimensiones) return item.dimensiones;
+    // Si no, usar dimensiones del producto base
+    return item.product?.dimensiones;
+  };
   const tieneDimensiones = (item: OrderItem) => {
     const d = getDimensiones(item);
     return d && d.largo && d.ancho && d.alto;

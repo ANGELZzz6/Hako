@@ -1,4 +1,6 @@
 const { MercadoPagoConfig } = require('mercadopago');
+const transporter = require('../config/nodemailer');
+const User = require('../models/User');
 
 // Configuración de Mercado Pago
 const mp = new MercadoPagoConfig({
@@ -76,7 +78,7 @@ exports.createPreference = async (req, res) => {
         pending: `${process.env.FRONTEND_URL}/payment-result`
       },
       // auto_return: 'all', // Comentado para pruebas de webhook - habilitar en producción
-      notification_url: 'https://7f316c8cafa4.ngrok-free.app/api/payment/webhook/mercadopago',
+      notification_url: 'https://ea8d2c9a3e01.ngrok-free.app/api/payment/webhook/mercadopago',
       external_reference: finalExternalReference,
       expires: true,
       expiration_date_to: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 minutos
@@ -239,7 +241,7 @@ exports.testConfig = async (req, res) => {
         failure: 'https://httpbin.org/status/200',
         pending: 'https://httpbin.org/status/200'
       },
-      notification_url: 'https://7f316c8cafa4.ngrok-free.app/api/payment/webhook/mercadopago',
+      notification_url: 'https://ea8d2c9a3e01.ngrok-free.app/api/payment/webhook/mercadopago',
       external_reference: `TEST_${Date.now()}`,
       expires: true,
       expiration_date_to: new Date(Date.now() + 30 * 60 * 1000).toISOString()
@@ -592,6 +594,76 @@ exports.mercadoPagoWebhook = async (req, res) => {
 
                   // Crear productos individuales usando la función auxiliar
                   await createIndividualProductsForPayment(paymentInfo, payment);
+
+                  if (newOrder) {
+                    try {
+                      const user = await User.findById(user_id);
+                      if (user) {
+                        // Correo de confirmación de compra
+                        await transporter.sendMail({
+                          to: user.email,
+                          subject: '¡Gracias por tu compra en Hako! 🎉',
+                          html: `
+                            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f9f9f9; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); padding: 32px 24px;">
+                              <div style="text-align: center; margin-bottom: 24px;">
+                                <img src="https://i.imgur.com/0y0y0y0.png" alt="Hako Logo" style="height: 48px; margin-bottom: 8px;"/>
+                                <h2 style="color: #d32f2f; margin: 0;">¡Gracias por tu compra!</h2>
+                              </div>
+                              <p style="font-size: 17px; color: #222;">Hola <b>${user.nombre}</b>,</p>
+                              <p style="font-size: 16px; color: #444;">Tu compra ha sido procesada exitosamente. Pronto podrás reservar tu casillero para recoger tus productos.</p>
+                              <div style="background: #fff; border-radius: 8px; padding: 16px 20px; margin: 24px 0; border-left: 4px solid #d32f2f;">
+                                <p style="margin: 0 0 8px 0; font-size: 15px;"><b>Número de pedido:</b> ${newOrder._id}</p>
+                                <p style="margin: 0 0 8px 0; font-size: 15px;"><b>Total pagado:</b> $${newOrder.total_amount.toLocaleString('es-CO')}</p>
+                                <p style="margin: 0 0 8px 0; font-size: 15px;"><b>Estado:</b> Pagado</p>
+                              </div>
+                              <p style="font-size: 15px; color: #444;">Te avisaremos por correo cuando puedas reservar tu casillero.</p>
+                              <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0 16px 0;"/>
+                              <footer style="font-size: 13px; color: #888; text-align: center;">
+                                <p>¿Tienes dudas? Contáctanos en <a href="mailto:soporte@hako.com" style="color: #d32f2f; text-decoration: none;">soporte@hako.com</a></p>
+                                <p>Equipo Hako &copy; ${new Date().getFullYear()}</p>
+                              </footer>
+                            </div>
+                          `
+                        });
+                        console.log('📧 Correo de confirmación de compra enviado a', user.email);
+                        // Correo de aviso de reserva (unos segundos después)
+                        setTimeout(async () => {
+                          try {
+                            await transporter.sendMail({
+                              to: user.email,
+                              subject: '¡Ya puedes reservar tu casillero en Hako! 📦',
+                              html: `
+                                <div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f9f9f9; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); padding: 32px 24px;\">
+                                  <div style=\"text-align: center; margin-bottom: 24px;\">
+                                    <img src=\"https://i.imgur.com/0y0y0y0.png\" alt=\"Hako Logo\" style=\"height: 48px; margin-bottom: 8px;\"/>
+                                    <h2 style=\"color: #d32f2f; margin: 0;\">¡Ya puedes reservar tu casillero!</h2>
+                                  </div>
+                                  <p style=\"font-size: 17px; color: #222;\">Hola <b>${user.nombre}</b>,</p>
+                                  <p style=\"font-size: 16px; color: #444;\">Tu pedido ya está listo para que reserves tu casillero y programes la recogida de tus productos.</p>
+                                  <div style=\"background: #fff; border-radius: 8px; padding: 16px 20px; margin: 24px 0; border-left: 4px solid #d32f2f;\">
+                                    <p style=\"margin: 0 0 8px 0; font-size: 15px;\"><b>Número de pedido:</b> ${newOrder._id}</p>
+                                    <p style=\"margin: 0 0 8px 0; font-size: 15px;\"><b>Total pagado:</b> $${newOrder.total_amount.toLocaleString('es-CO')}</p>
+                                    <p style=\"margin: 0 0 8px 0; font-size: 15px;\"><b>Estado:</b> Listo para reservar casillero</p>
+                                  </div>
+                                  <p style=\"font-size: 15px; color: #444;\">Ingresa a tu cuenta en Hako y selecciona el casillero para tu pedido.</p>
+                                  <hr style=\"border: none; border-top: 1px solid #eee; margin: 32px 0 16px 0;\"/>
+                                  <footer style=\"font-size: 13px; color: #888; text-align: center;\">
+                                    <p>¿Tienes dudas? Contáctanos en <a href=\"mailto:soporte@hako.com\" style=\"color: #d32f2f; text-decoration: none;\">soporte@hako.com</a></p>
+                                    <p>Equipo Hako &copy; ${new Date().getFullYear()}</p>
+                                  </footer>
+                                </div>
+                              `
+                            });
+                            console.log('📧 Correo de aviso de reserva enviado a', user.email);
+                          } catch (mailErr2) {
+                            console.error('❌ Error enviando correo de aviso de reserva:', mailErr2);
+                          }
+                        }, 10000); // 10 segundos después (ajustable)
+                      }
+                    } catch (mailErr) {
+                      console.error('❌ Error enviando correo post compra:', mailErr);
+                    }
+                  }
                 } catch (orderCreateError) {
                   console.error('❌ Error creando la orden:', orderCreateError);
                 }

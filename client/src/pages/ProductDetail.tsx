@@ -349,116 +349,118 @@ const ProductDetail: React.FC = () => {
   );
 
   return (
-    <div className="container py-5 product-detail-container">
-      {/* Flecha para regresar */}
-      <div className="mb-4">
-        <button 
-          className="btn btn-outline-secondary"
-          onClick={() => navigate('/productos')}
-        >
-          <i className="bi bi-arrow-left me-2"></i>
-          Volver a Productos
-        </button>
-      </div>
-      
-      <div className="row g-4">
-        {/* Imágenes */}
-        <div className="col-md-6">
-          <div className="main-img-container mb-3" style={{position: 'relative'}}>
-            {/* Cinta de oferta */}
-            {product.isOferta && (
-              <div className="oferta-ribbon" style={{top: 10, left: -10, position: 'absolute'}}>
-                <i className="bi bi-tag-fill me-1"></i>¡Oferta!
-              </div>
-            )}
-            {/* Cinta de destacado */}
-            {product.isDestacado && (
-              <div className="destacado-ribbon" style={{top: 50, left: -10, position: 'absolute', background: '#ffd600', color: '#333'}}>
-                <i className="bi bi-star-fill me-1"></i>Destacado
-              </div>
-            )}
-            <img src={mainImg} alt={product.nombre} className="main-img img-fluid rounded shadow" onError={e => {e.currentTarget.src='https://via.placeholder.com/400x300?text=Sin+Imagen'}} />
+    <div style={{ marginTop: '3.5rem' }}>
+      <div className="container py-5 product-detail-container">
+        {/* Flecha para regresar */}
+        <div className="mb-4">
+          <button 
+            className="btn btn-outline-secondary"
+            onClick={() => navigate('/productos')}
+          >
+            <i className="bi bi-arrow-left me-2"></i>
+            Volver a Productos
+          </button>
+        </div>
+        
+        <div className="row g-4">
+          {/* Imágenes */}
+          <div className="col-md-6">
+            <div className="main-img-container mb-3" style={{position: 'relative'}}>
+              {/* Cinta de oferta */}
+              {product.isOferta && (
+                <div className="oferta-ribbon" style={{top: 10, left: -10, position: 'absolute'}}>
+                  <i className="bi bi-tag-fill me-1"></i>¡Oferta!
+                </div>
+              )}
+              {/* Cinta de destacado */}
+              {product.isDestacado && (
+                <div className="destacado-ribbon" style={{top: 50, left: -10, position: 'absolute', background: '#ffd600', color: '#333'}}>
+                  <i className="bi bi-star-fill me-1"></i>Destacado
+                </div>
+              )}
+              <img src={mainImg} alt={product.nombre} className="main-img img-fluid rounded shadow" onError={e => {e.currentTarget.src='https://via.placeholder.com/400x300?text=Sin+Imagen'}} />
+            </div>
+            <div className="extra-imgs d-flex gap-2">
+              {extraImgs.map((img, idx) => (
+                <img key={idx} src={img} alt={`Extra ${idx+1}`} className={`extra-img rounded ${mainImg===img ? 'selected' : ''}`} style={{width: 64, height: 48, objectFit: 'cover', cursor: 'pointer', border: mainImg===img?'2px solid #d32f2f':'1px solid #ccc'}} onClick={()=>setMainImg(img)} />
+              ))}
+            </div>
           </div>
-          <div className="extra-imgs d-flex gap-2">
-            {extraImgs.map((img, idx) => (
-              <img key={idx} src={img} alt={`Extra ${idx+1}`} className={`extra-img rounded ${mainImg===img ? 'selected' : ''}`} style={{width: 64, height: 48, objectFit: 'cover', cursor: 'pointer', border: mainImg===img?'2px solid #d32f2f':'1px solid #ccc'}} onClick={()=>setMainImg(img)} />
+          {/* Detalles */}
+          <div className="col-md-6">
+            <h2 className="mb-2 product-title">{product.nombre}</h2>
+            <div className="d-flex align-items-center mb-2">
+              <span className="badge bg-success me-2">Producto comprobado por Hako ✅</span>
+              {estrellas(adminRating)}
+            </div>
+            <button className="btn btn-outline-secondary reviews-btn mb-3" onClick={() => setShowReviews(true)}>
+              <i className="bi bi-chat-left-text me-2"></i>Ver reseñas
+            </button>
+            <p className="mb-3 product-description">{product.descripcion || 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque euismod, nisi eu consectetur.'}</p>
+            <div className="price mb-4">
+              <span className="fs-3 fw-bold text-primary">
+                {product.precio.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })} <span style={{fontSize: '1rem', fontWeight: 400}}>COP</span>
+              </span>
+            </div>
+            <div className="secure-section mb-4">
+              <h5 className="secure-title">Pagos seguros y Hako Services</h5>
+              <ul className="list-unstyled mb-2">
+                <li><i className="bi bi-shield-lock text-primary me-2"></i>Datos personales seguros</li>
+                <li><i className="bi bi-credit-card-2-front text-primary me-2"></i>Pagos seguros</li>
+                <li style={{color:'#2ecc40'}}><i className="bi bi-arrow-repeat me-2"></i>Reembolso por artículo defectuoso</li>
+              </ul>
+            </div>
+            <button 
+              className="btn btn-lg btn-danger w-100 mt-3" 
+              disabled={addingToBox || product.stock === 0} 
+              onClick={handleAddToBox}
+            >
+              {addingToBox ? (
+                <>
+                  <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                  Agregando al box...
+                </>
+              ) : product.stock === 0 ? (
+                <>
+                  <i className="bi bi-x-octagon me-2"></i>Producto agotado
+                </>
+              ) : (
+                <>
+                  <i className="bi bi-box-seam me-2"></i>¡Agregar a box!
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+        {/* Popup de reseñas */}
+        {showReviews && <ReseñasPopup reviews={product.reviews || []} onClose={() => setShowReviews(false)} productId={product._id} onRefresh={refreshProduct} />}
+        {/* Productos relacionados */}
+        <div className="mt-5">
+          <h4 className="mb-4 related-title">Productos que te pueden interesar</h4>
+          <div className="row g-3">
+            {related.map(p => (
+              <div className="col-6 col-md-4 col-lg-2" key={p._id}>
+                <div className="card h-100 product-card" style={{ cursor: 'pointer' }} onClick={() => navigate(`/productos/${p._id}`)}>
+                  <img src={p.imagen_url} alt={p.nombre} className="card-img-top" style={{height:100,objectFit:'cover'}} onError={e => {e.currentTarget.src='https://via.placeholder.com/100x100?text=Sin+Imagen'}} />
+                  <div className="card-body p-2">
+                    <div className="card-title mb-1" style={{fontSize:'1rem'}}>{p.nombre}</div>
+                    <div className="price-tag">{p.precio.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</div>
+                  </div>
+                </div>
+              </div>
             ))}
           </div>
         </div>
-        {/* Detalles */}
-        <div className="col-md-6">
-          <h2 className="mb-2 product-title">{product.nombre}</h2>
-          <div className="d-flex align-items-center mb-2">
-            <span className="badge bg-success me-2">Producto comprobado por Hako ✅</span>
-            {estrellas(adminRating)}
-          </div>
-          <button className="btn btn-outline-secondary reviews-btn mb-3" onClick={() => setShowReviews(true)}>
-            <i className="bi bi-chat-left-text me-2"></i>Ver reseñas
-          </button>
-          <p className="mb-3 product-description">{product.descripcion || 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque euismod, nisi eu consectetur.'}</p>
-          <div className="price mb-4">
-            <span className="fs-3 fw-bold text-primary">
-              {product.precio.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })} <span style={{fontSize: '1rem', fontWeight: 400}}>COP</span>
-            </span>
-          </div>
-          <div className="secure-section mb-4">
-            <h5 className="secure-title">Pagos seguros y Hako Services</h5>
-            <ul className="list-unstyled mb-2">
-              <li><i className="bi bi-shield-lock text-primary me-2"></i>Datos personales seguros</li>
-              <li><i className="bi bi-credit-card-2-front text-primary me-2"></i>Pagos seguros</li>
-              <li style={{color:'#2ecc40'}}><i className="bi bi-arrow-repeat me-2"></i>Reembolso por artículo defectuoso</li>
-            </ul>
-          </div>
-          <button 
-            className="btn btn-lg btn-danger w-100 mt-3" 
-            disabled={addingToBox || product.stock === 0} 
-            onClick={handleAddToBox}
-          >
-            {addingToBox ? (
-              <>
-                <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                Agregando al box...
-              </>
-            ) : product.stock === 0 ? (
-              <>
-                <i className="bi bi-x-octagon me-2"></i>Producto agotado
-              </>
-            ) : (
-              <>
-                <i className="bi bi-box-seam me-2"></i>¡Agregar a box!
-              </>
-            )}
-          </button>
-        </div>
+        {/* Modal de variantes */}
+        {product && product.variants && product.variants.enabled && (
+          <ProductVariantModal
+            show={showVariantModal}
+            onHide={() => setShowVariantModal(false)}
+            product={product}
+            onAddToCart={handleAddToCartWithVariants}
+          />
+        )}
       </div>
-      {/* Popup de reseñas */}
-      {showReviews && <ReseñasPopup reviews={product.reviews || []} onClose={() => setShowReviews(false)} productId={product._id} onRefresh={refreshProduct} />}
-      {/* Productos relacionados */}
-      <div className="mt-5">
-        <h4 className="mb-4 related-title">Productos que te pueden interesar</h4>
-        <div className="row g-3">
-          {related.map(p => (
-            <div className="col-6 col-md-4 col-lg-2" key={p._id}>
-              <div className="card h-100 product-card" style={{ cursor: 'pointer' }} onClick={() => navigate(`/productos/${p._id}`)}>
-                <img src={p.imagen_url} alt={p.nombre} className="card-img-top" style={{height:100,objectFit:'cover'}} onError={e => {e.currentTarget.src='https://via.placeholder.com/100x100?text=Sin+Imagen'}} />
-                <div className="card-body p-2">
-                  <div className="card-title mb-1" style={{fontSize:'1rem'}}>{p.nombre}</div>
-                  <div className="price-tag">{p.precio.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-      {/* Modal de variantes */}
-      {product && product.variants && product.variants.enabled && (
-        <ProductVariantModal
-          show={showVariantModal}
-          onHide={() => setShowVariantModal(false)}
-          product={product}
-          onAddToCart={handleAddToCartWithVariants}
-        />
-      )}
     </div>
   );
 };

@@ -7,12 +7,19 @@ interface VariantOption {
   price: number;
   stock: number;
   isActive: boolean;
+  dimensiones?: {
+    largo: number;
+    ancho: number;
+    alto: number;
+    peso: number;
+  };
 }
 
 interface VariantAttribute {
   name: string;
   required: boolean;
   options: VariantOption[];
+  definesDimensions?: boolean; // Added for new functionality
 }
 
 interface ProductVariants {
@@ -33,6 +40,10 @@ const ProductVariantManager: React.FC<ProductVariantManagerProps> = ({
   const [newOptionValue, setNewOptionValue] = useState('');
   const [newOptionPrice, setNewOptionPrice] = useState(0);
   const [newOptionStock, setNewOptionStock] = useState(0);
+  const [newOptionPeso, setNewOptionPeso] = useState(0);
+  const [newOptionLargo, setNewOptionLargo] = useState(0);
+  const [newOptionAncho, setNewOptionAncho] = useState(0);
+  const [newOptionAlto, setNewOptionAlto] = useState(0);
 
   const handleToggleVariants = () => {
     onChange({
@@ -47,7 +58,8 @@ const ProductVariantManager: React.FC<ProductVariantManagerProps> = ({
     const newAttribute: VariantAttribute = {
       name: newAttributeName.trim(),
       required: true,
-      options: []
+      options: [],
+      definesDimensions: false // Default to false
     };
 
     onChange({
@@ -75,14 +87,32 @@ const ProductVariantManager: React.FC<ProductVariantManagerProps> = ({
     });
   };
 
+  const handleSetDefinesDimensions = (attributeIndex: number) => {
+    const newAttributes = variants.attributes.map((attr, idx) => ({
+      ...attr,
+      definesDimensions: idx === attributeIndex
+    }));
+    onChange({
+      ...variants,
+      attributes: newAttributes
+    });
+  };
+
   const addOption = (attributeIndex: number) => {
     if (!newOptionValue.trim()) return;
 
+    const newAttribute = variants.attributes[attributeIndex];
     const newOption: VariantOption = {
       value: newOptionValue.trim(),
       price: newOptionPrice,
       stock: newOptionStock,
-      isActive: true
+      isActive: true,
+      dimensiones: newAttribute.definesDimensions ? {
+        largo: newOptionLargo || 0,
+        ancho: newOptionAncho || 0,
+        alto: newOptionAlto || 0,
+        peso: newOptionPeso || 0
+      } : undefined
     };
 
     const newAttributes = [...variants.attributes];
@@ -96,6 +126,10 @@ const ProductVariantManager: React.FC<ProductVariantManagerProps> = ({
     setNewOptionValue('');
     setNewOptionPrice(0);
     setNewOptionStock(0);
+    setNewOptionPeso(0);
+    setNewOptionLargo(0);
+    setNewOptionAncho(0);
+    setNewOptionAlto(0);
   };
 
   const removeOption = (attributeIndex: number, optionIndex: number) => {
@@ -138,6 +172,22 @@ const ProductVariantManager: React.FC<ProductVariantManagerProps> = ({
   const updateOptionStock = (attributeIndex: number, optionIndex: number, stock: number) => {
     const newAttributes = [...variants.attributes];
     newAttributes[attributeIndex].options[optionIndex].stock = stock;
+    onChange({
+      ...variants,
+      attributes: newAttributes
+    });
+  };
+
+  const updateOptionDimension = (attributeIndex: number, optionIndex: number, dimension: 'largo' | 'ancho' | 'alto' | 'peso', value: number) => {
+    const newAttributes = [...variants.attributes];
+    const option = newAttributes[attributeIndex].options[optionIndex];
+    option.dimensiones = {
+      largo: option.dimensiones?.largo ?? 0,
+      ancho: option.dimensiones?.ancho ?? 0,
+      alto: option.dimensiones?.alto ?? 0,
+      peso: option.dimensiones?.peso ?? 0,
+      [dimension]: value || 0
+    };
     onChange({
       ...variants,
       attributes: newAttributes
@@ -199,8 +249,8 @@ const ProductVariantManager: React.FC<ProductVariantManagerProps> = ({
             </div>
 
             {/* Lista de atributos */}
-            {variants.attributes.map((attribute, attributeIndex) => (
-              <Card key={attributeIndex} className="mb-3">
+            {variants.attributes.map((attribute, index) => (
+              <Card key={index} className="mb-3">
                 <Card.Header>
                   <div className="d-flex flex-wrap flex-md-nowrap justify-content-between align-items-center variant-attribute-header">
                     <div className="flex-grow-1 mb-2 mb-md-0">
@@ -212,10 +262,19 @@ const ProductVariantManager: React.FC<ProductVariantManagerProps> = ({
                       </h6>
                     </div>
                     <div className="d-flex gap-2 flex-wrap">
+                      <Form.Check
+                        type="radio"
+                        id={`defines-dimensions-${index}`}
+                        label="Este atributo define dimensiones"
+                        checked={attribute.definesDimensions || false}
+                        onChange={() => handleSetDefinesDimensions(index)}
+                        name="definesDimensionsGroup"
+                        className="mb-2"
+                      />
                       <Button
                         variant="outline-secondary"
                         size="sm"
-                        onClick={() => toggleAttributeRequired(attributeIndex)}
+                        onClick={() => toggleAttributeRequired(index)}
                         className="me-2"
                       >
                         {attribute.required ? 'Opcional' : 'Obligatorio'}
@@ -223,7 +282,7 @@ const ProductVariantManager: React.FC<ProductVariantManagerProps> = ({
                       <Button
                         variant="outline-danger"
                         size="sm"
-                        onClick={() => removeAttribute(attributeIndex)}
+                        onClick={() => removeAttribute(index)}
                       >
                         <i className="bi bi-trash"></i>
                       </Button>
@@ -269,10 +328,39 @@ const ProductVariantManager: React.FC<ProductVariantManagerProps> = ({
                           />
                         </Form.Group>
                       </Col>
+                      {/* Inputs para dimensiones en el formulario de nueva opción */}
+                      {attribute.definesDimensions && (
+                        <Col md={2}>
+                          <Form.Group as={Row} className="mb-2">
+                            <Form.Label column sm={4}>Largo (cm)</Form.Label>
+                            <Col sm={8}>
+                              <Form.Control type="number" value={newOptionLargo} min={0} step={0.1} onChange={e => setNewOptionLargo(parseFloat(e.target.value) || 0)} />
+                            </Col>
+                          </Form.Group>
+                          <Form.Group as={Row} className="mb-2">
+                            <Form.Label column sm={4}>Ancho (cm)</Form.Label>
+                            <Col sm={8}>
+                              <Form.Control type="number" value={newOptionAncho} min={0} step={0.1} onChange={e => setNewOptionAncho(parseFloat(e.target.value) || 0)} />
+                            </Col>
+                          </Form.Group>
+                          <Form.Group as={Row} className="mb-2">
+                            <Form.Label column sm={4}>Alto (cm)</Form.Label>
+                            <Col sm={8}>
+                              <Form.Control type="number" value={newOptionAlto} min={0} step={0.1} onChange={e => setNewOptionAlto(parseFloat(e.target.value) || 0)} />
+                            </Col>
+                          </Form.Group>
+                          <Form.Group as={Row} className="mb-2">
+                            <Form.Label column sm={4}>Peso (kg)</Form.Label>
+                            <Col sm={8}>
+                              <Form.Control type="number" value={newOptionPeso} min={0} step={0.1} onChange={e => setNewOptionPeso(parseFloat(e.target.value) || 0)} />
+                            </Col>
+                          </Form.Group>
+                        </Col>
+                      )}
                       <Col md={3} className="d-flex align-items-end justify-content-end">
                         <Button 
                           variant="success" 
-                          onClick={() => addOption(attributeIndex)}
+                          onClick={() => addOption(index)}
                           disabled={!newOptionValue.trim()}
                         >
                           <i className="bi bi-plus me-2"></i>
@@ -306,7 +394,7 @@ const ProductVariantManager: React.FC<ProductVariantManagerProps> = ({
                                   <Form.Control
                                     type="text"
                                     value={option.value}
-                                    onChange={(e) => updateOptionValue(attributeIndex, optionIndex, e.target.value)}
+                                    onChange={(e) => updateOptionValue(index, optionIndex, e.target.value)}
                                     size="sm"
                                   />
                                 </td>
@@ -314,7 +402,7 @@ const ProductVariantManager: React.FC<ProductVariantManagerProps> = ({
                                   <Form.Control
                                     type="number"
                                     value={option.price}
-                                    onChange={(e) => updateOptionPrice(attributeIndex, optionIndex, Number(e.target.value))}
+                                    onChange={(e) => updateOptionPrice(index, optionIndex, Number(e.target.value))}
                                     size="sm"
                                   />
                                 </td>
@@ -322,7 +410,7 @@ const ProductVariantManager: React.FC<ProductVariantManagerProps> = ({
                                   <Form.Control
                                     type="number"
                                     value={option.stock}
-                                    onChange={(e) => updateOptionStock(attributeIndex, optionIndex, Number(e.target.value))}
+                                    onChange={(e) => updateOptionStock(index, optionIndex, Number(e.target.value))}
                                     size="sm"
                                   />
                                 </td>
@@ -335,7 +423,7 @@ const ProductVariantManager: React.FC<ProductVariantManagerProps> = ({
                                   <Button
                                     variant="outline-secondary"
                                     size="sm"
-                                    onClick={() => toggleOptionActive(attributeIndex, optionIndex)}
+                                    onClick={() => toggleOptionActive(index, optionIndex)}
                                     className="me-1"
                                   >
                                     {option.isActive ? 'Desactivar' : 'Activar'}
@@ -343,7 +431,7 @@ const ProductVariantManager: React.FC<ProductVariantManagerProps> = ({
                                   <Button
                                     variant="outline-danger"
                                     size="sm"
-                                    onClick={() => removeOption(attributeIndex, optionIndex)}
+                                    onClick={() => removeOption(index, optionIndex)}
                                   >
                                     <i className="bi bi-trash"></i>
                                   </Button>
