@@ -37,6 +37,17 @@ exports.createPreference = async (req, res) => {
     }
     
     console.log('Datos recibidos:', { items, payer, external_reference, user_id, selected_items });
+    console.log('🔍 Debugging selected_items:');
+    if (selected_items) {
+      selected_items.forEach((item, index) => {
+        console.log(`  Item ${index}:`, {
+          id: item.id,
+          title: item.title,
+          variants: item.variants,
+          hasVariants: !!item.variants && Object.keys(item.variants).length > 0
+        });
+      });
+    }
     
     // Buscar si el usuario tiene un pedido activo en estado 'paid' sin casillero confirmado
     const Order = require('../models/Order');
@@ -78,17 +89,18 @@ exports.createPreference = async (req, res) => {
         pending: `${process.env.FRONTEND_URL}/payment-result`
       },
       // auto_return: 'all', // Comentado para pruebas de webhook - habilitar en producción
-      notification_url: 'https://ea8d2c9a3e01.ngrok-free.app/api/payment/webhook/mercadopago',
+      notification_url: 'https://75190e887f35.ngrok-free.app/api/payment/webhook/mercadopago',
       external_reference: finalExternalReference,
       expires: true,
       expiration_date_to: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 minutos
       metadata: {
         user_id: user_id,
         selected_items: selected_items || items.map(item => ({
-          product_id: item.id,
+          id: item.id,
           quantity: item.quantity,
           unit_price: item.unit_price,
-          product_name: item.title
+          title: item.title,
+          variants: item.variants || {}
         }))
       }
     };
@@ -241,7 +253,7 @@ exports.testConfig = async (req, res) => {
         failure: 'https://httpbin.org/status/200',
         pending: 'https://httpbin.org/status/200'
       },
-      notification_url: 'https://ea8d2c9a3e01.ngrok-free.app/api/payment/webhook/mercadopago',
+      notification_url: 'https://75190e887f35.ngrok-free.app/api/payment/webhook/mercadopago',
       external_reference: `TEST_${Date.now()}`,
       expires: true,
       expiration_date_to: new Date(Date.now() + 30 * 60 * 1000).toISOString()
@@ -367,6 +379,15 @@ exports.mercadoPagoWebhook = async (req, res) => {
                   console.log('📦 Productos comprados:', selected_items);
         console.log('👤 Usuario:', user_id);
         console.log('🔍 Metadata completo:', paymentInfo.metadata);
+        console.log('🔍 Debugging variants en webhook:');
+        selected_items.forEach((item, index) => {
+          console.log(`  Item ${index}:`, {
+            id: item.id,
+            title: item.title,
+            variants: item.variants,
+            hasVariants: !!item.variants && Object.keys(item.variants).length > 0
+          });
+        });
         
         // Verificar si el pago ya fue procesado y usar findOneAndUpdate para evitar condiciones de carrera
         const Payment = require('../models/Payment');
@@ -395,7 +416,8 @@ exports.mercadoPagoWebhook = async (req, res) => {
             product_id: item.id || item.product_id || item._id,
             quantity: item.quantity,
             unit_price: item.unit_price,
-            product_name: item.title || item.name
+            product_name: item.title || item.name,
+            variants: item.variants || {}
           }))
         };
 
@@ -480,16 +502,34 @@ exports.mercadoPagoWebhook = async (req, res) => {
               // Procesar cada producto nuevo
               for (const newItem of selected_items) {
                 const productId = (newItem.id || newItem.product_id || newItem._id).toString();
-                const existingItemIndex = activeOrder.items.findIndex(item => item.product.toString() === productId);
+                const newItemVariants = newItem.variants || {};
+                
+                // Buscar item existente que coincida tanto en producto como en variantes
+                const existingItemIndex = activeOrder.items.findIndex(item => {
+                  const itemVariants = item.variants ? Object.fromEntries(item.variants) : {};
+                  
+                  // Comparar producto ID
+                  if (item.product.toString() !== productId) return false;
+                  
+                  // Comparar variantes
+                  const newVariantsKeys = Object.keys(newItemVariants);
+                  const itemVariantsKeys = Object.keys(itemVariants);
+                  
+                  if (newVariantsKeys.length !== itemVariantsKeys.length) return false;
+                  
+                  return newVariantsKeys.every(key => 
+                    newItemVariants[key] === itemVariants[key]
+                  );
+                });
                 
                 if (existingItemIndex !== -1) {
-                  // Producto ya existe, sumar cantidad
+                  // Producto con las mismas variantes ya existe, sumar cantidad
                   const existingItem = activeOrder.items[existingItemIndex];
                   const oldTotalPrice = existingItem.total_price; // Guardar el precio anterior
                   const newQuantity = existingItem.quantity + newItem.quantity;
                   const newTotalPrice = existingItem.unit_price * newQuantity;
                   
-                  console.log(`🔢 Sumando cantidad para ${newItem.title}: ${existingItem.quantity} + ${newItem.quantity} = ${newQuantity}`);
+                  console.log(`🔢 Sumando cantidad para ${newItem.title} (variantes: ${JSON.stringify(newItemVariants)}): ${existingItem.quantity} + ${newItem.quantity} = ${newQuantity}`);
                   console.log(`💰 Actualizando precio: ${oldTotalPrice} → ${newTotalPrice} (diferencia: ${newTotalPrice - oldTotalPrice})`);
                   
                   // Actualizar cantidad y precio total del item existente
@@ -506,7 +546,8 @@ exports.mercadoPagoWebhook = async (req, res) => {
                     product: newItem.id || newItem.product_id || newItem._id,
                     quantity: newItem.quantity,
                     unit_price: newItem.unit_price,
-                    total_price: newItem.unit_price * newItem.quantity
+                    total_price: newItem.unit_price * newItem.quantity,
+                    variants: newItem.variants || undefined
                   };
                   activeOrder.items.push(newItemToAdd);
                   activeOrder.total_amount += newItemToAdd.total_price;
@@ -570,7 +611,8 @@ exports.mercadoPagoWebhook = async (req, res) => {
                     product: item.id || item.product_id || item._id,
                     quantity: item.quantity,
                     unit_price: item.unit_price,
-                    total_price: item.unit_price * item.quantity
+                    total_price: item.unit_price * item.quantity,
+                    variants: item.variants || undefined
                   }));
 
                   const newOrder = new Order({
@@ -962,77 +1004,71 @@ async function createIndividualProductsForPayment(paymentInfo, payment) {
       return;
     }
     
-    // Crear productos individuales SOLO para los productos recién comprados (selected_items)
+    // Crear productos individuales para cada item comprado, sin agrupar por productoId ni variantes
     let nuevosCreados = 0;
-    
     for (const selectedItem of selected_items) {
       const productId = selectedItem.id || selectedItem.product_id;
-      
-      // Obtener el producto original para copiar las dimensiones
+      const selectedVariants = selectedItem.variants || {};
+
+      // Busca el producto original para dimensiones
       const Product = require('../models/Product');
       const originalProduct = await Product.findById(productId);
-      
       if (!originalProduct) {
-        console.log('⚠️ Producto original no encontrado:', productId);
+        console.log(`❌ Producto original no encontrado: ${productId}`);
         continue;
       }
-      
-      // Contar cuántos productos individuales ya existen para este producto específico en esta orden
-      // (sin importar el mp_payment_id para evitar duplicados en compras múltiples)
-      const existingCount = await IndividualProduct.countDocuments({
-        order: order._id,
-        product: productId
+
+      let finalDimensiones = originalProduct.dimensiones;
+      if (originalProduct.variants && originalProduct.variants.enabled && Object.keys(selectedVariants).length > 0) {
+        const variantDimensiones = originalProduct.getVariantOrProductDimensions(selectedVariants);
+        if (variantDimensiones) finalDimensiones = variantDimensiones;
+      }
+
+      // Busca el siguiente índice individual para la orden
+      const allProducts = await IndividualProduct.find({ order: order._id });
+      const nextIndex = allProducts.length > 0
+        ? Math.max(...allProducts.map(p => p.individualIndex || 0)) + 1
+        : 1;
+
+      // LOG: Verificar si ya existe un producto individual exacto (debug)
+      const yaExiste = allProducts.some(p => {
+        if (p.product.toString() !== productId.toString()) return false;
+        const pVariants = p.variants ? Object.fromEntries(p.variants) : {};
+        const sKeys = Object.keys(selectedVariants);
+        const pKeys = Object.keys(pVariants);
+        if (sKeys.length !== pKeys.length) return false;
+        return sKeys.every(key => selectedVariants[key] === pVariants[key]);
       });
-      
-      // Calcular cuántos productos individuales deberían existir según la orden
-      const orderItem = order.items.find(item => item.product.toString() === productId);
-      const expectedCount = orderItem ? orderItem.quantity : 0;
-      
-      // Calcular cuántos productos individuales faltan por crear
-      const missingCount = expectedCount - existingCount;
-      
-      console.log(`🔍 Verificación para "${originalProduct.nombre}":`);
-      console.log(`   - Producto ID: ${productId}`);
-      console.log(`   - Orden ID: ${order._id}`);
-      console.log(`   - Cantidad en orden: ${expectedCount}`);
-      console.log(`   - Productos individuales existentes: ${existingCount}`);
-      console.log(`   - Productos individuales faltantes: ${missingCount}`);
-      
-      if (missingCount <= 0) {
-        console.log(`ℹ️ Ya existen ${existingCount} productos individuales para "${originalProduct.nombre}" (esperados: ${expectedCount}). Saltando.`);
-        continue;
+      if (yaExiste) {
+        console.log(`⚠️ Ya existe un producto individual para este producto y variantes:`, selectedVariants);
+        // Si quieres evitar duplicados, puedes continuar aquí, pero por ahora seguimos para forzar la creación
       }
-      
-      console.log(`📦 Creando ${missingCount} productos individuales para "${originalProduct.nombre}" (existen: ${existingCount}, esperados: ${expectedCount})`);
-      
-      for (let i = 0; i < missingCount; i++) {
-        const individualProduct = new IndividualProduct({
-          user: user_id,
-          order: order._id,
-          product: productId,
-          individualIndex: existingCount + i + 1, // Continuar desde donde se quedó
-          status: 'available',
-          unitPrice: selectedItem.unit_price,
-          dimensiones: originalProduct.dimensiones,
-          payment: {
-            mp_payment_id: paymentId,
-            status: paymentInfo.status
-          }
-        });
-        await individualProduct.save();
-        nuevosCreados++;
-      }
-      console.log(`✅ Creados ${missingCount} productos individuales para "${originalProduct.nombre}"`);
+
+      const individualProduct = new IndividualProduct({
+        user: user_id,
+        order: order._id,
+        product: productId,
+        individualIndex: nextIndex,
+        status: 'available',
+        unitPrice: selectedItem.unit_price,
+        dimensiones: finalDimensiones,
+        variants: Object.keys(selectedVariants).length > 0 ? selectedVariants : undefined,
+        payment: {
+          mp_payment_id: paymentId,
+          status: paymentInfo.status
+        }
+      });
+      await individualProduct.save();
+      nuevosCreados++;
+      console.log(`✅ Producto individual creado para "${originalProduct.nombre}" con variantes:`, selectedVariants);
     }
-    
     if (nuevosCreados === 0) {
-      console.log('ℹ️ No había productos individuales por crear.');
+      console.log('ℹ️ No se crearon productos individuales nuevos.');
     } else {
       console.log(`🎉 Total de productos individuales nuevos creados: ${nuevosCreados}`);
     }
-    
-    console.log('✅ Productos individuales creados exitosamente para el pago:', paymentId);
-    
+    console.log('✅ Proceso de creación de productos individuales finalizado para el pago:', paymentId);
+
   } catch (error) {
     console.error('❌ Error creando productos individuales:', error);
   } finally {

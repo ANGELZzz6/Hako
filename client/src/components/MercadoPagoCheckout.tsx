@@ -105,6 +105,15 @@ const MercadoPagoCheckout: React.FC<MercadoPagoCheckoutProps> = ({
         setLoading(true);
         console.log('Creando preferencia de pago...');
         console.log('Productos a pagar:', items);
+        console.log('🔍 Debugging variants en checkout:');
+        items.forEach((item, index) => {
+          console.log(`  Item ${index}:`, {
+            id: item.id,
+            title: item.title,
+            variants: item.variants,
+            hasVariants: !!item.variants && Object.keys(item.variants).length > 0
+          });
+        });
         
         const preference = await paymentService.createPreference(
           items, 

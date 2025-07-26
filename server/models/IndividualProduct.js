@@ -81,6 +81,14 @@ const individualProductSchema = new mongoose.Schema({
   payment: {
     mp_payment_id: String,
     status: String
+  },
+  
+  // Variantes seleccionadas para este producto individual
+  variants: {
+    type: Map,
+    of: String,
+    default: undefined,
+    description: 'Variantes seleccionadas para este producto (ej: { "Talla": "XL", "Color": "Rojo" })'
   }
 }, {
   timestamps: true
@@ -126,6 +134,33 @@ individualProductSchema.methods.tieneDimensiones = function() {
 individualProductSchema.methods.getVolumen = function() {
   if (this.dimensiones && this.dimensiones.largo && this.dimensiones.ancho && this.dimensiones.alto) {
     return this.dimensiones.largo * this.dimensiones.ancho * this.dimensiones.alto;
+  }
+  return 0;
+};
+
+/**
+ * Obtiene las dimensiones del producto individual, considerando variantes si existen
+ * @returns {Object|null} Las dimensiones correspondientes o null si no hay dimensiones
+ */
+individualProductSchema.methods.getVariantOrProductDimensions = function() {
+  // Si el producto individual tiene variantes y el producto base tiene variantes habilitadas
+  if (this.variants && this.variants.size > 0) {
+    // Necesitamos poblar el producto para acceder a sus variantes
+    if (this.populated('product') && this.product.variants && this.product.variants.enabled) {
+      return this.product.getVariantOrProductDimensions(Object.fromEntries(this.variants));
+    }
+  }
+  return this.dimensiones;
+};
+
+/**
+ * Obtiene el volumen del producto individual, considerando variantes si existen
+ * @returns {number} El volumen correspondiente
+ */
+individualProductSchema.methods.getVariantOrProductVolume = function() {
+  const dimensiones = this.getVariantOrProductDimensions();
+  if (dimensiones && dimensiones.largo && dimensiones.ancho && dimensiones.alto) {
+    return dimensiones.largo * dimensiones.ancho * dimensiones.alto;
   }
   return 0;
 };

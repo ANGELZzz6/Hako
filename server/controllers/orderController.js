@@ -70,6 +70,15 @@ exports.getMyPurchasedProducts = async (req, res) => {
         const tieneDimensiones = individualProduct.tieneDimensiones();
         const volumen = individualProduct.getVolumen();
         
+        // Obtener dimensiones considerando variantes si existen
+        let dimensiones = individualProduct.dimensiones;
+        if (individualProduct.variants && individualProduct.variants.size > 0) {
+          const variantDimensiones = individualProduct.getVariantOrProductDimensions();
+          if (variantDimensiones) {
+            dimensiones = variantDimensiones;
+          }
+        }
+        
         // Agregar los campos calculados al producto
         product.tieneDimensiones = tieneDimensiones;
         product.volumen = volumen;
@@ -87,7 +96,9 @@ exports.getMyPurchasedProducts = async (req, res) => {
           individualIndex: individualProduct.individualIndex,
           totalInOrder: 1, // Cada producto individual es único
           assigned_locker: individualProduct.assignedLocker,
-          unit_price: individualProduct.unitPrice
+          unit_price: individualProduct.unitPrice,
+          variants: individualProduct.variants ? Object.fromEntries(individualProduct.variants) : undefined,
+          dimensiones: dimensiones
         };
       } catch (itemError) {
         console.error('❌ Error procesando producto individual:', individualProduct._id, itemError);

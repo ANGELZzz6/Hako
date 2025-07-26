@@ -1,97 +1,75 @@
 const mongoose = require('mongoose');
 require('dotenv').config();
 
-// Conectar a la base de datos
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/HAKO')
-  .then(() => console.log('✅ Conectado a MongoDB'))
-  .catch(err => console.error('❌ Error conectando a MongoDB:', err));
-
 const IndividualProduct = require('./models/IndividualProduct');
 const Product = require('./models/Product');
 
 async function updateIndividualProductsDimensions() {
   try {
-    console.log('🔍 Actualizando dimensiones de productos individuales...');
-    
-    // Obtener todos los productos individuales que no tienen dimensiones
+    // Conectar a la base de datos
+    await mongoose.connect(process.env.MONGODB_URI);
+    console.log('✅ Conectado a MongoDB');
+
+    // Obtener todos los productos individuales que tienen variantes
     const individualProducts = await IndividualProduct.find({
-      $or: [
-        { dimensiones: { $exists: false } },
-        { 'dimensiones.largo': { $exists: false } },
-        { 'dimensiones.ancho': { $exists: false } },
-        { 'dimensiones.alto': { $exists: false } }
-      ]
-    });
-    
-    console.log(`📊 Productos individuales sin dimensiones encontrados: ${individualProducts.length}`);
-    
+      variants: { $exists: true, $ne: null }
+    }).populate('product');
+
+    console.log(`📦 Encontrados ${individualProducts.length} productos individuales con variantes`);
+
     if (individualProducts.length === 0) {
-      console.log('✅ Todos los productos individuales ya tienen dimensiones');
+      console.log('✅ No hay productos individuales con variantes para actualizar');
       return;
     }
-    
+
     let updatedCount = 0;
     let errorCount = 0;
-    
+
     for (const individualProduct of individualProducts) {
       try {
-        // Obtener el producto original
-        const originalProduct = await Product.findById(individualProduct.product);
-        
-        if (!originalProduct) {
-          console.log(`⚠️ Producto original no encontrado para individualProduct: ${individualProduct._id}`);
-          errorCount++;
+        console.log(`\n🔍 Procesando producto individual: ${individualProduct._id}`);
+        console.log(`   - Producto: ${individualProduct.product?.nombre || 'N/A'}`);
+        console.log(`   - Variantes:`, Object.fromEntries(individualProduct.variants || new Map()));
+
+        // Verificar que el producto base existe y tiene variantes
+        if (!individualProduct.product || !individualProduct.product.variants || !individualProduct.product.variants.enabled) {
+          console.log(`   ⚠️ Producto base no tiene variantes habilitadas, saltando`);
           continue;
         }
-        
-        // Verificar si el producto original tiene dimensiones
-        if (!originalProduct.dimensiones || 
-            !originalProduct.dimensiones.largo || 
-            !originalProduct.dimensiones.ancho || 
-            !originalProduct.dimensiones.alto) {
-          console.log(`⚠️ Producto original no tiene dimensiones: ${originalProduct.nombre}`);
-          errorCount++;
-          continue;
+
+        // Calcular las dimensiones correctas basadas en las variantes
+        const selectedVariants = Object.fromEntries(individualProduct.variants || new Map());
+        const variantDimensiones = individualProduct.product.getVariantOrProductDimensions(selectedVariants);
+
+        if (variantDimensiones) {
+          // Actualizar las dimensiones del producto individual
+          individualProduct.dimensiones = variantDimensiones;
+          await individualProduct.save();
+          
+          console.log(`   ✅ Actualizado con dimensiones de variante:`, variantDimensiones);
+          updatedCount++;
+        } else {
+          console.log(`   ℹ️ No se encontraron dimensiones de variante, manteniendo dimensiones base`);
         }
-        
-        // Actualizar el producto individual con las dimensiones
-        individualProduct.dimensiones = originalProduct.dimensiones;
-        await individualProduct.save();
-        
-        updatedCount++;
-        console.log(`✅ Actualizado producto individual ${individualProduct._id} con dimensiones de ${originalProduct.nombre}`);
-        
+
       } catch (error) {
-        console.error(`❌ Error actualizando producto individual ${individualProduct._id}:`, error.message);
+        console.error(`   ❌ Error procesando producto individual ${individualProduct._id}:`, error.message);
         errorCount++;
       }
     }
-    
-    console.log('\n📊 Resumen de actualización:');
-    console.log(`✅ Productos actualizados: ${updatedCount}`);
-    console.log(`❌ Errores: ${errorCount}`);
-    console.log(`📦 Total procesados: ${individualProducts.length}`);
-    
-    // Verificar el resultado
-    const productsWithDimensions = await IndividualProduct.countDocuments({
-      'dimensiones.largo': { $exists: true },
-      'dimensiones.ancho': { $exists: true },
-      'dimensiones.alto': { $exists: true }
-    });
-    
-    const totalProducts = await IndividualProduct.countDocuments();
-    
-    console.log(`\n📈 Estadísticas finales:`);
-    console.log(`📦 Total productos individuales: ${totalProducts}`);
-    console.log(`📏 Productos con dimensiones: ${productsWithDimensions}`);
-    console.log(`❌ Productos sin dimensiones: ${totalProducts - productsWithDimensions}`);
-    
+
+    console.log(`\n🎉 Proceso completado:`);
+    console.log(`   - Productos procesados: ${individualProducts.length}`);
+    console.log(`   - Productos actualizados: ${updatedCount}`);
+    console.log(`   - Errores: ${errorCount}`);
+
   } catch (error) {
-    console.error('❌ Error en actualización:', error);
+    console.error('❌ Error:', error);
   } finally {
-    mongoose.connection.close();
-    console.log('🔌 Conexión cerrada');
+    await mongoose.disconnect();
+    console.log('🔌 Desconectado de MongoDB');
   }
 }
 
+// Ejecutar el script
 updateIndividualProductsDimensions(); 

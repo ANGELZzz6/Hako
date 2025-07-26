@@ -140,6 +140,11 @@ const productSchema = new mongoose.Schema({
                 default: true,
                 description: 'Indica si este atributo es obligatorio'
             },
+            definesDimensions: {
+                type: Boolean,
+                default: false,
+                description: 'Indica si este atributo define dimensiones específicas'
+            },
             options: [{
                 value: {
                     type: String,
@@ -163,6 +168,28 @@ const productSchema = new mongoose.Schema({
                     type: Boolean,
                     default: true,
                     description: 'Indica si esta opción está disponible'
+                },
+                dimensiones: {
+                    largo: {
+                        type: Number,
+                        min: [0, 'El largo no puede ser negativo'],
+                        description: 'Largo del producto en centímetros para esta variante'
+                    },
+                    ancho: {
+                        type: Number,
+                        min: [0, 'El ancho no puede ser negativo'],
+                        description: 'Ancho del producto en centímetros para esta variante'
+                    },
+                    alto: {
+                        type: Number,
+                        min: [0, 'El alto no puede ser negativo'],
+                        description: 'Alto del producto en centímetros para esta variante'
+                    },
+                    peso: {
+                        type: Number,
+                        min: [0, 'El peso no puede ser negativo'],
+                        description: 'Peso del producto en gramos para esta variante'
+                    }
                 }
             }]
         }]
@@ -238,6 +265,46 @@ productSchema.methods.tieneDimensiones = function() {
            this.dimensiones.largo && 
            this.dimensiones.ancho && 
            this.dimensiones.alto;
+};
+
+/**
+ * Obtiene las dimensiones de una variante seleccionada, o del producto base si la variante no tiene dimensiones propias.
+ * @param {Object} selectedVariants - Un objeto con los atributos y valores seleccionados
+ * @returns {Object|null} Las dimensiones correspondientes o null si no hay dimensiones
+ */
+productSchema.methods.getVariantOrProductDimensions = function(selectedVariants) {
+    if (this.variants && this.variants.enabled && selectedVariants) {
+        // Buscar todos los atributos que definen dimensiones
+        const dimensionAttributes = this.variants.attributes.filter(attr => attr.definesDimensions);
+        
+        // Si hay múltiples atributos que definen dimensiones, usar el primero que tenga dimensiones válidas
+        for (const attr of dimensionAttributes) {
+            const selectedValue = selectedVariants[attr.name];
+            if (selectedValue) {
+                const option = attr.options.find(opt => opt.value === selectedValue);
+                if (option && option.dimensiones && 
+                    option.dimensiones.largo && 
+                    option.dimensiones.ancho && 
+                    option.dimensiones.alto) {
+                    return option.dimensiones;
+                }
+            }
+        }
+    }
+    return this.dimensiones;
+};
+
+/**
+ * Obtiene el volumen de una variante seleccionada, o del producto base si la variante no tiene dimensiones propias.
+ * @param {Object} selectedVariants - Un objeto con los atributos y valores seleccionados
+ * @returns {number} El volumen correspondiente
+ */
+productSchema.methods.getVariantOrProductVolume = function(selectedVariants) {
+    const dimensiones = this.getVariantOrProductDimensions(selectedVariants);
+    if (dimensiones && dimensiones.largo && dimensiones.ancho && dimensiones.alto) {
+        return dimensiones.largo * dimensiones.ancho * dimensiones.alto;
+    }
+    return 0;
 };
 
 module.exports = mongoose.model('Product', productSchema, 'productos'); 

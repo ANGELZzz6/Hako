@@ -341,12 +341,29 @@ const OrdersPage: React.FC = () => {
 
   // Utilidad para obtener dimensiones y volumen
   const getDimensiones = (item: OrderItem) => {
-    // Si el item tiene variantes seleccionadas y el producto tiene variantes, usar dimensiones de la variante
-    if (item.variants && item.product?.variants) {
-      return getVariantOrProductDimensions(item.product, item.variants);
-    }
-    // Si el item tiene dimensiones propias, usarlas
+    // Si el item tiene dimensiones propias (ya calculadas en el backend), usarlas
     if (item.dimensiones) return item.dimensiones;
+    
+    // Si el item tiene variantes seleccionadas y el producto tiene variantes, intentar calcular dimensiones de la variante
+    if (item.variants && item.product?.variants?.enabled && item.product.variants.attributes) {
+      // Buscar atributos que definen dimensiones
+      const dimensionAttributes = item.product.variants.attributes.filter((a: any) => a.definesDimensions);
+      
+      // Si hay múltiples atributos que definen dimensiones, usar el primero que tenga dimensiones válidas
+      for (const attr of dimensionAttributes) {
+        const selectedValue = item.variants[attr.name];
+        if (selectedValue) {
+          const option = attr.options.find((opt: any) => opt.value === selectedValue);
+          if (option && option.dimensiones && 
+              option.dimensiones.largo && 
+              option.dimensiones.ancho && 
+              option.dimensiones.alto) {
+            return option.dimensiones;
+          }
+        }
+      }
+    }
+    
     // Si no, usar dimensiones del producto base
     return item.product?.dimensiones;
   };
@@ -1652,6 +1669,23 @@ const OrdersPage: React.FC = () => {
             <div className="col-md-3">
               <h6 className="mb-1">{item.product?.nombre}</h6>
               <p className="text-muted mb-1">{item.product.descripcion}</p>
+              
+              {/* Mostrar variantes si existen */}
+              {item.variants && Object.keys(item.variants).length > 0 && (
+                <div className="mb-2">
+                  <small className="text-muted">
+                    <strong>Variantes:</strong>
+                  </small>
+                  <div className="d-flex gap-1 flex-wrap">
+                    {Object.entries(item.variants).map(([key, value]) => (
+                      <span key={key} className="badge bg-warning text-dark">
+                        {key}: {value}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
               <div className="d-flex gap-2 flex-wrap">
                 <span className="badge bg-primary">${item.unit_price.toLocaleString('es-CO')}</span>
                 {(() => {

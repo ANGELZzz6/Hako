@@ -28,6 +28,13 @@ const orderSchema = new mongoose.Schema({
       type: Number,
       required: true
     },
+    // Variantes seleccionadas para este item
+    variants: {
+      type: Map,
+      of: String,
+      default: undefined,
+      description: 'Variantes seleccionadas para este producto (ej: { "Talla": "XL", "Color": "Rojo" })'
+    },
     // Productos reclamados de este item
     claimed_quantity: {
       type: Number,

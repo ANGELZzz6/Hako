@@ -125,10 +125,47 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ product, isOpen, is
         : [formData.imagen_url]
       ).filter((img): img is string => typeof img === 'string' && !!img);
       const dataToSend = { ...formData, imagen_url: images[0], images, variants };
-      console.log('[ADMIN] Guardando producto:', dataToSend);
+      
+      // Logs detallados para debugging
+      console.log('=== [ADMIN] GUARDANDO PRODUCTO ===');
+      console.log('📦 Datos básicos:', {
+        nombre: dataToSend.nombre,
+        precio: dataToSend.precio,
+        stock: dataToSend.stock,
+        categoria: dataToSend.categoria,
+        dimensiones: dataToSend.dimensiones
+      });
+      
+      console.log('🔧 Variantes configuradas:', {
+        enabled: variants.enabled,
+        attributesCount: variants.attributes.length
+      });
+      
+      if (variants.enabled && variants.attributes.length > 0) {
+        console.log('📋 Detalle de atributos de variantes:');
+        variants.attributes.forEach((attr, attrIndex) => {
+          console.log(`   Atributo ${attrIndex + 1}: ${attr.name}`);
+          console.log(`     - Required: ${attr.required}`);
+          console.log(`     - DefinesDimensions: ${attr.definesDimensions}`);
+          console.log(`     - Opciones: ${attr.options.length}`);
+          
+          attr.options.forEach((option, optIndex) => {
+            console.log(`       Opción ${optIndex + 1}: ${option.value}`);
+            console.log(`         - Precio: ${option.price}`);
+            console.log(`         - Stock: ${option.stock}`);
+            console.log(`         - IsActive: ${option.isActive}`);
+            console.log(`         - Dimensiones:`, option.dimensiones);
+          });
+        });
+      }
+      
+      console.log('📤 Datos completos a enviar:', JSON.stringify(dataToSend, null, 2));
+      
       await onSave(dataToSend);
+      console.log('✅ Producto guardado exitosamente');
       onClose();
     } catch (err: any) {
+      console.error('❌ Error guardando producto:', err);
       setError(err.message || `Error al ${isCreating ? 'crear' : 'actualizar'} producto`);
     } finally {
       setLoading(false);

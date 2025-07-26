@@ -121,12 +121,18 @@ export interface ProductSearchResponse {
  */
 export function getVariantOrProductDimensions(product: Product, selectedVariants?: Record<string, string>) {
   if (product.variants && product.variants.enabled && selectedVariants) {
-    const attr = product.variants.attributes.find(a => a.definesDimensions);
-    if (attr) {
+    // Buscar todos los atributos que definen dimensiones
+    const dimensionAttributes = product.variants.attributes.filter(a => a.definesDimensions);
+    
+    // Si hay múltiples atributos que definen dimensiones, usar el primero que tenga dimensiones válidas
+    for (const attr of dimensionAttributes) {
       const selectedValue = selectedVariants[attr.name];
       if (selectedValue) {
         const option = attr.options.find(opt => opt.value === selectedValue);
-        if (option && option.dimensiones) {
+        if (option && option.dimensiones && 
+            option.dimensiones.largo && 
+            option.dimensiones.ancho && 
+            option.dimensiones.alto) {
           return option.dimensiones;
         }
       }

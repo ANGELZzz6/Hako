@@ -88,6 +88,40 @@ exports.createProduct = async (req, res) => {
   try {
     const { nombre, descripcion, precio, stock, imagen_url, variants, categoria, dimensiones } = req.body;
 
+    console.log('=== [SERVER] CREANDO PRODUCTO ===');
+    console.log('📦 Datos recibidos:', {
+      nombre,
+      precio,
+      stock,
+      categoria,
+      dimensiones
+    });
+    
+    console.log('🔧 Variantes recibidas:', {
+      enabled: variants?.enabled,
+      attributesCount: variants?.attributes?.length || 0
+    });
+    
+    if (variants && variants.enabled && variants.attributes) {
+      console.log('📋 Detalle de variantes recibidas:');
+      variants.attributes.forEach((attr, attrIndex) => {
+        console.log(`   Atributo ${attrIndex + 1}: ${attr.name}`);
+        console.log(`     - Required: ${attr.required}`);
+        console.log(`     - DefinesDimensions: ${attr.definesDimensions}`);
+        console.log(`     - Opciones: ${attr.options?.length || 0}`);
+        
+        if (attr.options) {
+          attr.options.forEach((option, optIndex) => {
+            console.log(`       Opción ${optIndex + 1}: ${option.value}`);
+            console.log(`         - Precio: ${option.price}`);
+            console.log(`         - Stock: ${option.stock}`);
+            console.log(`         - IsActive: ${option.isActive}`);
+            console.log(`         - Dimensiones:`, option.dimensiones);
+          });
+        }
+      });
+    }
+
     // Validaciones
     if (!nombre || !descripcion || precio === undefined || stock === undefined || !imagen_url || !categoria) {
       return res.status(400).json({ error: 'Todos los campos son obligatorios' });
@@ -129,6 +163,30 @@ exports.createProduct = async (req, res) => {
 
     await product.save();
 
+    console.log('✅ [SERVER] Producto creado exitosamente');
+    console.log('📦 Producto guardado:', {
+      id: product._id,
+      nombre: product.nombre,
+      variantsEnabled: product.variants?.enabled,
+      attributesCount: product.variants?.attributes?.length || 0
+    });
+    
+    if (product.variants && product.variants.enabled) {
+      console.log('🔧 Variantes guardadas en DB:');
+      product.variants.attributes.forEach((attr, attrIndex) => {
+        console.log(`   Atributo ${attrIndex + 1}: ${attr.name}`);
+        console.log(`     - DefinesDimensions: ${attr.definesDimensions}`);
+        console.log(`     - Opciones: ${attr.options?.length || 0}`);
+        
+        if (attr.options) {
+          attr.options.forEach((option, optIndex) => {
+            console.log(`       Opción ${optIndex + 1}: ${option.value}`);
+            console.log(`         - Dimensiones guardadas:`, option.dimensiones);
+          });
+        }
+      });
+    }
+
     console.log(`Nuevo producto creado: ${nombre} por admin desde IP: ${req.ip}`);
     res.status(201).json({ 
       message: 'Producto creado correctamente', 
@@ -150,6 +208,38 @@ exports.updateProduct = async (req, res) => {
     const { id } = req.params;
     const { nombre, descripcion, precio, stock, imagen_url, isActive, adminRating, images, variants, categoria, dimensiones } = req.body;
 
+    console.log('=== [SERVER] ACTUALIZANDO PRODUCTO ===');
+    console.log('📦 Datos recibidos:', {
+      id,
+      nombre,
+      precio,
+      stock,
+      categoria,
+      dimensiones
+    });
+    
+    console.log('🔧 Variantes recibidas:', {
+      enabled: variants?.enabled,
+      attributesCount: variants?.attributes?.length || 0
+    });
+    
+    if (variants && variants.enabled && variants.attributes) {
+      console.log('📋 Detalle de variantes recibidas:');
+      variants.attributes.forEach((attr, attrIndex) => {
+        console.log(`   Atributo ${attrIndex + 1}: ${attr.name}`);
+        console.log(`     - DefinesDimensions: ${attr.definesDimensions}`);
+        console.log(`     - Opciones: ${attr.options?.length || 0}`);
+        
+        if (attr.options) {
+          attr.options.forEach((option, optIndex) => {
+            console.log(`       Opción ${optIndex + 1}: ${option.value}`);
+            console.log(`         - Dimensiones guardadas:`, option.dimensiones);
+          });
+        }
+      });
+    }
+
+    // Validaciones
     if (!validator.isMongoId(id)) {
       return res.status(400).json({ error: 'ID de producto inválido' });
     }
@@ -228,6 +318,30 @@ exports.updateProduct = async (req, res) => {
 
     if (!product) {
       return res.status(404).json({ error: 'Producto no encontrado' });
+    }
+
+    console.log('✅ [SERVER] Producto actualizado exitosamente');
+    console.log('📦 Producto guardado:', {
+      id: product._id,
+      nombre: product.nombre,
+      variantsEnabled: product.variants?.enabled,
+      attributesCount: product.variants?.attributes?.length || 0
+    });
+    
+    if (product.variants && product.variants.enabled) {
+      console.log('🔧 Variantes guardadas en DB:');
+      product.variants.attributes.forEach((attr, attrIndex) => {
+        console.log(`   Atributo ${attrIndex + 1}: ${attr.name}`);
+        console.log(`     - DefinesDimensions: ${attr.definesDimensions}`);
+        console.log(`     - Opciones: ${attr.options?.length || 0}`);
+        
+        if (attr.options) {
+          attr.options.forEach((option, optIndex) => {
+            console.log(`       Opción ${optIndex + 1}: ${option.value}`);
+            console.log(`         - Dimensiones guardadas:`, option.dimensiones);
+          });
+        }
+      });
     }
 
     console.log(`Producto actualizado: ${product.nombre} por admin desde IP: ${req.ip}`);

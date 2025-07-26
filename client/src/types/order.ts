@@ -14,6 +14,26 @@ export interface OrderItem {
     };
     volumen?: number;
     tieneDimensiones?: boolean;
+    variants?: {
+      enabled: boolean;
+      attributes: Array<{
+        name: string;
+        required: boolean;
+        definesDimensions?: boolean;
+        options: Array<{
+          value: string;
+          price: number;
+          stock: number;
+          isActive: boolean;
+          dimensiones?: {
+            largo: number;
+            ancho: number;
+            alto: number;
+            peso: number;
+          };
+        }>;
+      }>;
+    };
   };
   dimensiones?: {
     largo: number;

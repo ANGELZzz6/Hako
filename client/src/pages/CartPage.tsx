@@ -130,7 +130,8 @@ const CartPage = () => {
           title: item.nombre_producto,
           quantity: item.cantidad,
           unit_price: item.precio_unitario,
-          picture_url: item.imagen_producto
+          picture_url: item.imagen_producto,
+          variants: item.variants || {} // Incluir las variantes seleccionadas
         }));
       navigate('/checkout', { state: { items, payer: {
         email: currentUser.email,

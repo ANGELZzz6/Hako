@@ -88,6 +88,12 @@ const ProductVariantManager: React.FC<ProductVariantManagerProps> = ({
   };
 
   const handleSetDefinesDimensions = (attributeIndex: number) => {
+    console.log(`🔧 [ProductVariantManager] Cambiando definesDimensions para atributo ${attributeIndex}:`, {
+      attributeName: variants.attributes[attributeIndex].name,
+      currentState: variants.attributes[attributeIndex].definesDimensions,
+      newState: true
+    });
+    
     const newAttributes = variants.attributes.map((attr, idx) => ({
       ...attr,
       definesDimensions: idx === attributeIndex
@@ -114,6 +120,13 @@ const ProductVariantManager: React.FC<ProductVariantManagerProps> = ({
         peso: newOptionPeso || 0
       } : undefined
     };
+
+    console.log(`🔧 [ProductVariantManager] Agregando opción:`, {
+      attributeName: newAttribute.name,
+      definesDimensions: newAttribute.definesDimensions,
+      optionValue: newOptionValue.trim(),
+      dimensiones: newOption.dimensiones
+    });
 
     const newAttributes = [...variants.attributes];
     newAttributes[attributeIndex].options.push(newOption);
@@ -188,6 +201,15 @@ const ProductVariantManager: React.FC<ProductVariantManagerProps> = ({
       peso: option.dimensiones?.peso ?? 0,
       [dimension]: value || 0
     };
+    
+    console.log(`📏 [ProductVariantManager] Actualizando dimensión:`, {
+      attributeName: newAttributes[attributeIndex].name,
+      optionValue: option.value,
+      dimension,
+      value,
+      dimensionesCompletas: option.dimensiones
+    });
+    
     onChange({
       ...variants,
       attributes: newAttributes

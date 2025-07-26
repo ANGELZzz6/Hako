@@ -10,6 +10,7 @@ export interface MPItem {
   title: string;
   unit_price: number;
   quantity?: number;
+  variants?: Record<string, string>; // Variantes seleccionadas del producto
 }
 
 export interface MPPayer {
