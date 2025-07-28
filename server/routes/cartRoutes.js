@@ -15,5 +15,6 @@ router.delete('/', auth, cartController.clearCart);
 // Rutas para administradores
 router.get('/admin/all', auth, adminAuth, cartController.getAllCarts);
 router.get('/admin/stats', auth, adminAuth, cartController.getCartStats);
+router.get('/admin/history/:cartId', auth, adminAuth, cartController.getCartHistory);
 
 module.exports = router; 

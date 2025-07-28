@@ -197,6 +197,20 @@ class CartService {
       throw error;
     }
   }
+
+  async getCartHistory(cartId: string): Promise<any[]> {
+    try {
+      const response = await fetch(`${ENDPOINTS.CART}/admin/history/${cartId}`, {
+        headers: this.getHeaders(),
+      });
+      handle401(response);
+      if (!response.ok) throw new Error('Error al obtener historial');
+      return await response.json();
+    } catch (error) {
+      console.error('Error:', error);
+      throw error;
+    }
+  }
 }
 
 export default new CartService(); 

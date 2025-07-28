@@ -28,6 +28,8 @@ interface ProductVariantModalProps {
     nombre: string;
     precio: number;
     imagen_url: string;
+    descripcion?: string;
+    stock?: number;
     variants?: ProductVariant;
   };
   onAddToCart: (selectedVariants: Record<string, string>, quantity: number) => void;
@@ -101,7 +103,7 @@ const ProductVariantModal: React.FC<ProductVariantModalProps> = ({
 
   const getAvailableStock = () => {
     if (!product.variants?.enabled) {
-      return 999;
+      return product.stock || 999;
     }
 
     let minStock = 999;
@@ -178,9 +180,32 @@ const ProductVariantModal: React.FC<ProductVariantModalProps> = ({
             ))}
           </div>
         ) : (
-          <div className="text-center py-3">
-            <i className="bi bi-info-circle text-primary" style={{ fontSize: '2rem' }}></i>
-            <p className="mt-2">Este producto no requiere selección de variantes</p>
+          <div className="text-center py-4">
+            <div className="mb-3">
+              <img 
+                src={product.imagen_url} 
+                alt={product.nombre}
+                style={{ 
+                  width: '120px', 
+                  height: '120px', 
+                  objectFit: 'cover', 
+                  borderRadius: '8px',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                }}
+              />
+            </div>
+            <h5 className="mb-2">{product.nombre}</h5>
+            <p className="text-muted mb-3">{product.descripcion}</p>
+            <div className="bg-light p-3 rounded">
+              <div className="d-flex justify-content-between align-items-center">
+                <span className="fw-bold">Precio:</span>
+                <span className="h5 text-primary mb-0">${product.precio.toLocaleString('es-CO')}</span>
+              </div>
+              <div className="d-flex justify-content-between align-items-center mt-2">
+                <span className="fw-bold">Stock disponible:</span>
+                <span className="text-success">{product.stock || 999}</span>
+              </div>
+            </div>
           </div>
         )}
 

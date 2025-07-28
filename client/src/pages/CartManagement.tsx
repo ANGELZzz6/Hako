@@ -16,6 +16,15 @@ const CartManagement: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [selectedCart, setSelectedCart] = useState<Cart | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [cartHistory, setCartHistory] = useState<Array<{
+    action: string;
+    productName?: string;
+    quantity?: number;
+    price?: number;
+    timestamp: string;
+  }>>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [activeTab, setActiveTab] = useState<'details' | 'history'>('details');
   const { isAdmin } = useAuth();
 
   useEffect(() => {
@@ -47,9 +56,22 @@ const CartManagement: React.FC = () => {
     }
   };
 
-  const handleViewCart = (cart: Cart) => {
+  const handleViewCart = async (cart: Cart) => {
     setSelectedCart(cart);
     setShowModal(true);
+    setActiveTab('details');
+    setCartHistory([]);
+    
+    // Cargar historial del carrito
+    try {
+      setLoadingHistory(true);
+      const history = await cartService.getCartHistory(cart._id);
+      setCartHistory(history);
+    } catch (error) {
+      console.error('Error al cargar historial:', error);
+    } finally {
+      setLoadingHistory(false);
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -60,6 +82,30 @@ const CartManagement: React.FC = () => {
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  const getActionText = (action: string) => {
+    switch (action) {
+      case 'add': return 'Agregó producto';
+      case 'remove': return 'Eliminó producto';
+      case 'update': return 'Actualizó cantidad';
+      case 'clear': return 'Vació el box';
+      default: return action;
+    }
+  };
+
+  const getActionIcon = (action: string) => {
+    switch (action) {
+      case 'add': return 'bi-plus-circle-fill text-success';
+      case 'remove': return 'bi-dash-circle-fill text-danger';
+      case 'update': return 'bi-pencil-fill text-warning';
+      case 'clear': return 'bi-trash-fill text-danger';
+      default: return 'bi-circle-fill text-secondary';
+    }
+  };
+
+  const handleCloseModal = () => {
+    setShowModal(false);
   };
 
   if (!isAdmin) {
@@ -237,85 +283,151 @@ const CartManagement: React.FC = () => {
           </Card>
 
           {/* Modal para ver detalles del carrito */}
-          <Modal show={showModal} onHide={() => setShowModal(false)} size="lg">
+          <Modal show={showModal} onHide={handleCloseModal} size="lg" centered>
             <Modal.Header closeButton>
               <Modal.Title>Detalles del Box</Modal.Title>
             </Modal.Header>
             <Modal.Body>
               {selectedCart && (
                 <div>
-                  <div className="mb-3">
-                    <strong>ID del Box:</strong> {selectedCart._id}
-                  </div>
-                  <div className="mb-3">
-                    <strong>Usuario:</strong> {
-                      typeof selectedCart.id_usuario === 'object' && selectedCart.id_usuario !== null
-                        ? selectedCart.id_usuario.nombre
-                        : selectedCart.id_usuario
-                    }
-                    {typeof selectedCart.id_usuario === 'object' && selectedCart.id_usuario !== null && (
-                      <div>
-                        <small className="text-muted">{selectedCart.id_usuario.email}</small>
+                  {/* Pestañas */}
+                  <ul className="nav nav-tabs mb-3">
+                    <li className="nav-item">
+                      <button
+                        className={`nav-link ${activeTab === 'details' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('details')}
+                      >
+                        <i className="bi bi-box-seam me-2"></i>
+                        Detalles
+                      </button>
+                    </li>
+                    <li className="nav-item">
+                      <button
+                        className={`nav-link ${activeTab === 'history' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('history')}
+                      >
+                        <i className="bi bi-clock-history me-2"></i>
+                        Historial
+                      </button>
+                    </li>
+                  </ul>
+
+                  {/* Contenido de las pestañas */}
+                  {activeTab === 'details' && (
+                    <div>
+                      <div className="mb-3">
+                        <strong>ID del Box:</strong> {selectedCart._id}
                       </div>
-                    )}
-                  </div>
-                  <div className="mb-3">
-                    <strong>Creado:</strong> {formatDate(selectedCart.creado_en)}
-                  </div>
-                  <div className="mb-3">
-                    <strong>Actualizado:</strong> {formatDate(selectedCart.actualizado_en)}
-                  </div>
-                  
-                  <h6>Productos en el Box:</h6>
-                  {selectedCart.items.length > 0 ? (
-                    <div className="table-responsive">
-                      <Table size="sm">
-                        <thead>
-                          <tr>
-                            <th>Producto</th>
-                            <th>Cantidad</th>
-                            <th>Precio Unit.</th>
-                            <th>Subtotal</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {selectedCart.items.map((item, index) => (
-                            <tr key={index}>
-                              <td>
-                                <div className="d-flex align-items-center">
-                                  <img
-                                    src={item.imagen_producto}
-                                    alt={item.nombre_producto}
-                                    style={{ width: '40px', height: '40px', objectFit: 'cover', marginRight: '10px' }}
-                                    onError={(e) => {
-                                      e.currentTarget.src = 'https://via.placeholder.com/40x40?text=Sin+Imagen';
-                                    }}
-                                  />
-                                  <span>{item.nombre_producto}</span>
-                                </div>
-                              </td>
-                              <td>{item.cantidad}</td>
-                              <td>${item.precio_unitario.toLocaleString('es-CO')}</td>
-                              <td>${(item.precio_unitario * item.cantidad).toLocaleString('es-CO')}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                        <tfoot>
-                          <tr>
-                            <td colSpan={3} className="text-end"><strong>Total:</strong></td>
-                            <td><strong>${selectedCart.total.toLocaleString('es-CO')}</strong></td>
-                          </tr>
-                        </tfoot>
-                      </Table>
+                      <div className="mb-3">
+                        <strong>Usuario:</strong> {
+                          typeof selectedCart.id_usuario === 'object' && selectedCart.id_usuario !== null
+                            ? selectedCart.id_usuario.nombre
+                            : selectedCart.id_usuario
+                        }
+                        {typeof selectedCart.id_usuario === 'object' && selectedCart.id_usuario !== null && (
+                          <div>
+                            <small className="text-muted">{selectedCart.id_usuario.email}</small>
+                          </div>
+                        )}
+                      </div>
+                      <div className="mb-3">
+                        <strong>Creado:</strong> {formatDate(selectedCart.creado_en)}
+                      </div>
+                      <div className="mb-3">
+                        <strong>Actualizado:</strong> {formatDate(selectedCart.actualizado_en)}
+                      </div>
+                      
+                      <h6>Productos en el Box:</h6>
+                      {selectedCart.items.length > 0 ? (
+                        <div className="table-responsive">
+                          <Table size="sm">
+                            <thead>
+                              <tr>
+                                <th>Producto</th>
+                                <th>Cantidad</th>
+                                <th>Precio Unit.</th>
+                                <th>Subtotal</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {selectedCart.items.map((item, index) => (
+                                <tr key={index}>
+                                  <td>
+                                    <div className="d-flex align-items-center">
+                                      <img
+                                        src={item.imagen_producto}
+                                        alt={item.nombre_producto}
+                                        style={{ width: '40px', height: '40px', objectFit: 'cover', marginRight: '10px' }}
+                                        onError={(e) => {
+                                          e.currentTarget.src = 'https://via.placeholder.com/40x40?text=Sin+Imagen';
+                                        }}
+                                      />
+                                      <span>{item.nombre_producto}</span>
+                                    </div>
+                                  </td>
+                                  <td>{item.cantidad}</td>
+                                  <td>${item.precio_unitario.toLocaleString('es-CO')}</td>
+                                  <td>${(item.precio_unitario * item.cantidad).toLocaleString('es-CO')}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                            <tfoot>
+                              <tr>
+                                <td colSpan={3} className="text-end"><strong>Total:</strong></td>
+                                <td><strong>${selectedCart.total.toLocaleString('es-CO')}</strong></td>
+                              </tr>
+                            </tfoot>
+                          </Table>
+                        </div>
+                      ) : (
+                        <p className="text-muted">Este box está vacío.</p>
+                      )}
                     </div>
-                  ) : (
-                    <p className="text-muted">Este box está vacío.</p>
+                  )}
+
+                  {activeTab === 'history' && (
+                    <div>
+                      <h6>Historial de Acciones</h6>
+                      {loadingHistory ? (
+                        <div className="text-center py-3">
+                          <div className="spinner-border text-primary" role="status">
+                            <span className="visually-hidden">Cargando...</span>
+                          </div>
+                          <p className="mt-2">Cargando historial...</p>
+                        </div>
+                      ) : cartHistory.length > 0 ? (
+                        <div className="history-list">
+                          {cartHistory.map((entry, index) => (
+                            <div key={index} className="history-item d-flex align-items-center p-2 border-bottom">
+                              <div className="me-3">
+                                <i className={`bi ${getActionIcon(entry.action)} fs-5`}></i>
+                              </div>
+                              <div className="flex-grow-1">
+                                <div className="fw-bold">{getActionText(entry.action)}</div>
+                                {entry.productName && (
+                                  <div className="text-muted small">
+                                    Producto: {entry.productName}
+                                    {entry.quantity && ` - Cantidad: ${entry.quantity}`}
+                                    {entry.price && ` - Precio: $${entry.price.toLocaleString('es-CO')}`}
+                                  </div>
+                                )}
+                                <div className="text-muted small">
+                                  {formatDate(entry.timestamp)}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-muted">No hay historial disponible.</p>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
             </Modal.Body>
             <Modal.Footer>
-              <Button variant="secondary" onClick={() => setShowModal(false)}>
+              <Button variant="secondary" onClick={handleCloseModal}>
                 Cerrar
               </Button>
             </Modal.Footer>

@@ -1,5 +1,25 @@
 const Cart = require('../models/Cart');
 const Product = require('../models/Product');
+const CartHistory = require('../models/CartHistory');
+
+// Función helper para registrar historial
+const logCartAction = async (cartId, userId, action, productId = null, productName = null, quantity = null, price = null) => {
+  try {
+    await CartHistory.create({
+      cartId,
+      userId,
+      action,
+      productId,
+      productName,
+      quantity,
+      price,
+      actionType: productId ? 'product' : 'cart'
+    });
+  } catch (error) {
+    console.error('Error logging cart action:', error);
+    // No fallar la operación principal por un error en el historial
+  }
+};
 
 // Obtener el carrito del usuario
 const getCart = async (req, res) => {
@@ -132,6 +152,17 @@ const addToCart = async (req, res) => {
     
     await cart.save();
     
+    // Registrar la acción en el historial
+    await logCartAction(
+      cart._id, 
+      userId, 
+      existingItemIndex > -1 ? 'update' : 'add', 
+      productId, 
+      product.nombre, 
+      quantity, 
+      finalPrice
+    );
+    
     // Poblar los datos del producto para la respuesta
     await cart.populate('items.id_producto', 'nombre precio imagen_url descripcion');
     
@@ -189,11 +220,29 @@ const removeFromCart = async (req, res) => {
       return res.status(404).json({ message: 'Carrito no encontrado' });
     }
     
+    // Encontrar el item antes de eliminarlo para el historial
+    const itemToRemove = cart.items.find(
+      item => item.id_producto.toString() === productId
+    );
+    
     cart.items = cart.items.filter(
       item => item.id_producto.toString() !== productId
     );
     
     await cart.save();
+    
+    // Registrar la acción en el historial
+    if (itemToRemove) {
+      await logCartAction(
+        cart._id,
+        userId,
+        'remove',
+        productId,
+        itemToRemove.nombre_producto,
+        itemToRemove.cantidad,
+        itemToRemove.precio_unitario
+      );
+    }
     
     await cart.populate('items.id_producto', 'nombre precio imagen_url descripcion');
     
@@ -243,6 +292,19 @@ const clearCart = async (req, res) => {
     const cart = await Cart.findOne({ id_usuario: userId });
     if (!cart) {
       return res.status(404).json({ message: 'Carrito no encontrado' });
+    }
+    
+    // Registrar la acción de limpiar carrito en el historial
+    if (cart.items.length > 0) {
+      await logCartAction(
+        cart._id,
+        userId,
+        'clear',
+        null,
+        null,
+        cart.items.length,
+        cart.total
+      );
     }
     
     cart.items = [];
@@ -297,6 +359,24 @@ const getCartStats = async (req, res) => {
   }
 };
 
+// Obtener historial de un carrito específico (para admin)
+const getCartHistory = async (req, res) => {
+  try {
+    const { cartId } = req.params;
+    
+    const history = await CartHistory.find({ cartId })
+      .sort({ timestamp: -1 })
+      .limit(50) // Limitar a los últimos 50 registros para no sobrecargar
+      .populate('productId', 'nombre imagen_url')
+      .exec();
+    
+    res.json(history);
+  } catch (error) {
+    console.error('Error al obtener historial del carrito:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+};
+
 module.exports = {
   getCart,
   addToCart,
@@ -305,5 +385,6 @@ module.exports = {
   removeMultipleItems,
   clearCart,
   getAllCarts,
-  getCartStats
+  getCartStats,
+  getCartHistory
 }; 

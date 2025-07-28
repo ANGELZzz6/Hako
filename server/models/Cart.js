@@ -56,12 +56,37 @@ const carritoSchema = new mongoose.Schema({
 carritoSchema.pre('save', function(next) {
   this.actualizado_en = new Date();
   
-  // Calcular el total
+  // Calcular el total basado en los items actuales
   this.total = this.items.reduce((sum, item) => {
     return sum + (item.precio_unitario * item.cantidad);
   }, 0);
   
   next();
 });
+
+// Método para recalcular el total manualmente
+carritoSchema.methods.recalculateTotal = function() {
+  this.total = this.items.reduce((sum, item) => {
+    return sum + (item.precio_unitario * item.cantidad);
+  }, 0);
+  return this.total;
+};
+
+// Método estático para limpiar carritos con totales incorrectos
+carritoSchema.statics.fixIncorrectTotals = async function() {
+  const carts = await this.find().populate('items.id_producto');
+  
+  for (const cart of carts) {
+    const correctTotal = cart.items.reduce((sum, item) => {
+      return sum + (item.precio_unitario * item.cantidad);
+    }, 0);
+    
+    if (cart.total !== correctTotal) {
+      cart.total = correctTotal;
+      await cart.save();
+      console.log(`Fixed cart ${cart._id}: ${cart.total} -> ${correctTotal}`);
+    }
+  }
+};
 
 module.exports = mongoose.model('Cart', carritoSchema);

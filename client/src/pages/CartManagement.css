@@ -241,6 +241,46 @@
   }
 }
 
+/* Estilos para el historial */
+.history-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.history-item {
+  transition: background-color 0.2s ease;
+}
+
+.history-item:hover {
+  background-color: #f8f9fa;
+}
+
+.history-item:last-child {
+  border-bottom: none !important;
+}
+
+/* Estilos para las pestañas */
+.nav-tabs .nav-link {
+  border: none;
+  color: #6c757d;
+  font-weight: 500;
+  padding: 0.75rem 1rem;
+  transition: all 0.2s ease;
+}
+
+.nav-tabs .nav-link:hover {
+  border: none;
+  color: #495057;
+  background-color: #f8f9fa;
+}
+
+.nav-tabs .nav-link.active {
+  border: none;
+  color: #d9534f;
+  background-color: #fff;
+  border-bottom: 2px solid #d9534f;
+}
+
 /* Estilos para la gestión de carritos */
 .admin-dashboard {
   background-color: #f5f2f2;

@@ -241,43 +241,8 @@ const ProductDetail: React.FC = () => {
 
   const handleAddToBox = async () => {
     if (!product) return;
-    if (product.variants && product.variants.enabled) {
-      setShowVariantModal(true);
-      return;
-    }
-    try {
-      setAddingToBox(true);
-      await cartService.addToCart(product._id, 1);
-      await refreshCart();
-      // Mostrar toast de éxito
-      const toast = document.createElement('div');
-      toast.className = 'toast-success';
-      toast.innerHTML = `
-        <div style="
-          position: fixed; top: 20px; right: 20px; 
-          background: #28a745; color: white; padding: 1rem 1.5rem; 
-          border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-          z-index: 10000; animation: slideInRight 0.3s ease;
-          display: flex; align-items: center; gap: 0.5rem;
-        ">
-          <i class="bi bi-check-circle-fill"></i>
-          ¡Producto agregado al box! 🎉
-        </div>
-      `;
-      document.body.appendChild(toast);
-      
-      // Remover toast después de 3 segundos
-      setTimeout(() => {
-        toast.style.animation = 'slideOutRight 0.3s ease';
-        setTimeout(() => document.body.removeChild(toast), 300);
-      }, 3000);
-      
-    } catch (error) {
-      console.error('Error al agregar al box:', error);
-      alert('Error al agregar al box. Intenta de nuevo.');
-    } finally {
-      setAddingToBox(false);
-    }
+    // Mostrar el modal para todos los productos (con o sin variantes)
+    setShowVariantModal(true);
   };
 
   // Manejar la adición al carrito desde el modal de variantes
@@ -285,11 +250,18 @@ const ProductDetail: React.FC = () => {
     if (!product) return;
     try {
       setAddingToBox(true);
-      await cartService.addToCartWithVariants({
-        productId: product._id,
-        quantity,
-        variants: selectedVariants
-      });
+      
+      // Si el producto tiene variantes, usar addToCartWithVariants, sino usar addToCart
+      if (product.variants && product.variants.enabled) {
+        await cartService.addToCartWithVariants({
+          productId: product._id,
+          quantity,
+          variants: selectedVariants
+        });
+      } else {
+        await cartService.addToCart(product._id, quantity);
+      }
+      
       await refreshCart();
       setShowVariantModal(false);
       // Mostrar toast de éxito
@@ -452,7 +424,7 @@ const ProductDetail: React.FC = () => {
           </div>
         </div>
         {/* Modal de variantes */}
-        {product && product.variants && product.variants.enabled && (
+        {product && (
           <ProductVariantModal
             show={showVariantModal}
             onHide={() => setShowVariantModal(false)}
