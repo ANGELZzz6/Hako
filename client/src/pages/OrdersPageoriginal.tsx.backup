@@ -1,0 +1,6 @@
+// Este archivo ha sido refactorizado y movido a la carpeta OrdersPage/
+// Para ver la implementación completa, revisa: src/pages/OrdersPage/index.tsx
+
+import OrdersPage from './OrdersPage/index';
+
+export default OrdersPage; 

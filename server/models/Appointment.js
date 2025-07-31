@@ -43,7 +43,12 @@ const appointmentSchema = new mongoose.Schema({
   
   // Productos que se van a recoger en esta cita
   itemsToPickup: [{
-    product: {
+    individualProduct: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'IndividualProduct',
+      required: true
+    },
+    originalProduct: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Product',
       required: true

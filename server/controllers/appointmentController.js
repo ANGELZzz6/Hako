@@ -187,7 +187,8 @@ exports.createAppointment = async (req, res) => {
       }
       
       validItems.push({
-        product: individualProduct.product._id,
+        individualProduct: individualProduct._id,
+        originalProduct: individualProduct.product._id,
         quantity: 1, // Siempre 1 para productos individuales
         lockerNumber: pickupItem.lockerNumber,
         individualProductId: individualProduct._id
@@ -229,7 +230,8 @@ exports.createAppointment = async (req, res) => {
           // Agregar productos a la reserva existente
           for (const product of products) {
             existingAppointment.itemsToPickup.push({
-              product: product.product,
+              individualProduct: product.individualProduct,
+              originalProduct: product.originalProduct,
               quantity: product.quantity,
               lockerNumber: product.lockerNumber
             });
@@ -333,10 +335,57 @@ exports.getMyAppointments = async (req, res) => {
   try {
     const appointments = await Appointment.find({ user: req.user.id })
       .populate('order', 'total_amount status')
-      .populate('itemsToPickup.product', 'nombre imagen_url descripcion dimensiones')
+      .populate('itemsToPickup.individualProduct')
+      .populate('itemsToPickup.originalProduct', 'nombre imagen_url descripcion dimensiones variants')
       .sort({ scheduledDate: 1, timeSlot: 1 });
     
-    res.json(appointments);
+    // Procesar cada cita para agregar información de variantes y dimensiones calculadas
+    const processedAppointments = await Promise.all(appointments.map(async (appointment) => {
+      const IndividualProduct = require('../models/IndividualProduct');
+      
+      // Procesar cada item en la cita
+      const processedItems = await Promise.all(appointment.itemsToPickup.map(async (item) => {
+        console.log(`🔍 Procesando item de reserva: ${item.originalProduct.nombre}`);
+        
+        // Usar directamente el IndividualProduct ya poblado
+        const individualProduct = item.individualProduct;
+        
+        if (individualProduct) {
+          console.log(`🔍 Usando IndividualProduct ID: ${individualProduct._id}`);
+          console.log(`🔍 Variantes:`, individualProduct.variants ? Object.fromEntries(individualProduct.variants) : 'Sin variantes');
+          
+          // Calcular dimensiones considerando variantes
+          const variantDimensiones = individualProduct.getVariantOrProductDimensions();
+          const variantVolume = individualProduct.getVariantOrProductVolume();
+          
+          console.log(`🔍 Dimensiones calculadas:`, variantDimensiones);
+          console.log(`🔍 Volumen calculado:`, variantVolume);
+          
+          // Agregar información de variantes y dimensiones calculadas al item
+          return {
+            ...item.toObject(),
+            product: item.originalProduct, // Mantener compatibilidad con el frontend
+            variants: individualProduct.variants ? Object.fromEntries(individualProduct.variants) : null,
+            dimensiones: variantDimensiones,
+            volumen: variantVolume,
+            individualProductId: individualProduct._id
+          };
+        }
+        
+        console.log(`⚠️ No se encontró IndividualProduct para ${item.originalProduct.nombre}`);
+        return {
+          ...item.toObject(),
+          product: item.originalProduct // Mantener compatibilidad con el frontend
+        };
+      }));
+      
+      return {
+        ...appointment.toObject(),
+        itemsToPickup: processedItems
+      };
+    }));
+    
+    res.json(processedAppointments);
   } catch (error) {
     console.error('Error al obtener citas del usuario:', error);
     res.status(500).json({ error: 'Error interno del servidor' });
@@ -353,13 +402,58 @@ exports.getMyAppointment = async (req, res) => {
       user: req.user.id 
     })
     .populate('order', 'total_amount status')
-    .populate('itemsToPickup.product', 'nombre imagen_url descripcion dimensiones');
+    .populate('itemsToPickup.individualProduct')
+    .populate('itemsToPickup.originalProduct', 'nombre imagen_url descripcion dimensiones variants');
     
     if (!appointment) {
       return res.status(404).json({ error: 'Cita no encontrada' });
     }
     
-    res.json(appointment);
+    // Procesar la cita para agregar información de variantes y dimensiones calculadas
+    const IndividualProduct = require('../models/IndividualProduct');
+    
+    // Procesar cada item en la cita
+    const processedItems = await Promise.all(appointment.itemsToPickup.map(async (item) => {
+      console.log(`🔍 Procesando item de reserva: ${item.originalProduct.nombre}`);
+      
+      // Usar directamente el IndividualProduct ya poblado
+      const individualProduct = item.individualProduct;
+      
+      if (individualProduct) {
+        console.log(`🔍 Usando IndividualProduct ID: ${individualProduct._id}`);
+        console.log(`🔍 Variantes:`, individualProduct.variants ? Object.fromEntries(individualProduct.variants) : 'Sin variantes');
+        
+        // Calcular dimensiones considerando variantes
+        const variantDimensiones = individualProduct.getVariantOrProductDimensions();
+        const variantVolume = individualProduct.getVariantOrProductVolume();
+        
+        console.log(`🔍 Dimensiones calculadas:`, variantDimensiones);
+        console.log(`🔍 Volumen calculado:`, variantVolume);
+        
+        // Agregar información de variantes y dimensiones calculadas al item
+        return {
+          ...item.toObject(),
+          product: item.originalProduct, // Mantener compatibilidad con el frontend
+          variants: individualProduct.variants ? Object.fromEntries(individualProduct.variants) : null,
+          dimensiones: variantDimensiones,
+          volumen: variantVolume,
+          individualProductId: individualProduct._id
+        };
+      }
+      
+      console.log(`⚠️ No se encontró IndividualProduct para ${item.originalProduct.nombre}`);
+      return {
+        ...item.toObject(),
+        product: item.originalProduct // Mantener compatibilidad con el frontend
+      };
+    }));
+    
+    const processedAppointment = {
+      ...appointment.toObject(),
+      itemsToPickup: processedItems
+    };
+    
+    res.json(processedAppointment);
   } catch (error) {
     console.error('Error al obtener cita:', error);
     res.status(500).json({ error: 'Error interno del servidor' });
@@ -587,7 +681,8 @@ exports.updateMyAppointment = async (req, res) => {
     
     // Poblar datos para la respuesta
     await appointment.populate('order', 'total_amount status');
-    await appointment.populate('itemsToPickup.product', 'nombre imagen_url descripcion dimensiones');
+    await appointment.populate('itemsToPickup.individualProduct');
+    await appointment.populate('itemsToPickup.originalProduct', 'nombre imagen_url descripcion dimensiones');
     
     res.json({
       message: 'Reserva actualizada exitosamente',
@@ -609,7 +704,8 @@ exports.cancelAppointment = async (req, res) => {
     const appointment = await Appointment.findOne({ 
       _id: appointmentId, 
       user: req.user.id 
-    }).populate('itemsToPickup.product');
+    }).populate('itemsToPickup.individualProduct')
+      .populate('itemsToPickup.originalProduct');
     
     if (!appointment) {
       return res.status(404).json({ error: 'Cita no encontrada' });
@@ -632,16 +728,32 @@ exports.cancelAppointment = async (req, res) => {
     const liberatedProducts = [];
     for (const pickupItem of appointment.itemsToPickup) {
       try {
-        // Buscar el producto individual por el ID del producto
-        const individualProduct = await IndividualProduct.findOne({
-          product: pickupItem.product._id,
-          user: req.user.id,
-          status: 'reserved',
-          assignedLocker: pickupItem.lockerNumber
-        });
+        const itemDoc = pickupItem._doc || pickupItem;
+        const individualProductId = itemDoc.individualProduct;
+        const originalProduct = itemDoc.originalProduct;
+        
+        console.log(`🔍 Buscando producto individual para: ${originalProduct?.nombre || 'Producto sin nombre'}`);
+        console.log(`   IndividualProduct ID: ${individualProductId}`);
+        console.log(`   Casillero: ${itemDoc.lockerNumber}`);
+        
+        // Buscar el producto individual directamente por su ID
+        let individualProduct = await IndividualProduct.findById(individualProductId);
+        
+        // Si no se encuentra por ID, buscar por criterios alternativos
+        if (!individualProduct) {
+          console.log(`⚠️ No se encontró por ID, buscando por criterios alternativos...`);
+          individualProduct = await IndividualProduct.findOne({
+            product: originalProduct?._id || originalProduct,
+            user: req.user.id,
+            status: 'reserved',
+            assignedLocker: itemDoc.lockerNumber
+          });
+        }
         
         if (individualProduct) {
           console.log(`🔓 Liberando producto individual: ${individualProduct._id}`);
+          console.log(`   Estado actual: ${individualProduct.status}`);
+          console.log(`   Casillero asignado: ${individualProduct.assignedLocker}`);
           
           // Liberar el producto individual
           individualProduct.status = 'available';
@@ -651,16 +763,35 @@ exports.cancelAppointment = async (req, res) => {
           
           liberatedProducts.push({
             productId: individualProduct._id,
-            productName: pickupItem.product.nombre,
-            lockerNumber: pickupItem.lockerNumber
+            productName: originalProduct?.nombre || 'Producto sin nombre',
+            lockerNumber: itemDoc.lockerNumber,
+            originalStatus: individualProduct.status
           });
           
-          console.log(`✅ Producto liberado: ${pickupItem.product.nombre}`);
+          const productName = originalProduct?.nombre || 'Producto sin nombre';
+          console.log(`✅ Producto liberado: ${productName}`);
         } else {
-          console.log(`⚠️ No se encontró producto individual para: ${pickupItem.product.nombre}`);
+          const productName = originalProduct?.nombre || 'Producto sin nombre';
+          console.log(`❌ No se encontró ningún producto individual para: ${productName}`);
+          
+          // Debug: mostrar todos los productos individuales para este producto
+          if (originalProduct?._id) {
+            const allIndividualProducts = await IndividualProduct.find({
+              product: originalProduct._id,
+              user: req.user.id
+            });
+            
+            console.log(`🔍 Productos individuales encontrados para ${productName}:`, allIndividualProducts.length);
+            allIndividualProducts.forEach((ip, index) => {
+              console.log(`   ${index + 1}. ID: ${ip._id}, Estado: ${ip.status}, Casillero: ${ip.assignedLocker}`);
+            });
+          } else {
+            console.log(`⚠️ No se puede buscar productos individuales: originalProduct es null`);
+          }
         }
       } catch (productError) {
-        console.error(`❌ Error liberando producto ${pickupItem.product.nombre}:`, productError);
+        const productName = originalProduct?.nombre || 'Producto sin nombre';
+        console.error(`❌ Error liberando producto ${productName}:`, productError);
       }
     }
     
@@ -718,7 +849,8 @@ exports.getAllAppointments = async (req, res) => {
     const appointments = await Appointment.find(query)
       .populate('user', 'nombre email telefono')
       .populate('order', 'total_amount status')
-      .populate('itemsToPickup.product', 'nombre imagen_url')
+      .populate('itemsToPickup.individualProduct')
+      .populate('itemsToPickup.originalProduct', 'nombre imagen_url')
       .sort({ scheduledDate: 1, timeSlot: 1 });
     
     res.json(appointments);
@@ -737,7 +869,8 @@ exports.updateAppointmentStatus = async (req, res) => {
     const appointment = await Appointment.findById(appointmentId)
       .populate('user', 'nombre email')
       .populate('order', 'status')
-      .populate('itemsToPickup.product');
+      .populate('itemsToPickup.individualProduct')
+      .populate('itemsToPickup.originalProduct');
     
     if (!appointment) {
       return res.status(404).json({ error: 'Cita no encontrada' });
@@ -752,13 +885,22 @@ exports.updateAppointmentStatus = async (req, res) => {
       const liberatedProducts = [];
       for (const pickupItem of appointment.itemsToPickup) {
         try {
-          // Buscar el producto individual por el ID del producto
-          const individualProduct = await IndividualProduct.findOne({
-            product: pickupItem.product._id,
-            user: appointment.user._id,
-            status: 'reserved',
-            assignedLocker: pickupItem.lockerNumber
-          });
+          const itemDoc = pickupItem._doc || pickupItem;
+          const individualProductId = itemDoc.individualProduct;
+          const originalProduct = itemDoc.originalProduct;
+          
+          // Buscar el producto individual directamente por su ID
+          let individualProduct = await IndividualProduct.findById(individualProductId);
+          
+          // Si no se encuentra por ID, buscar por criterios alternativos
+          if (!individualProduct) {
+            individualProduct = await IndividualProduct.findOne({
+              product: originalProduct?._id || originalProduct,
+              user: appointment.user._id,
+              status: 'reserved',
+              assignedLocker: itemDoc.lockerNumber
+            });
+          }
           
           if (individualProduct) {
             console.log(`🔓 Liberando producto individual: ${individualProduct._id}`);
@@ -771,16 +913,16 @@ exports.updateAppointmentStatus = async (req, res) => {
             
             liberatedProducts.push({
               productId: individualProduct._id,
-              productName: pickupItem.product.nombre,
-              lockerNumber: pickupItem.lockerNumber
+              productName: originalProduct?.nombre || 'Producto sin nombre',
+              lockerNumber: itemDoc.lockerNumber
             });
             
-            console.log(`✅ Producto liberado: ${pickupItem.product.nombre}`);
+            console.log(`✅ Producto liberado: ${originalProduct?.nombre || 'Producto sin nombre'}`);
           } else {
-            console.log(`⚠️ No se encontró producto individual para: ${pickupItem.product.nombre}`);
+            console.log(`⚠️ No se encontró producto individual para: ${originalProduct?.nombre || 'Producto sin nombre'}`);
           }
         } catch (productError) {
-          console.error(`❌ Error liberando producto ${pickupItem.product.nombre}:`, productError);
+          console.error(`❌ Error liberando producto:`, productError);
         }
       }
       
@@ -874,7 +1016,8 @@ exports.deleteAppointment = async (req, res) => {
     
     const appointment = await Appointment.findById(appointmentId)
       .populate('order', 'status')
-      .populate('itemsToPickup.product');
+      .populate('itemsToPickup.individualProduct')
+      .populate('itemsToPickup.originalProduct');
     
     if (!appointment) {
       return res.status(404).json({ error: 'Cita no encontrada' });
@@ -892,13 +1035,22 @@ exports.deleteAppointment = async (req, res) => {
     const liberatedProducts = [];
     for (const pickupItem of appointment.itemsToPickup) {
       try {
-        // Buscar el producto individual por el ID del producto
-        const individualProduct = await IndividualProduct.findOne({
-          product: pickupItem.product._id,
-          user: appointment.user,
-          status: 'reserved',
-          assignedLocker: pickupItem.lockerNumber
-        });
+        const itemDoc = pickupItem._doc || pickupItem;
+        const individualProductId = itemDoc.individualProduct;
+        const originalProduct = itemDoc.originalProduct;
+        
+        // Buscar el producto individual directamente por su ID
+        let individualProduct = await IndividualProduct.findById(individualProductId);
+        
+        // Si no se encuentra por ID, buscar por criterios alternativos
+        if (!individualProduct) {
+          individualProduct = await IndividualProduct.findOne({
+            product: originalProduct?._id || originalProduct,
+            user: appointment.user,
+            status: 'reserved',
+            assignedLocker: itemDoc.lockerNumber
+          });
+        }
         
         if (individualProduct) {
           console.log(`🔓 Liberando producto individual: ${individualProduct._id}`);
@@ -911,16 +1063,16 @@ exports.deleteAppointment = async (req, res) => {
           
           liberatedProducts.push({
             productId: individualProduct._id,
-            productName: pickupItem.product.nombre,
-            lockerNumber: pickupItem.lockerNumber
+            productName: originalProduct?.nombre || 'Producto sin nombre',
+            lockerNumber: itemDoc.lockerNumber
           });
           
-          console.log(`✅ Producto liberado: ${pickupItem.product.nombre}`);
+          console.log(`✅ Producto liberado: ${originalProduct?.nombre || 'Producto sin nombre'}`);
         } else {
-          console.log(`⚠️ No se encontró producto individual para: ${pickupItem.product.nombre}`);
+          console.log(`⚠️ No se encontró producto individual para: ${originalProduct?.nombre || 'Producto sin nombre'}`);
         }
       } catch (productError) {
-        console.error(`❌ Error liberando producto ${pickupItem.product.nombre}:`, productError);
+        console.error(`❌ Error liberando producto:`, productError);
       }
     }
     
@@ -930,8 +1082,11 @@ exports.deleteAppointment = async (req, res) => {
       
       // Reducir la cantidad reclamada de los productos
       for (const pickupItem of appointment.itemsToPickup) {
+        const itemDoc = pickupItem._doc || pickupItem;
+        const originalProductId = itemDoc.originalProduct?._id || itemDoc.originalProduct;
+        
         const orderItem = order.items.find(item => 
-          item.product.toString() === pickupItem.product._id
+          item.product.toString() === originalProductId
         );
         
         if (orderItem) {
@@ -1026,7 +1181,8 @@ exports.addProductsToAppointment = async (req, res) => {
       }
       
       validProducts.push({
-        product: individualProduct.product._id,
+        individualProduct: individualProduct._id, // Referencia al producto individual
+        originalProduct: individualProduct.product._id, // Referencia al producto original
         quantity: productData.quantity || 1,
         lockerNumber: productData.lockerNumber,
         individualProductId: individualProduct._id
@@ -1155,6 +1311,7 @@ exports.createMultipleAppointments = async (req, res) => {
         // Validar que los productos individuales existen y están disponibles
         const validItems = [];
         for (const pickupItem of itemsToPickup) {
+          // El frontend envía 'product' pero realmente es el ID del IndividualProduct
           const individualProduct = await IndividualProduct.findOne({
             _id: pickupItem.product,
             user: req.user.id,
@@ -1172,7 +1329,8 @@ exports.createMultipleAppointments = async (req, res) => {
           }
           
           validItems.push({
-            product: individualProduct.product._id,
+            individualProduct: individualProduct._id,
+            originalProduct: individualProduct.product._id,
             quantity: 1,
             lockerNumber: pickupItem.lockerNumber,
             individualProductId: individualProduct._id

@@ -11,7 +11,7 @@ export interface TimeSlot {
 }
 
 export interface AppointmentItem {
-  product: string;
+  product: string; // Para compatibilidad con el frontend, pero el backend lo interpretará como individualProduct
   quantity: number;
   lockerNumber: number;
 }

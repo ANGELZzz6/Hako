@@ -147,9 +147,18 @@ individualProductSchema.methods.getVariantOrProductDimensions = function() {
   if (this.variants && this.variants.size > 0) {
     // Necesitamos poblar el producto para acceder a sus variantes
     if (this.populated('product') && this.product.variants && this.product.variants.enabled) {
-      return this.product.getVariantOrProductDimensions(Object.fromEntries(this.variants));
+      const selectedVariants = Object.fromEntries(this.variants);
+      console.log('🔍 IndividualProduct.getVariantOrProductDimensions - selectedVariants:', selectedVariants);
+      const variantDimensiones = this.product.getVariantOrProductDimensions(selectedVariants);
+      console.log('🔍 IndividualProduct.getVariantOrProductDimensions - variantDimensiones:', variantDimensiones);
+      return variantDimensiones;
     }
   }
+  // Si no hay variantes o no se puede calcular, usar las dimensiones del producto base poblado
+  if (this.populated('product') && this.product.dimensiones) {
+    return this.product.dimensiones;
+  }
+  // Fallback a las dimensiones estáticas copiadas
   return this.dimensiones;
 };
 

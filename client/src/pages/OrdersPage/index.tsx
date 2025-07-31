@@ -1,0 +1,1247 @@
+import React, { useEffect, useState } from 'react';
+import { useAuth } from '../../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import orderService from '../../services/orderService';
+import appointmentService from '../../services/appointmentService';
+import AppointmentScheduler from '../../components/AppointmentScheduler';
+import PackingOptimizationTips from '../../components/PackingOptimizationTips';
+import gridPackingService from '../../services/gridPackingService';
+import Locker3DCanvas from '../../components/Locker3DCanvas';
+import type { CreateAppointmentData } from '../../services/appointmentService';
+import type { Appointment } from '../../services/appointmentService';
+import { getDimensiones, getVolumen, tieneDimensiones, hasLockerSpace } from './utils/productUtils';
+import { createLocalDate } from './utils/dateUtils';
+import { useOrdersPage } from './hooks/useOrdersPage';
+import ProductCard from './components/ProductCard';
+import LockerVisualization from './components/LockerVisualization';
+import AppointmentCard from './components/AppointmentCard';
+import EditAppointmentModal from './components/EditAppointmentModal';
+import LoadingOverlay from './components/LoadingOverlay';
+
+const OrdersPage: React.FC = () => {
+  const { isAuthenticated, isLoading } = useAuth();
+  const navigate = useNavigate();
+  const {
+    // Estados
+    purchasedProducts,
+    loading,
+    error,
+    selectedProducts,
+    lockerAssignments,
+    claimingProducts,
+    availableLockers,
+    showAppointmentScheduler,
+    schedulingAppointment,
+    myAppointments,
+    loadingAppointments,
+    packingResult,
+    showPackingOptimization,
+    recentlyUnlockedProducts,
+    cancellingAppointment,
+    reservingLocker,
+    updatingAppointment,
+    showEditAppointmentModal,
+    selectedAppointmentForEdit,
+    editAppointmentDate,
+    editAppointmentTime,
+    editAppointmentLocker,
+    penalizedDates,
+    penaltyWarning,
+    visualizationKey,
+
+    // Setters
+    setPurchasedProducts,
+    setSelectedProducts,
+    setLockerAssignments,
+    setPackingResult,
+    setRecentlyUnlockedProducts,
+    setShowAppointmentScheduler,
+    setShowPackingOptimization,
+    setCancellingAppointment,
+    setReservingLocker,
+    setUpdatingAppointment,
+    setSchedulingAppointment,
+    setShowEditAppointmentModal,
+    setSelectedAppointmentForEdit,
+    setEditAppointmentDate,
+    setEditAppointmentTime,
+    setEditAppointmentLocker,
+    setPenaltyWarning,
+    setMyAppointments,
+
+    // Funciones
+    forceCleanupStates,
+    fetchMyAppointments,
+    selectAllAvailableProducts,
+    updateLockerAssignments,
+    canAddProductsToAppointment,
+    forceVisualizationUpdate,
+  } = useOrdersPage();
+
+  // Verificar autenticación
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      navigate('/login');
+    }
+  }, [isAuthenticated, isLoading, navigate]);
+
+  // Función para manejar selección de productos individuales
+  const handleQuantityChange = (itemIndex: number, quantity: number) => {
+    const item = purchasedProducts[itemIndex];
+    
+    if (item.isClaimed || item.assigned_locker) {
+      return;
+    }
+    
+    if (quantity !== 0 && quantity !== 1) {
+      quantity = quantity > 0 ? 1 : 0;
+    }
+    
+    if (quantity === 0) {
+      const newSelectedProducts = new Map(selectedProducts);
+      newSelectedProducts.delete(itemIndex);
+      setSelectedProducts(newSelectedProducts);
+      updateLockerAssignments(newSelectedProducts);
+      return;
+    }
+
+    const currentSelection = selectedProducts.get(itemIndex);
+    const newSelectedProducts = new Map(selectedProducts);
+    const defaultLocker = availableLockers.length > 0 ? availableLockers[0] : 1;
+    
+    newSelectedProducts.set(itemIndex, {
+      quantity: 1,
+      lockerNumber: currentSelection?.lockerNumber || defaultLocker
+    });
+    
+    setSelectedProducts(newSelectedProducts);
+    updateLockerAssignments(newSelectedProducts);
+  };
+
+  // Función para manejar cambio de locker
+  const handleLockerChange = (itemIndex: number, lockerNumber: number) => {
+    const currentSelection = selectedProducts.get(itemIndex);
+    if (!currentSelection) return;
+
+    const newSelectedProducts = new Map(selectedProducts);
+    newSelectedProducts.set(itemIndex, {
+      ...currentSelection,
+      lockerNumber
+    });
+    
+    setSelectedProducts(newSelectedProducts);
+    updateLockerAssignments(newSelectedProducts);
+  };
+
+  // Función para verificar errores de validación
+  const getValidationErrors = () => {
+    const errors: string[] = [];
+
+    if (packingResult && packingResult.lockers.length > 0) {
+      return errors;
+    }
+
+    selectedProducts.forEach((selection, itemIndex) => {
+      const item = purchasedProducts[itemIndex];
+      if (item.isClaimed || item.assigned_locker) return;
+      if (!tieneDimensiones(item)) {
+        errors.push(`El producto ${item.product?.nombre} no tiene dimensiones configuradas`);
+      }
+      const itemVolume = getVolumen(item) * selection.quantity;
+      if (!hasLockerSpace(selection.lockerNumber, itemVolume, lockerAssignments)) {
+        errors.push(`Los productos en el casillero ${selection.lockerNumber} exceden el espacio disponible`);
+      }
+    });
+    return errors;
+  };
+
+  // Función para manejar envío de reclamación
+  const handleClaimSubmit = async () => {
+    const errors = getValidationErrors();
+    if (errors.length > 0) {
+      alert('Errores de validación:\n' + errors.join('\n'));
+      return;
+    }
+
+    if (selectedProducts.size === 0) {
+      alert('Por favor selecciona al menos un producto para reclamar');
+      return;
+    }
+
+    try {
+      const selectedItemsArray = Array.from(selectedProducts.entries()).map(([itemIndex, selection]) => {
+        const item = purchasedProducts[itemIndex];
+        return {
+          individualProductId: item._id || '',
+          lockerNumber: selection.lockerNumber
+        };
+      });
+
+      const result = await orderService.claimIndividualProducts(selectedItemsArray);
+      
+      alert(`Productos reclamados exitosamente!\n\nCasilleros asignados:\n${result.lockerAssignments.map((la: any) => 
+        `Casillero ${la.locker}: ${la.volumePercentage}% de uso (${la.volume.toLocaleString()} cm³)`
+      ).join('\n')}`);
+      
+      const products = await orderService.getMyPurchasedProducts();
+      setPurchasedProducts(products);
+      setSelectedProducts(new Map());
+      setLockerAssignments(new Map());
+      
+    } catch (err: any) {
+      alert(err.message || 'Error al reclamar productos');
+    }
+  };
+
+  // Función para limpiar selección
+  const handleClearSelection = () => {
+    setSelectedProducts(new Map());
+    setLockerAssignments(new Map());
+  };
+
+  // Función para mostrar información de optimización
+  const showOptimizationInfo = () => {
+    if (!packingResult || packingResult.lockers.length === 0) return;
+
+    const totalSlots = packingResult.lockers.reduce((sum, locker) => sum + locker.usedSlots, 0);
+    const totalCapacity = packingResult.lockers.length * 27;
+    const overallUsage = (totalSlots / totalCapacity) * 100;
+    
+    const hasFullLocker = packingResult.lockers.some(locker => {
+      const usagePercentage = (locker.usedSlots / 27) * 100;
+      return usagePercentage >= 80;
+    });
+
+    let message = `📊 Información de Optimización\n\n`;
+    message += `Casilleros utilizados: ${packingResult.lockers.length}\n`;
+    message += `Slots ocupados: ${totalSlots}/${totalCapacity}\n`;
+    message += `Uso total: ${overallUsage.toFixed(1)}%\n\n`;
+
+    if (hasFullLocker) {
+      message += `✅ Excelente optimización: Al menos un casillero está bien lleno.`;
+    } else if (overallUsage >= 50) {
+      message += `⚠️ Optimización moderada: Considera agregar más productos para llenar completamente un casillero.`;
+    } else {
+      message += `⚠️ Optimización baja: El espacio no se está aprovechando eficientemente.`;
+    }
+
+    alert(message);
+  };
+
+  // Función para cancelar reserva
+  const handleCancelAppointment = async (appointmentId: string) => {
+    if (!confirm('¿Estás seguro de que quieres cancelar esta reserva?')) {
+      return;
+    }
+
+    try {
+      setCancellingAppointment(true);
+      
+      const appointmentToCancel = myAppointments.find(app => app._id === appointmentId);
+      const productsInReservation = appointmentToCancel?.itemsToPickup || [];
+      
+      await appointmentService.cancelAppointment(appointmentId);
+      
+      forceCleanupStates();
+      
+      const appointments = await appointmentService.getMyAppointments();
+      setMyAppointments(appointments);
+      
+      const products = await orderService.getMyPurchasedProducts();
+      setPurchasedProducts(products);
+      
+      const message = productsInReservation.length > 0 
+        ? `✅ Reserva cancelada exitosamente\n\n📦 ${productsInReservation.length} producto${productsInReservation.length > 1 ? 's' : ''} han sido desbloqueado${productsInReservation.length > 1 ? 's' : ''} y están disponibles para nueva reserva.`
+        : '✅ Reserva cancelada exitosamente';
+      
+      alert(message);
+      
+    } catch (err: any) {
+      alert(err.message || 'Error al cancelar la reserva');
+    } finally {
+      setCancellingAppointment(false);
+    }
+  };
+
+  // Función para editar reserva
+  const handleEditAppointment = (appointment: Appointment, forceEdit = false) => {
+    let initialDate = '';
+    let initialTime = '';
+    let initialLocker = appointment.itemsToPickup[0]?.lockerNumber || 1;
+
+    if (forceEdit) {
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      initialDate = `${year}-${month}-${day}`;
+      const availableTimes = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', 
+        '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00'];
+      initialTime = availableTimes[0] || '08:00';
+    } else {
+      const appointmentDateTime = createLocalDate(appointment.scheduledDate);
+      const year = appointmentDateTime.getFullYear();
+      const month = String(appointmentDateTime.getMonth() + 1).padStart(2, '0');
+      const day = String(appointmentDateTime.getDate()).padStart(2, '0');
+      initialDate = `${year}-${month}-${day}`;
+      initialTime = appointment.timeSlot;
+    }
+
+    setSelectedAppointmentForEdit(appointment);
+    setEditAppointmentDate(initialDate);
+    setEditAppointmentTime(initialTime);
+    setEditAppointmentLocker(initialLocker);
+    setShowEditAppointmentModal(true);
+  };
+
+  // Función para actualizar reserva
+  const handleUpdateAppointment = async (appointmentId: string, data: any) => {
+    try {
+      setUpdatingAppointment(true);
+      
+      const result = await appointmentService.updateMyAppointment(appointmentId, data);
+      
+      const appointments = await appointmentService.getMyAppointments();
+      setMyAppointments(appointments);
+      
+      setShowEditAppointmentModal(false);
+      setSelectedAppointmentForEdit(null);
+      setEditAppointmentDate('');
+      setEditAppointmentTime('');
+      setEditAppointmentLocker(1);
+      
+      alert(result.message);
+      
+    } catch (err: any) {
+      alert(err.message || 'Error al actualizar la reserva');
+    } finally {
+      setUpdatingAppointment(false);
+    }
+  };
+
+  // Función para debug del estado
+  const debugState = () => {
+    console.log('🔍 === DEBUG ESTADO COMPLETO ===');
+    console.log('📦 Productos comprados:', purchasedProducts.length);
+    console.log('📅 Reservas activas:', myAppointments.length);
+    console.log('✅ Productos seleccionados:', selectedProducts.size);
+    console.log('🎯 Packing result:', packingResult ? 'SÍ' : 'NO');
+    console.log('🔓 Productos recién desbloqueados:', recentlyUnlockedProducts.size);
+  };
+
+  // Función para manejar reservas inteligentes
+  const handleSmartReservation = async () => {
+    try {
+      setReservingLocker(true);
+      
+      if (!packingResult || !packingResult.lockers.length) {
+        alert('No hay casilleros para reservar');
+        return;
+      }
+
+      const hasFullLocker = packingResult.lockers.some(locker => {
+        const usagePercentage = (locker.usedSlots / 27) * 100;
+        return usagePercentage >= 80;
+      });
+      
+      if (!hasFullLocker) {
+        const totalSlots = packingResult.lockers.reduce((sum, locker) => sum + locker.usedSlots, 0);
+        const totalCapacity = packingResult.lockers.length * 27;
+        const overallUsage = (totalSlots / totalCapacity) * 100;
+        
+        const shouldContinue = confirm(
+          `⚠️ Optimización de espacio\n\n` +
+          `Tu selección actual usa ${overallUsage.toFixed(1)}% del espacio total.\n` +
+          `Para una mejor optimización, considera agregar más productos para llenar completamente al menos un casillero.\n\n` +
+          `¿Deseas continuar con la reserva de todas formas?`
+        );
+        
+        if (!shouldContinue) {
+          return;
+        }
+      }
+
+      setShowAppointmentScheduler(true);
+
+    } catch (error: any) {
+      alert(error.message || 'Error al procesar la reserva inteligente');
+    } finally {
+      setReservingLocker(false);
+    }
+  };
+
+  // Función para generar datos de packing combinados para todas las reservas activas
+  const generateCombinedPackingForAllAppointments = () => {
+    // Usar visualizationKey para forzar la actualización cuando cambie
+    console.log('🔄 Generando visualización combinada (key:', visualizationKey, ')');
+    try {
+      console.log('🔍 Generando packing combinado para todas las reservas activas');
+      
+      // Obtener todas las reservas activas
+      const activeAppointments = myAppointments.filter(
+        appointment => appointment.status !== 'cancelled' && appointment.status !== 'completed'
+      );
+      
+      console.log(`📅 Reservas activas encontradas: ${activeAppointments.length}`);
+      
+      // Agrupar productos por casillero
+      const lockerProducts = new Map<number, Array<{
+        id: string;
+        name: string;
+        dimensions: { length: number; width: number; height: number };
+        quantity: number;
+        volume: number;
+        appointmentId: string;
+      }>>();
+      
+      activeAppointments.forEach(appointment => {
+        console.log(`📋 Procesando reserva ${appointment._id.slice(-6)}`);
+        
+        appointment.itemsToPickup?.forEach((item: any) => {
+          const lockerNumber = item.lockerNumber;
+          
+          if (!lockerProducts.has(lockerNumber)) {
+            lockerProducts.set(lockerNumber, []);
+          }
+          
+          // Buscar el producto individual correspondiente
+          // Verificar que item.product existe antes de procesar
+          if (!item.product) {
+            console.warn('⚠️ Item sin producto:', item);
+            return;
+          }
+          
+          // Primero intentar buscar por ID directo (nuevas reservas con productos individuales)
+          let individualProduct = purchasedProducts.find(p => 
+            p._id === item.product._id
+          );
+          
+          // Si no se encuentra, buscar por nombre del producto (reservas antiguas con productos base)
+          if (!individualProduct) {
+            individualProduct = purchasedProducts.find(p => 
+              p.product?.nombre === item.product.nombre
+            );
+          }
+          
+          // Si aún no se encuentra, buscar por ID del producto base (reservas antiguas)
+          if (!individualProduct) {
+            individualProduct = purchasedProducts.find(p => 
+              p.product?._id === item.product._id
+            );
+          }
+          
+          let dimensions = { length: 15, width: 15, height: 15 };
+          let volume = 15 * 15 * 15;
+          
+          // Usar las dimensiones calculadas del backend si están disponibles
+          console.log(`🔍 Item de reserva para ${item.product.nombre}:`, {
+            hasDimensiones: !!item.dimensiones,
+            dimensiones: item.dimensiones,
+            volumen: item.volumen,
+            variants: item.variants,
+            individualProductId: item.individualProductId
+          });
+          
+          // Usar directamente las dimensiones del backend si están disponibles
+          if (item.dimensiones) {
+            dimensions = {
+              length: item.dimensiones.largo,
+              width: item.dimensiones.ancho,
+              height: item.dimensiones.alto
+            };
+            volume = item.volumen || (item.dimensiones.largo * item.dimensiones.ancho * item.dimensiones.alto);
+            console.log(`✅ Usando dimensiones del backend para ${item.product.nombre}:`, dimensions);
+          } else {
+            // Fallback: buscar en el producto individual correspondiente
+            console.log(`⚠️ No hay dimensiones del backend para ${item.product.nombre}, buscando en producto individual`);
+            
+            // Buscar el producto individual correspondiente
+            let individualProduct = purchasedProducts.find(p => 
+              p._id === item.product._id
+            );
+            
+            if (!individualProduct) {
+              individualProduct = purchasedProducts.find(p => 
+                p.product?.nombre === item.product.nombre
+              );
+            }
+            
+            if (!individualProduct) {
+              individualProduct = purchasedProducts.find(p => 
+                p.product?._id === item.product._id
+              );
+            }
+            
+            if (individualProduct && individualProduct.dimensiones) {
+              dimensions = {
+                length: individualProduct.dimensiones.largo,
+                width: individualProduct.dimensiones.ancho,
+                height: individualProduct.dimensiones.alto
+              };
+              volume = individualProduct.product?.volumen || (individualProduct.dimensiones.largo * individualProduct.dimensiones.ancho * individualProduct.dimensiones.alto);
+              console.log(`✅ Usando dimensiones del producto individual para ${item.product.nombre}:`, dimensions);
+            } else {
+              // Último fallback: usar la misma lógica que la visualización previa a la reserva
+              console.log(`⚠️ No hay dimensiones del producto individual para ${item.product.nombre}, usando fallback`);
+              const dimensiones = getDimensiones(item);
+              if (dimensiones) {
+                dimensions = {
+                  length: dimensiones.largo,
+                  width: dimensiones.ancho,
+                  height: dimensiones.alto
+                };
+                volume = getVolumen(item);
+                console.log(`📏 Usando dimensiones del fallback para ${item.product.nombre}:`, dimensions);
+              }
+            }
+          }
+          
+          // Asegurar que el volumen se calcule correctamente solo si no se calculó antes
+          if (volume === 0 && dimensions && dimensions.length && dimensions.width && dimensions.height) {
+            volume = dimensions.length * dimensions.width * dimensions.height;
+          }
+          
+          console.log(`📏 Producto ${item.product.nombre} en reserva:`, {
+            dimensions,
+            volume,
+            volumeCalculated: volume,
+            expectedVolume: dimensions.length * dimensions.width * dimensions.height,
+            hasIndividualProduct: !!individualProduct,
+            individualProductId: individualProduct?._id,
+            productId: item.product._id,
+            productName: item.product.nombre,
+            searchStrategies: {
+              directMatch: purchasedProducts.find(p => p._id === item.product._id),
+              nameMatch: purchasedProducts.find(p => p.product?.nombre === item.product.nombre),
+              baseProductMatch: purchasedProducts.find(p => p.product?._id === item.product._id)
+            },
+            individualProductDetails: individualProduct ? {
+              id: individualProduct._id,
+              hasDimensiones: !!individualProduct.dimensiones,
+              dimensiones: individualProduct.dimensiones,
+              variants: individualProduct.variants
+            } : null
+          });
+          
+          lockerProducts.get(lockerNumber)!.push({
+            id: item.product._id,
+            name: item.product.nombre,
+            dimensions,
+            quantity: item.quantity,
+            volume,
+            appointmentId: appointment._id
+          });
+        });
+      });
+      
+      console.log('🏪 Productos agrupados por casillero:', lockerProducts);
+      
+      // Generar visualización para cada casillero
+      const combinedLockers: any[] = [];
+      
+      lockerProducts.forEach((products, lockerNumber) => {
+        console.log(`🎨 Generando visualización para casillero ${lockerNumber} con ${products.length} productos`);
+        
+        // Convertir al formato Product3D
+        const products3D: any[] = products.map(product => ({
+          id: product.id,
+          name: product.name,
+          dimensions: product.dimensions,
+          quantity: product.quantity,
+          volume: product.volume
+        }));
+        
+        // Realizar bin packing para este casillero
+        const result = gridPackingService.packProducts3D(products3D);
+        
+        if (result.lockers.length > 0) {
+          const combinedLocker = {
+            ...result.lockers[0],
+            id: `locker_${lockerNumber}`,
+            lockerNumber: lockerNumber,
+            products: products // Mantener información de qué reserva tiene cada producto
+          };
+          combinedLockers.push(combinedLocker);
+        }
+      });
+      
+      console.log('📊 Resultado del packing combinado:', combinedLockers);
+      return combinedLockers;
+    } catch (error) {
+      console.error('Error al generar packing combinado:', error);
+      return [];
+    }
+  };
+
+  // Función para generar datos de packing para una reserva (mantener para compatibilidad)
+  const generatePackingForAppointment = (appointment: Appointment) => {
+    try {
+      console.log('🔍 Generando packing para reserva individual:', appointment._id);
+      console.log('📦 Productos en la reserva:', appointment.itemsToPickup);
+      
+      // Convertir productos de la reserva al formato Product3D
+      const products = appointment.itemsToPickup.map((item: any) => {
+        // Verificar que item.product existe antes de procesar
+        if (!item.product) {
+          console.warn('⚠️ Item sin producto:', item);
+          return null;
+        }
+        
+        // Buscar el producto individual correspondiente para obtener dimensiones correctas (incluyendo variantes)
+        // Buscar el producto individual correspondiente
+        // Primero intentar buscar por ID directo (nuevas reservas con productos individuales)
+        let individualProduct = purchasedProducts.find(p => 
+          p._id === item.product._id
+        );
+        
+        // Si no se encuentra, buscar por nombre del producto (reservas antiguas con productos base)
+        if (!individualProduct) {
+          individualProduct = purchasedProducts.find(p => 
+            p.product?.nombre === item.product.nombre
+          );
+        }
+        
+        // Si aún no se encuentra, buscar por ID del producto base (reservas antiguas)
+        if (!individualProduct) {
+          individualProduct = purchasedProducts.find(p => 
+            p.product?._id === item.product._id
+          );
+        }
+        
+        let dimensions = { length: 15, width: 15, height: 15 };
+        let volume = 15 * 15 * 15;
+        
+        // Usar las dimensiones calculadas del backend si están disponibles
+        console.log(`🔍 Item de reserva para ${item.product.nombre}:`, {
+          hasDimensiones: !!item.dimensiones,
+          dimensiones: item.dimensiones,
+          volumen: item.volumen,
+          variants: item.variants,
+          individualProductId: item.individualProductId
+        });
+        
+        // Usar directamente las dimensiones del backend si están disponibles
+        if (item.dimensiones) {
+          dimensions = {
+            length: item.dimensiones.largo,
+            width: item.dimensiones.ancho,
+            height: item.dimensiones.alto
+          };
+          volume = item.volumen || (item.dimensiones.largo * item.dimensiones.ancho * item.dimensiones.alto);
+          console.log(`✅ Usando dimensiones del backend para ${item.product.nombre}:`, dimensions);
+        } else {
+          // Fallback: buscar en el producto individual correspondiente
+          console.log(`⚠️ No hay dimensiones del backend para ${item.product.nombre}, buscando en producto individual`);
+          
+          // Buscar el producto individual correspondiente
+          let individualProduct = purchasedProducts.find(p => 
+            p._id === item.product._id
+          );
+          
+          if (!individualProduct) {
+            individualProduct = purchasedProducts.find(p => 
+              p.product?.nombre === item.product.nombre
+            );
+          }
+          
+          if (!individualProduct) {
+            individualProduct = purchasedProducts.find(p => 
+              p.product?._id === item.product._id
+            );
+          }
+          
+          if (individualProduct && individualProduct.dimensiones) {
+            dimensions = {
+              length: individualProduct.dimensiones.largo,
+              width: individualProduct.dimensiones.ancho,
+              height: individualProduct.dimensiones.alto
+            };
+            volume = individualProduct.product?.volumen || (individualProduct.dimensiones.largo * individualProduct.dimensiones.ancho * individualProduct.dimensiones.alto);
+            console.log(`✅ Usando dimensiones del producto individual para ${item.product.nombre}:`, dimensions);
+          } else {
+            // Último fallback: usar la misma lógica que la visualización previa a la reserva
+            console.log(`⚠️ No hay dimensiones del producto individual para ${item.product.nombre}, usando fallback`);
+            const dimensiones = getDimensiones(item);
+            if (dimensiones) {
+              dimensions = {
+                length: dimensiones.largo,
+                width: dimensiones.ancho,
+                height: dimensiones.alto
+              };
+              volume = getVolumen(item);
+              console.log(`📏 Usando dimensiones del fallback para ${item.product.nombre}:`, dimensions);
+            }
+          }
+        }
+        
+        // Asegurar que el volumen se calcule correctamente solo si no se calculó antes
+        if (volume === 0 && dimensions && dimensions.length && dimensions.width && dimensions.height) {
+          volume = dimensions.length * dimensions.width * dimensions.height;
+        }
+        
+        console.log(`📏 Producto ${item.product.nombre}:`, {
+          dimensions,
+          volume,
+          volumeCalculated: volume,
+          expectedVolume: dimensions.length * dimensions.width * dimensions.height,
+          hasIndividualProduct: !!individualProduct,
+          individualProductId: individualProduct?._id,
+          hasDimensionsInReservation: !!item.product.dimensiones,
+          productId: item.product._id,
+          productName: item.product.nombre,
+          searchStrategies: {
+            directMatch: purchasedProducts.find(p => p._id === item.product._id),
+            nameMatch: purchasedProducts.find(p => p.product?.nombre === item.product.nombre),
+            baseProductMatch: purchasedProducts.find(p => p.product?._id === item.product._id)
+          },
+          individualProductDetails: individualProduct ? {
+            id: individualProduct._id,
+            hasDimensiones: !!individualProduct.dimensiones,
+            dimensiones: individualProduct.dimensiones,
+            variants: individualProduct.variants
+          } : null
+        });
+        
+        return {
+        id: item.product._id,
+        name: item.product.nombre,
+          dimensions,
+        quantity: item.quantity,
+          volume
+        };
+      });
+
+      console.log('📋 Productos convertidos para packing:', products);
+
+      // Filtrar productos nulos y realizar bin packing
+      const validProducts = products.filter(product => product !== null);
+      const result = gridPackingService.packProducts3D(validProducts);
+      console.log('📊 Resultado del packing:', result);
+      return result;
+    } catch (error) {
+      console.error('Error al generar packing para reserva:', error);
+      return null;
+    }
+  };
+
+  // Función para agendar cita
+  const handleScheduleAppointment = async (appointmentsData: CreateAppointmentData[]) => {
+    const penalized = appointmentsData.some(app => penalizedDates.includes(app.scheduledDate));
+    if (penalized) {
+      setPenaltyWarning('No puedes reservar para un día en el que tuviste una reserva vencida. Elige otro día.');
+      return;
+    }
+    setPenaltyWarning('');
+    
+    try {
+      setSchedulingAppointment(true);
+      
+      const existingLockers: number[] = [];
+      const newLockers: number[] = [];
+      
+      if (packingResult) {
+        packingResult.lockers.forEach(locker => {
+          const lockerNumber = parseInt(locker.id.replace('locker_', ''));
+          const isExisting = myAppointments.some(appointment => 
+            appointment.status !== 'cancelled' && 
+            appointment.status !== 'completed' &&
+            appointment.itemsToPickup?.some((item: any) => item.lockerNumber === lockerNumber)
+          );
+          
+          if (isExisting) {
+            existingLockers.push(lockerNumber);
+          } else {
+            newLockers.push(lockerNumber);
+          }
+        });
+      }
+
+      // Procesar productos para casilleros existentes
+      if (existingLockers.length > 0) {
+        for (const lockerNumber of existingLockers) {
+          const existingAppointment = myAppointments.find(appointment => 
+            appointment.status !== 'cancelled' && 
+            appointment.status !== 'completed' &&
+            appointment.itemsToPickup?.some((item: any) => item.lockerNumber === lockerNumber)
+          );
+
+          if (existingAppointment) {
+            const productsForThisLocker = Array.from(selectedProducts.entries())
+              .filter(([itemIndex, selection]) => selection.lockerNumber === lockerNumber)
+              .map(([itemIndex, selection]) => {
+                const item = purchasedProducts[itemIndex];
+                return {
+                  productId: item._id || '',
+                  quantity: 1,
+                  lockerNumber: lockerNumber
+                };
+              })
+              .filter(product => product.productId);
+
+            if (productsForThisLocker.length > 0) {
+              await appointmentService.addProductsToAppointment(existingAppointment._id, productsForThisLocker);
+            }
+          }
+        }
+      }
+
+      // Crear múltiples reservas para casilleros nuevos
+      if (newLockers.length > 0) {
+        const result = await appointmentService.createMultipleAppointments(appointmentsData);
+        
+        let message = `¡Reservas creadas exitosamente!\n\n`;
+        
+        if (existingLockers.length > 0) {
+          message += `✅ Productos agregados a ${existingLockers.length} reserva(s) existente(s)\n`;
+        }
+        
+        if (result.appointments.length > 0) {
+          message += `📅 Se crearon ${result.appointments.length} nueva(s) reserva(s):\n\n`;
+          
+          result.appointments.forEach((appointment: any) => {
+            message += `📅 Casillero ${appointment.lockerNumber}: ${new Date(appointment.scheduledDate).toLocaleDateString('es-CO')} a las ${appointment.timeSlot}\n`;
+          });
+        }
+        
+        alert(message);
+      } else if (existingLockers.length > 0) {
+        alert('✅ Productos agregados exitosamente a tus reservas existentes');
+      }
+      
+      // Recargar los datos
+      const products = await orderService.getMyPurchasedProducts();
+      setPurchasedProducts(products);
+      setSelectedProducts(new Map());
+      setLockerAssignments(new Map());
+      setPackingResult(null);
+      setShowAppointmentScheduler(false);
+      
+      const appointments = await appointmentService.getMyAppointments();
+      setMyAppointments(appointments);
+      
+      // Forzar actualización de la visualización
+      forceVisualizationUpdate();
+      
+    } catch (err: any) {
+      alert(err.message || 'Error al agendar las reservas');
+    } finally {
+      setSchedulingAppointment(false);
+    }
+  };
+
+  // Filtrar productos válidos
+  const validPurchasedProducts = purchasedProducts.filter(p => p.orderId);
+
+  // Verificar productos en reservas
+  const productosEnReservas = new Set<string>();
+  myAppointments.forEach(appointment => {
+    if (appointment.status !== 'cancelled' && appointment.status !== 'completed' && appointment.itemsToPickup) {
+      appointment.itemsToPickup.forEach((item: any) => {
+        // Verificar que item.product existe antes de acceder a _id
+        if (item.product && item.product._id) {
+          productosEnReservas.add(item.product._id);
+        }
+      });
+    }
+  });
+
+  // Mostrar loading mientras se verifica autenticación
+  if (isLoading) {
+    return (
+      <div className="container-fluid">
+        <div className="row">
+          <div className="col-12 text-center py-5">
+            <div className="spinner-border" role="status">
+              <span className="visually-hidden">Verificando autenticación...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Redirigir si no está autenticado
+  if (!isAuthenticated) {
+    return null;
+  }
+
+  return (
+    <div className="container py-5">
+      <div className="row justify-content-center">
+        <div className="col-lg-12">
+          {/* Header */}
+          <div className="d-flex justify-content-between align-items-center mb-4">
+            <h2 className="mb-0">
+              <i className="bi bi-box-seam me-2"></i>
+              Mis Productos Comprados
+            </h2>
+            <button 
+              className="btn btn-outline-info btn-sm"
+              onClick={debugState}
+              title="Debug del estado actual"
+            >
+              <i className="bi bi-bug me-1"></i>
+              Debug
+            </button>
+            <div className="d-flex gap-2 align-items-center">
+              {validPurchasedProducts.length > 0 && selectedProducts.size === 0 && (
+                <button 
+                  className="btn btn-outline-primary"
+                  onClick={selectAllAvailableProducts}
+                  disabled={loading}
+                >
+                  <i className="bi bi-check-all me-1"></i>
+                  Seleccionar Todos los Productos
+                </button>
+              )}
+              {selectedProducts.size > 0 && (
+                <>
+                  <button 
+                    className="btn btn-outline-secondary"
+                    onClick={handleClearSelection}
+                    disabled={claimingProducts || reservingLocker}
+                  >
+                    <i className="bi bi-x-circle me-1"></i>
+                    Limpiar Selección
+                  </button>
+                  <button 
+                    className="btn btn-success"
+                    onClick={handleSmartReservation}
+                    disabled={claimingProducts || reservingLocker}
+                  >
+                    {reservingLocker ? (
+                      <>
+                        <span className="spinner-border spinner-border-sm me-1" role="status"></span>
+                        Procesando...
+                      </>
+                    ) : (
+                      <>
+                        <i className="bi bi-calendar-check me-1"></i>
+                        Reservar Casillero
+                      </>
+                    )}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="text-center py-5">
+              <div className="spinner-border" role="status">
+                <span className="visually-hidden">Cargando...</span>
+              </div>
+            </div>
+          ) : error ? (
+            <div className="alert alert-danger text-center">{error}</div>
+          ) : validPurchasedProducts.length > 0 ? (
+            <>
+              {/* Productos */}
+              <div className="mb-5">
+                <h4 className="mb-3">
+                  <i className="bi bi-cart me-2"></i>
+                  Mis Productos Comprados
+                </h4>
+                {validPurchasedProducts.map((item, index) => {
+                  const selectedProduct = selectedProducts.get(index);
+                  const isRecentlyUnlocked = recentlyUnlockedProducts.has(item._id || '');
+                  const yaEstaEnReserva = productosEnReservas.has(item._id || '');
+                  
+                  return (
+                    <ProductCard
+                      key={index}
+                      item={item}
+                      index={index}
+                      selectedProduct={selectedProduct}
+                      isRecentlyUnlocked={isRecentlyUnlocked}
+                      yaEstaEnReserva={yaEstaEnReserva}
+                    />
+                  );
+                })}
+              </div>
+
+              {/* Visualización de Casilleros */}
+              {lockerAssignments.size > 0 && packingResult && (
+                <div className="mb-5">
+                  <div className="d-flex justify-content-between align-items-center mb-3">
+                    <h4 className="mb-0">
+                      <i className="bi bi-grid-3x3-gap me-2"></i>
+                      Casilleros Optimizados (Bin Packing 3D)
+                    </h4>
+                  </div>
+                  
+                  <div className="row">
+                    {packingResult.lockers.map((locker, index) => {
+                      const lockerNumber = parseInt(locker.id.replace('locker_', ''));
+                      const isExistingLocker = myAppointments.some(appointment => 
+                        appointment.status !== 'cancelled' && 
+                        appointment.status !== 'completed' &&
+                        appointment.itemsToPickup?.some((item: any) => item.lockerNumber === lockerNumber)
+                      );
+                      
+                      return (
+                        <LockerVisualization
+                          key={locker.id}
+                          locker={locker}
+                          index={index}
+                          isExistingLocker={isExistingLocker}
+                          selectedProductId={(() => {
+                            const firstSelected = Array.from(selectedProducts.keys())[0];
+                            if (firstSelected !== undefined) {
+                              const item = purchasedProducts[firstSelected];
+                              return item?._id || item?.product?._id || null;
+                            }
+                            return null;
+                          })()}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Errores de validación */}
+              {getValidationErrors().length > 0 && (
+                <div className="alert alert-warning">
+                  <h6 className="alert-heading">
+                    <i className="bi bi-exclamation-triangle me-2"></i>
+                    Errores de validación:
+                  </h6>
+                  <ul className="mb-0">
+                    {getValidationErrors().map((error, index) => (
+                      <li key={index}>{error}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Mis Reservas Activas */}
+              <div className="mb-5">
+                <h4 className="mb-3">
+                  <i className="bi bi-calendar-check me-2"></i>
+                  Mis Reservas Activas
+                </h4>
+                
+                {loadingAppointments ? (
+                  <div className="text-center py-3">
+                    <div className="spinner-border spinner-border-sm" role="status">
+                      <span className="visually-hidden">Cargando reservas...</span>
+                    </div>
+                  </div>
+                ) : myAppointments.length > 0 ? (
+                  <div className="row mb-4">
+                    {myAppointments
+                      .filter(appointment => appointment.status !== 'cancelled' && appointment.status !== 'completed')
+                      .map(appointment => (
+                        <AppointmentCard
+                          key={appointment._id}
+                          appointment={appointment}
+                          onEdit={handleEditAppointment}
+                          onCancel={handleCancelAppointment}
+                          cancellingAppointment={cancellingAppointment}
+                          updatingAppointment={updatingAppointment}
+                        />
+                      ))}
+                  </div>
+                ) : (
+                  <div className="alert alert-info text-center">
+                    <i className="bi bi-calendar-x me-2"></i>
+                    No tienes reservas activas
+                  </div>
+                )}
+
+                {/* Visualización combinada de todos los casilleros */}
+                {(() => {
+                  const combinedPacking = generateCombinedPackingForAllAppointments();
+                  if (combinedPacking.length > 0) {
+                    return (
+                      <div className="mt-4">
+                        <h6 className="mb-3">
+                          <i className="bi bi-grid-3x3-gap me-2"></i>
+                          Visualización Combinada de Casilleros
+                        </h6>
+                        <div className="alert alert-info">
+                          <i className="bi bi-info-circle me-2"></i>
+                          <strong>Estado Real:</strong> Esta visualización muestra el estado actual de todos los casilleros considerando todas tus reservas activas.
+                        </div>
+                        <div className="row">
+                          {combinedPacking.map((locker) => (
+                            <div key={locker.id} className="col-md-6 mb-3">
+                              <div className="card border-primary">
+                                <div className="card-header bg-primary text-white">
+                                  <strong>Casillero {(locker as any).lockerNumber}</strong> &nbsp;|&nbsp; Slots usados: {locker.usedSlots}/27
+                                </div>
+                                <div className="card-body">
+                                  <Locker3DCanvas 
+                                    bin={locker}
+                                    selectedProductId={null}
+                                  />
+                                  
+                                  {/* Barra de progreso de ocupación del casillero */}
+                                  <div className="mt-3">
+                                    <div className="d-flex justify-content-between align-items-center mb-2">
+                                      <small className="text-muted">
+                                        <i className="bi bi-box me-1"></i>
+                                        Ocupación del casillero
+                                      </small>
+                                      <small className="text-muted">
+                                        {locker.usedSlots}/27 slots ({Math.round((locker.usedSlots / 27) * 100)}%)
+                                      </small>
+                                    </div>
+                                    <div className="progress" style={{ height: '8px' }}>
+                                      <div 
+                                        className={`progress-bar ${locker.usedSlots / 27 >= 0.8 ? 'bg-danger' : locker.usedSlots / 27 >= 0.6 ? 'bg-warning' : 'bg-success'}`}
+                                        role="progressbar" 
+                                        style={{ width: `${(locker.usedSlots / 27) * 100}%` }}
+                                        aria-valuenow={locker.usedSlots} 
+                                        aria-valuemin={0} 
+                                        aria-valuemax={27}
+                                      ></div>
+                                    </div>
+                                  </div>
+
+                                  {/* Mostrar productos en este casillero */}
+                                  {(locker as any).products && (
+                                    <div className="mt-3">
+                                      <small className="text-muted">
+                                        <i className="bi bi-box-seam me-1"></i>
+                                        Productos en este casillero:
+                                      </small>
+                                      <div className="mt-1">
+                                        {(locker as any).products.map((product: any, idx: number) => (
+                                          <span key={idx} className="badge bg-light text-dark me-1 mb-1">
+                                            {product.name} (Reserva #{product.appointmentId.slice(-6)})
+                                          </span>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+              </div>
+            </>
+          ) : (
+            <div className="alert alert-info text-center">
+              <h5>No tienes productos comprados</h5>
+              <p>Cuando hagas una compra, tus productos aparecerán aquí para que puedas reclamarlos.</p>
+              <button className="btn btn-primary" onClick={() => navigate('/')}>
+                Ir a Comprar
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Modal de Edición de Reserva */}
+      <EditAppointmentModal
+        isOpen={showEditAppointmentModal}
+        appointment={selectedAppointmentForEdit}
+        editAppointmentDate={editAppointmentDate}
+        editAppointmentTime={editAppointmentTime}
+        editAppointmentLocker={editAppointmentLocker}
+        penalizedDates={penalizedDates}
+        myAppointments={myAppointments}
+        updatingAppointment={updatingAppointment}
+        onClose={() => {
+          setShowEditAppointmentModal(false);
+          setSelectedAppointmentForEdit(null);
+          setEditAppointmentDate('');
+          setEditAppointmentTime('');
+          setEditAppointmentLocker(1);
+        }}
+        onUpdate={handleUpdateAppointment}
+        onDateChange={setEditAppointmentDate}
+        onTimeChange={setEditAppointmentTime}
+        onLockerChange={setEditAppointmentLocker}
+      />
+
+      {/* Modal de Agendamiento de Citas */}
+      {showAppointmentScheduler && packingResult && (
+        <AppointmentScheduler
+          isOpen={showAppointmentScheduler}
+          onClose={() => setShowAppointmentScheduler(false)}
+          onSchedule={handleScheduleAppointment}
+          orderId={(() => {
+            const firstValid = Array.from(selectedProducts.keys())
+              .map(idx => validPurchasedProducts[idx])
+              .find(p => p && p.orderId);
+            return firstValid?.orderId || '';
+          })()}
+          itemsToPickup={(() => {
+            const lockersToInclude = packingResult.lockers.filter(locker => {
+              const lockerNumber = parseInt(locker.id.replace('locker_', ''));
+              const isExisting = myAppointments.some(appointment => 
+                appointment.status !== 'cancelled' && 
+                appointment.status !== 'completed' &&
+                appointment.itemsToPickup?.some((item: any) => item.lockerNumber === lockerNumber)
+              );
+              return !isExisting;
+            });
+            
+            return lockersToInclude.map((locker, idx) => {
+              const lockerNumber = parseInt(locker.id.replace('locker_', ''));
+              
+              const productsInThisLocker = Array.from(selectedProducts.entries())
+                .filter(([itemIndex, selection]) => selection.lockerNumber === lockerNumber)
+                .map(([itemIndex, selection]) => {
+                  const item = purchasedProducts[itemIndex];
+                  return {
+                    name: item.product?.nombre || `Producto ${itemIndex + 1}`,
+                    count: 1,
+                    productId: item._id
+                  };
+                });
+
+              return {
+                lockerIndex: idx + 1,
+                lockerNumber: lockerNumber,
+                quantity: productsInThisLocker.length,
+                products: productsInThisLocker
+              };
+            });
+          })()}
+          loading={schedulingAppointment}
+          onlyNewLockers={true}
+          onlyExistingLockers={false}
+          existingLockersCount={0}
+        />
+      )}
+
+      {/* Loading Overlays */}
+      <LoadingOverlay
+        isVisible={cancellingAppointment}
+        title="Cancelando Reserva"
+        message="Liberando productos y actualizando el sistema..."
+      />
+      
+      <LoadingOverlay
+        isVisible={reservingLocker}
+        title="Procesando Reserva"
+        message="Preparando casilleros y optimizando espacio..."
+      />
+      
+      <LoadingOverlay
+        isVisible={schedulingAppointment}
+        title="Agendando Cita"
+        message="Creando reservas y agregando productos a casilleros..."
+      />
+
+      {penaltyWarning && (
+        <div className="alert alert-danger text-center">
+          <i className="bi bi-exclamation-triangle me-2"></i>
+          {penaltyWarning}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default OrdersPage; 

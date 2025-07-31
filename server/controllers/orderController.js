@@ -72,11 +72,22 @@ exports.getMyPurchasedProducts = async (req, res) => {
         
         // Obtener dimensiones considerando variantes si existen
         let dimensiones = individualProduct.dimensiones;
+        console.log('🔍 Procesando producto individual:', individualProduct._id);
+        console.log('   - Variants:', individualProduct.variants);
+        console.log('   - Dimensiones base:', individualProduct.dimensiones);
+        
         if (individualProduct.variants && individualProduct.variants.size > 0) {
+          console.log('   - Tiene variantes, calculando dimensiones de variante...');
           const variantDimensiones = individualProduct.getVariantOrProductDimensions();
+          console.log('   - Dimensiones de variante calculadas:', variantDimensiones);
           if (variantDimensiones) {
             dimensiones = variantDimensiones;
+            console.log('   - Usando dimensiones de variante:', dimensiones);
+          } else {
+            console.log('   - No se encontraron dimensiones de variante, usando base');
           }
+        } else {
+          console.log('   - No tiene variantes, usando dimensiones base');
         }
         
         // Agregar los campos calculados al producto
