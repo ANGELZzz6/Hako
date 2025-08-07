@@ -141,13 +141,40 @@ export const useOrdersPage = () => {
     }
   }, [isAuthenticated]);
 
-  // Cargar penalizaciones del usuario
+  // Cargar penalizaciones del usuario (con validación de expiración)
   useEffect(() => {
     const fetchPenalties = async () => {
       try {
         const user = await userService.getMyProfile();
         if (user.reservationPenalties) {
-          setPenalizedDates(user.reservationPenalties.map((p: any) => p.date.slice(0, 10)));
+          const now = new Date();
+          const activePenalties: string[] = [];
+          const expiredPenalties: string[] = [];
+          
+          user.reservationPenalties.forEach((penalty: any) => {
+            const penaltyDate = penalty.date.slice(0, 10);
+            const penaltyTime = new Date(penalty.createdAt);
+            const hoursSincePenalty = (now.getTime() - penaltyTime.getTime()) / (1000 * 60 * 60);
+            
+            if (hoursSincePenalty < 24) {
+              activePenalties.push(penaltyDate);
+              console.log(`🔍 Penalización activa para ${penaltyDate} (${hoursSincePenalty.toFixed(2)}h transcurridas)`);
+            } else {
+              expiredPenalties.push(penaltyDate);
+              console.log(`✅ Penalización expirada para ${penaltyDate} (${hoursSincePenalty.toFixed(2)}h transcurridas)`);
+            }
+          });
+          
+          setPenalizedDates(activePenalties);
+          
+          // Mostrar advertencia si hay penalizaciones activas
+          if (activePenalties.length > 0) {
+            setPenaltyWarning(`Tienes ${activePenalties.length} penalización(es) activa(s). Las penalizaciones expiran en 24 horas.`);
+          } else if (expiredPenalties.length > 0) {
+            setPenaltyWarning(`Tienes ${expiredPenalties.length} penalización(es) expirada(s) que ya no te afectan.`);
+          } else {
+            setPenaltyWarning('');
+          }
         }
       } catch (err) {
         console.error('Error obteniendo penalizaciones:', err);

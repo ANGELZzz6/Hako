@@ -1015,6 +1015,17 @@ const OrdersPage: React.FC = () => {
                 </div>
               )}
 
+              {/* Advertencia de penalización */}
+              {penaltyWarning && (
+                <div className="alert alert-info">
+                  <h6 className="alert-heading">
+                    <i className="bi bi-clock-history me-2"></i>
+                    Información de Penalizaciones
+                  </h6>
+                  <p className="mb-0">{penaltyWarning}</p>
+                </div>
+              )}
+
               {/* Mis Reservas Activas */}
               <div className="mb-5">
                 <h4 className="mb-3">

@@ -47,4 +47,7 @@ router.get('/admin/stats', auth, adminAuth, appointmentController.getAppointment
 // Eliminar una cita (admin)
 router.delete('/admin/:appointmentId', auth, adminAuth, appointmentController.deleteAppointment);
 
+// Limpiar penalizaciones expiradas (admin)
+router.post('/admin/clean-penalties', auth, adminAuth, appointmentController.cleanExpiredPenalties);
+
 module.exports = router; 

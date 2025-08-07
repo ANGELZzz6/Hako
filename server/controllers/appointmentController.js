@@ -122,16 +122,40 @@ exports.createAppointment = async (req, res) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Verificar penalización por reserva vencida
+    // Verificar penalización por reserva vencida (temporal - 24 horas)
     const user = await require('../models/User').findById(req.user.id);
     if (user && user.reservationPenalties) {
+      const currentTime = new Date();
       const penalty = user.reservationPenalties.find(p => {
-        const d = new Date(p.date);
-        d.setHours(0, 0, 0, 0);
-        return d.getTime() === selectedDate.getTime();
+        const penaltyDate = new Date(p.date);
+        penaltyDate.setHours(0, 0, 0, 0);
+        const selectedDateNormalized = new Date(selectedDate);
+        selectedDateNormalized.setHours(0, 0, 0, 0);
+        
+        // Solo aplicar penalización si es el mismo día y no han pasado 24 horas
+        if (penaltyDate.getTime() === selectedDateNormalized.getTime()) {
+          const penaltyTime = new Date(p.createdAt);
+          const hoursSincePenalty = (currentTime.getTime() - penaltyTime.getTime()) / (1000 * 60 * 60);
+          
+          console.log(`🔍 Penalización encontrada para ${selectedDate.toLocaleDateString('es-CO')}`);
+          console.log(`⏰ Horas transcurridas desde penalización: ${hoursSincePenalty.toFixed(2)}`);
+          
+          // Si han pasado menos de 24 horas, aplicar penalización
+          if (hoursSincePenalty < 24) {
+            console.log(`❌ Penalización activa - No se puede reservar para este día`);
+            return true;
+          } else {
+            console.log(`✅ Penalización expirada - Se puede reservar para este día`);
+            return false;
+          }
+        }
+        return false;
       });
+      
       if (penalty) {
-        return res.status(403).json({ error: `No puedes reservar para este día (${selectedDate.toLocaleDateString('es-CO')}) porque tuviste una reserva vencida. Debes elegir otro día.` });
+        return res.status(403).json({ 
+          error: `No puedes reservar para este día (${selectedDate.toLocaleDateString('es-CO')}) porque tuviste una reserva vencida recientemente. La penalización expira en 24 horas.` 
+        });
       }
     }
     
@@ -465,9 +489,33 @@ exports.updateMyAppointment = async (req, res) => {
   try {
     const { appointmentId } = req.params;
     const { scheduledDate, timeSlot, lockerNumber } = req.body;
-    // Penalización: no permitir reprogramar para el día de una reserva vencida
-    const userAppointments = await Appointment.find({ user: req.user.id });
+    
+    // Verificar penalizaciones del usuario (reservas vencidas - temporal 24 horas)
+    const User = require('../models/User');
+    const user = await User.findById(req.user.id);
     const penalizedDates = new Set();
+    const currentTime = new Date();
+    
+    // Agregar penalizaciones almacenadas en el modelo User (solo las activas)
+    if (user && user.reservationPenalties) {
+      user.reservationPenalties.forEach(penalty => {
+        const penaltyDate = new Date(penalty.date);
+        penaltyDate.setHours(0, 0, 0, 0);
+        const penaltyTime = new Date(penalty.createdAt);
+        const hoursSincePenalty = (currentTime.getTime() - penaltyTime.getTime()) / (1000 * 60 * 60);
+        
+        // Solo agregar penalizaciones que no hayan expirado (menos de 24 horas)
+        if (hoursSincePenalty < 24) {
+          penalizedDates.add(penaltyDate.getTime());
+          console.log(`🔍 Penalización activa para ${penaltyDate.toLocaleDateString('es-CO')} (${hoursSincePenalty.toFixed(2)}h transcurridas)`);
+        } else {
+          console.log(`✅ Penalización expirada para ${penaltyDate.toLocaleDateString('es-CO')} (${hoursSincePenalty.toFixed(2)}h transcurridas)`);
+        }
+      });
+    }
+    
+    // También verificar reservas vencidas activas (solo si no han pasado 24 horas)
+    const userAppointments = await Appointment.find({ user: req.user.id });
     userAppointments.forEach(app => {
       if (app.status !== 'cancelled' && app.status !== 'completed') {
         const appDate = new Date(app.scheduledDate);
@@ -475,16 +523,28 @@ exports.updateMyAppointment = async (req, res) => {
         const appDateTime = new Date(app.scheduledDate);
         const [h, m] = app.timeSlot.split(':');
         appDateTime.setHours(parseInt(h), parseInt(m), 0, 0);
+        
+        // Solo penalizar si la reserva venció hace menos de 24 horas
         if (appDateTime < new Date()) {
-          penalizedDates.add(appDate.getTime());
+          const hoursSinceExpiry = (currentTime.getTime() - appDateTime.getTime()) / (1000 * 60 * 60);
+          if (hoursSinceExpiry < 24) {
+            penalizedDates.add(appDate.getTime());
+            console.log(`🔍 Reserva vencida activa para ${appDate.toLocaleDateString('es-CO')} (${hoursSinceExpiry.toFixed(2)}h transcurridas)`);
+          } else {
+            console.log(`✅ Reserva vencida expirada para ${appDate.toLocaleDateString('es-CO')} (${hoursSinceExpiry.toFixed(2)}h transcurridas)`);
+          }
         }
       }
     });
+    
+    // Validar que la nueva fecha no esté penalizada
     if (scheduledDate) {
       const newDate = createLocalDate(scheduledDate);
       newDate.setHours(0, 0, 0, 0);
       if (penalizedDates.has(newDate.getTime())) {
-        return res.status(403).json({ error: 'No puedes volver a reservar para el día en que se venció tu reserva. Elige otro día.' });
+        return res.status(403).json({ 
+          error: 'No puedes volver a reservar para el día en que se venció tu reserva recientemente. La penalización expira en 24 horas.' 
+        });
       }
     }
     
@@ -1269,6 +1329,37 @@ exports.createMultipleAppointments = async (req, res) => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         
+        // Verificar penalización por reserva vencida (temporal - 24 horas)
+        const user = await require('../models/User').findById(req.user.id);
+        if (user && user.reservationPenalties) {
+          const currentTime = new Date();
+          const penalty = user.reservationPenalties.find(p => {
+            const penaltyDate = new Date(p.date);
+            penaltyDate.setHours(0, 0, 0, 0);
+            const selectedDateNormalized = new Date(selectedDate);
+            selectedDateNormalized.setHours(0, 0, 0, 0);
+            
+            // Solo aplicar penalización si es el mismo día y no han pasado 24 horas
+            if (penaltyDate.getTime() === selectedDateNormalized.getTime()) {
+              const penaltyTime = new Date(p.createdAt);
+              const hoursSincePenalty = (currentTime.getTime() - penaltyTime.getTime()) / (1000 * 60 * 60);
+              
+              // Si han pasado menos de 24 horas, aplicar penalización
+              if (hoursSincePenalty < 24) {
+                return true;
+              } else {
+                return false;
+              }
+            }
+            return false;
+          });
+          
+          if (penalty) {
+            errors.push(`No puedes reservar para este día (${selectedDate.toLocaleDateString('es-CO')}) porque tuviste una reserva vencida recientemente. La penalización expira en 24 horas.`);
+            continue;
+          }
+        }
+        
         if (selectedDate < today) {
           errors.push(`No se pueden agendar citas en fechas pasadas`);
           continue;
@@ -1446,6 +1537,56 @@ exports.getAvailableLockersForDateTime = async (req, res) => {
     });
   } catch (error) {
     console.error('Error al obtener disponibilidad de casilleros:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
+// Función para limpiar penalizaciones expiradas (se puede ejecutar manualmente o automáticamente)
+exports.cleanExpiredPenalties = async (req, res) => {
+  try {
+    const User = require('../models/User');
+    const now = new Date();
+    const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    
+    console.log('🧹 Limpiando penalizaciones expiradas...');
+    console.log(`⏰ Fecha límite: ${twentyFourHoursAgo.toLocaleString('es-CO')}`);
+    
+    // Buscar usuarios con penalizaciones
+    const usersWithPenalties = await User.find({
+      'reservationPenalties.createdAt': { $lt: twentyFourHoursAgo }
+    });
+    
+    let totalCleaned = 0;
+    
+    for (const user of usersWithPenalties) {
+      const originalCount = user.reservationPenalties.length;
+      
+      // Filtrar penalizaciones que no han expirado
+      user.reservationPenalties = user.reservationPenalties.filter(penalty => {
+        const penaltyTime = new Date(penalty.createdAt);
+        return penaltyTime >= twentyFourHoursAgo;
+      });
+      
+      const newCount = user.reservationPenalties.length;
+      const cleaned = originalCount - newCount;
+      
+      if (cleaned > 0) {
+        await user.save();
+        totalCleaned += cleaned;
+        console.log(`✅ Usuario ${user.email}: ${cleaned} penalizaciones limpiadas`);
+      }
+    }
+    
+    console.log(`🎉 Limpieza completada: ${totalCleaned} penalizaciones expiradas eliminadas`);
+    
+    res.json({
+      message: 'Limpieza de penalizaciones completada',
+      totalCleaned,
+      usersProcessed: usersWithPenalties.length
+    });
+    
+  } catch (error) {
+    console.error('Error al limpiar penalizaciones expiradas:', error);
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 }; 
