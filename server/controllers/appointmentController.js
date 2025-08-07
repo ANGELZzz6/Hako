@@ -7,8 +7,8 @@ const createLocalDate = (dateString) => {
   // Si la fecha viene en formato "YYYY-MM-DD", crear una fecha local
   if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
     const [year, month, day] = dateString.split('-');
-    // Crear fecha en zona horaria local
-    const date = new Date(Number(year), Number(month) - 1, Number(day));
+    // Crear fecha en zona horaria local y establecer hora a 00:00:00
+    const date = new Date(Number(year), Number(month) - 1, Number(day), 0, 0, 0, 0);
     console.log(`🔍 createLocalDate: ${dateString} -> ${date.toISOString()} (${date.toLocaleDateString()})`);
     return date;
   }
@@ -923,8 +923,8 @@ exports.getAllAppointments = async (req, res) => {
     }
     
     if (date) {
-      const selectedDate = new Date(date);
-      selectedDate.setHours(0, 0, 0, 0);
+      // CORRECCIÓN: Usar createLocalDate para manejar zonas horarias correctamente
+      const selectedDate = createLocalDate(date);
       const nextDay = new Date(selectedDate);
       nextDay.setDate(nextDay.getDate() + 1);
       
@@ -932,16 +932,77 @@ exports.getAllAppointments = async (req, res) => {
         $gte: selectedDate,
         $lt: nextDay
       };
+      
+      console.log('🔍 getAllAppointments - Fecha solicitada:', date);
+      console.log('🔍 getAllAppointments - Fecha procesada:', selectedDate.toISOString());
+      console.log('🔍 getAllAppointments - Siguiente día:', nextDay.toISOString());
     }
     
     const appointments = await Appointment.find(query)
       .populate('user', 'nombre email telefono')
       .populate('order', 'total_amount status')
-      .populate('itemsToPickup.individualProduct')
-      .populate('itemsToPickup.originalProduct', 'nombre imagen_url')
+      .populate({
+        path: 'itemsToPickup.individualProduct',
+        populate: {
+          path: 'product',
+          select: 'nombre imagen_url dimensiones variants'
+        }
+      })
+      .populate('itemsToPickup.originalProduct', 'nombre imagen_url dimensiones variants')
       .sort({ scheduledDate: 1, timeSlot: 1 });
     
-    res.json(appointments);
+    // Agregar dimensiones calculadas a cada item
+    const appointmentsWithDimensions = appointments.map(appointment => {
+      const appointmentObj = appointment.toObject();
+      appointmentObj.itemsToPickup = appointmentObj.itemsToPickup.map(item => {
+        // Calcular dimensiones basadas en el producto individual
+        let dimensiones = null;
+        let volumen = null;
+        
+        if (item.individualProduct && item.individualProduct.dimensiones) {
+          dimensiones = item.individualProduct.dimensiones;
+          volumen = dimensiones.largo * dimensiones.ancho * dimensiones.alto;
+        } else if (item.originalProduct && item.originalProduct.dimensiones) {
+          dimensiones = item.originalProduct.dimensiones;
+          volumen = dimensiones.largo * dimensiones.ancho * dimensiones.alto;
+        }
+        
+        return {
+          ...item,
+          dimensiones: dimensiones,
+          volumen: volumen
+        };
+      });
+      return appointmentObj;
+    });
+    
+    console.log('🔍 getAllAppointments - Citas encontradas:', appointmentsWithDimensions.length);
+    if (appointmentsWithDimensions.length > 0) {
+      console.log('🔍 getAllAppointments - Primera cita:', {
+        id: appointmentsWithDimensions[0]._id,
+        scheduledDate: appointmentsWithDimensions[0].scheduledDate,
+        timeSlot: appointmentsWithDimensions[0].timeSlot,
+        user: appointmentsWithDimensions[0].user?.nombre,
+        itemsCount: appointmentsWithDimensions[0].itemsToPickup.length
+      });
+      
+      // Log del primer item para debug
+      if (appointmentsWithDimensions[0].itemsToPickup.length > 0) {
+        const firstItem = appointmentsWithDimensions[0].itemsToPickup[0];
+        console.log('🔍 getAllAppointments - Primer item:', {
+          individualProduct: firstItem.individualProduct?._id,
+          originalProduct: firstItem.originalProduct?._id,
+          individualProductDimensions: firstItem.individualProduct?.dimensiones,
+          originalProductDimensions: firstItem.originalProduct?.dimensiones,
+          individualProductName: firstItem.individualProduct?.product?.nombre,
+          originalProductName: firstItem.originalProduct?.nombre,
+          calculatedDimensiones: firstItem.dimensiones,
+          calculatedVolumen: firstItem.volumen
+        });
+      }
+    }
+    
+    res.json(appointmentsWithDimensions);
   } catch (error) {
     console.error('Error al obtener todas las citas:', error);
     res.status(500).json({ error: 'Error interno del servidor' });

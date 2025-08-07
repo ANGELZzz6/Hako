@@ -32,6 +32,14 @@ export interface Appointment {
     };
     quantity: number;
     lockerNumber: number;
+    dimensiones?: {
+      largo: number;
+      ancho: number;
+      alto: number;
+    };
+    volumen?: number;
+    individualProduct?: string;
+    originalProduct?: string;
   }>;
   notes?: string;
   contactInfo?: {

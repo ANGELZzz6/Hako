@@ -43,7 +43,7 @@ import PaymentPendingPage from './pages/PaymentPendingPage';
 import CheckoutPage from './pages/CheckoutPage';
 import OrdersPage from './pages/OrdersPage';
 import AdminOrdersPage from './pages/AdminOrdersPage';
-
+import AdminLockersPage from './pages/AdminLockersPage';
 import AdminAppointmentsPage from './pages/AdminAppointmentsPage';
 import orderService from './services/orderService';
 
@@ -670,6 +670,7 @@ const AppContent = () => {
           </ProtectedRoute>
         } />
         <Route path="/admin/orders" element={<ProtectedRoute requireAdmin><AdminOrdersPage /></ProtectedRoute>} />
+        <Route path="/admin/lockers" element={<ProtectedRoute requireAdmin><AdminLockersPage /></ProtectedRoute>} />
         <Route path="/admin/appointments" element={<ProtectedRoute requireAdmin><AdminAppointmentsPage /></ProtectedRoute>} />
         <Route path="/soporte" element={<SupportPage />} />
         <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
