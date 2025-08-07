@@ -269,23 +269,22 @@ const OrdersPage: React.FC = () => {
     let initialTime = '';
     let initialLocker = appointment.itemsToPickup[0]?.lockerNumber || 1;
 
-    if (forceEdit) {
-      const today = new Date();
-      const year = today.getFullYear();
-      const month = String(today.getMonth() + 1).padStart(2, '0');
-      const day = String(today.getDate()).padStart(2, '0');
-      initialDate = `${year}-${month}-${day}`;
-      const availableTimes = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', 
-        '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00'];
-      initialTime = availableTimes[0] || '08:00';
-    } else {
-      const appointmentDateTime = createLocalDate(appointment.scheduledDate);
-      const year = appointmentDateTime.getFullYear();
-      const month = String(appointmentDateTime.getMonth() + 1).padStart(2, '0');
-      const day = String(appointmentDateTime.getDate()).padStart(2, '0');
-      initialDate = `${year}-${month}-${day}`;
-      initialTime = appointment.timeSlot;
-    }
+    // Siempre usar la fecha actual al abrir el modal de edición
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    initialDate = `${year}-${month}-${day}`;
+    
+    // No seleccionar automáticamente la hora original, dejar que el modal la seleccione
+    // basándose en los horarios disponibles del backend
+    initialTime = '';
+
+    console.log('🔍 handleEditAppointment:');
+    console.log('  Fecha original de la reserva:', appointment.scheduledDate);
+    console.log('  Hora original de la reserva:', appointment.timeSlot);
+    console.log('  Fecha inicial seleccionada (hoy):', initialDate);
+    console.log('  Hora inicial seleccionada (vacía):', initialTime);
 
     setSelectedAppointmentForEdit(appointment);
     setEditAppointmentDate(initialDate);

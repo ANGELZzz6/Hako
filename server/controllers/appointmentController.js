@@ -7,10 +7,15 @@ const createLocalDate = (dateString) => {
   // Si la fecha viene en formato "YYYY-MM-DD", crear una fecha local
   if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
     const [year, month, day] = dateString.split('-');
-    return new Date(Number(year), Number(month) - 1, Number(day));
+    // Crear fecha en zona horaria local
+    const date = new Date(Number(year), Number(month) - 1, Number(day));
+    console.log(`🔍 createLocalDate: ${dateString} -> ${date.toISOString()} (${date.toLocaleDateString()})`);
+    return date;
   }
   // Si ya es una fecha completa, usarla tal como está
-  return new Date(dateString);
+  const date = new Date(dateString);
+  console.log(`🔍 createLocalDate: ${dateString} -> ${date.toISOString()} (${date.toLocaleDateString()})`);
+  return date;
 };
 
 // Obtener horarios disponibles para una fecha
@@ -48,10 +53,25 @@ exports.getAvailableTimeSlots = async (req, res) => {
     
     // Si es el día actual, filtrar horas que ya han pasado
     const isToday = selectedDate.getTime() === today.getTime();
+    
+    console.log('🔍 Debug getAvailableTimeSlots:');
+    console.log('  Fecha recibida:', date);
+    console.log('  Fecha seleccionada (parsed):', selectedDate.toISOString());
+    console.log('  Fecha seleccionada (local):', selectedDate.toLocaleDateString());
+    console.log('  Fecha actual:', today.toISOString());
+    console.log('  Fecha actual (local):', today.toLocaleDateString());
+    console.log('  ¿Es hoy?:', isToday);
+    console.log('  Hora actual (servidor):', new Date().toLocaleTimeString());
+    console.log('  Zona horaria del servidor:', Intl.DateTimeFormat().resolvedOptions().timeZone);
+    
     if (isToday) {
       const now = new Date();
       const currentHour = now.getHours();
       const currentMinute = now.getMinutes();
+      
+      console.log('  Filtrando horas para hoy:');
+      console.log('  Hora actual:', currentHour);
+      console.log('  Minuto actual:', currentMinute);
       
       // Filtrar slots que ya han pasado
       const filteredSlots = availableSlots.filter(slot => {
@@ -59,15 +79,23 @@ exports.getAvailableTimeSlots = async (req, res) => {
         const slotHour = parseInt(hours);
         const slotMinute = parseInt(minutes);
         
+        const isFuture = slotHour > currentHour || (slotHour === currentHour && slotMinute > currentMinute);
+        
+        console.log(`    ${slot.time}: hora=${slotHour}, minuto=${slotMinute}, ¿es futuro?=${isFuture}`);
+        
         // Si la hora del slot es menor a la hora actual, o si es la misma hora pero los minutos ya pasaron
-        return slotHour > currentHour || (slotHour === currentHour && slotMinute > currentMinute);
+        return isFuture;
       });
+      
+      console.log('  Horarios filtrados para hoy:', filteredSlots.map(s => s.time));
       
       return res.json({
         date: date,
         timeSlots: filteredSlots
       });
     }
+    
+    console.log('  No es hoy, retornando todos los horarios:', availableSlots.map(s => s.time));
     
     res.json({
       date: date,

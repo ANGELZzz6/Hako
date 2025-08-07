@@ -1,6 +1,7 @@
-import React from 'react';
-import { getAvailableDates, getAvailableTimeSlotsForDate, createLocalDate } from '../utils/dateUtils';
+import React, { useState, useEffect } from 'react';
+import { getAvailableDates, createLocalDate } from '../utils/dateUtils';
 import { getAvailableLockersForEdit } from '../utils/productUtils';
+import appointmentService from '../../../services/appointmentService';
 
 interface EditAppointmentModalProps {
   isOpen: boolean;
@@ -33,6 +34,80 @@ const EditAppointmentModal: React.FC<EditAppointmentModalProps> = ({
   onTimeChange,
   onLockerChange
 }) => {
+  const [availableTimeSlots, setAvailableTimeSlots] = useState<string[]>([]);
+  const [loadingTimeSlots, setLoadingTimeSlots] = useState(false);
+
+  // Cargar horarios disponibles cuando cambie la fecha
+  useEffect(() => {
+    if (isOpen && editAppointmentDate) {
+      loadAvailableTimeSlots(editAppointmentDate);
+    }
+  }, [isOpen, editAppointmentDate]);
+
+  const loadAvailableTimeSlots = async (date: string) => {
+    try {
+      setLoadingTimeSlots(true);
+      console.log('🔍 Frontend enviando fecha al backend:', date);
+      console.log('🔍 Hora actual en frontend:', new Date().toLocaleTimeString());
+      console.log('🔍 Fecha actual en frontend:', new Date().toLocaleDateString());
+      
+      const response = await appointmentService.getAvailableTimeSlots(date);
+      console.log('🔍 Respuesta del backend:', response);
+      
+      const slots = response.timeSlots
+        .filter((slot: any) => slot.available)
+        .map((slot: any) => slot.time);
+      setAvailableTimeSlots(slots);
+      
+      console.log('🔍 Horarios disponibles filtrados:', slots);
+      
+      // Si no hay hora seleccionada o la hora actual no está en los horarios disponibles, 
+      // seleccionar la primera disponible
+      if (slots.length > 0 && (!editAppointmentTime || !slots.includes(editAppointmentTime))) {
+        const firstAvailableSlot = slots[0];
+        console.log('🔍 Seleccionando primera hora disponible:', firstAvailableSlot);
+        onTimeChange(firstAvailableSlot);
+      }
+    } catch (error) {
+      console.error('Error al cargar horarios disponibles:', error);
+      
+      // Fallback inteligente: usar horarios básicos pero filtrados por hora actual
+      const now = new Date();
+      const currentHour = now.getHours();
+      const currentMinute = now.getMinutes();
+      
+      const allTimeSlots = [
+        '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', 
+        '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00'
+      ];
+      
+      // Filtrar horarios del pasado
+      const fallbackSlots = allTimeSlots.filter(time => {
+        const [hours, minutes] = time.split(':');
+        const slotHour = parseInt(hours);
+        const slotMinute = parseInt(minutes);
+        return slotHour > currentHour || (slotHour === currentHour && slotMinute > currentMinute);
+      });
+      
+      console.log('🔍 Usando horarios de fallback filtrados:', fallbackSlots);
+      setAvailableTimeSlots(fallbackSlots);
+      
+      // Seleccionar la primera hora disponible del fallback
+      if (fallbackSlots.length > 0 && (!editAppointmentTime || !fallbackSlots.includes(editAppointmentTime))) {
+        const firstAvailableSlot = fallbackSlots[0];
+        console.log('🔍 Seleccionando primera hora disponible del fallback:', firstAvailableSlot);
+        onTimeChange(firstAvailableSlot);
+      }
+    } finally {
+      setLoadingTimeSlots(false);
+    }
+  };
+
+  const handleDateChange = (date: string) => {
+    onDateChange(date);
+    // Los horarios se cargarán automáticamente en el useEffect
+  };
+
   if (!isOpen || !appointment) return null;
 
   const handleUpdate = () => {
@@ -127,7 +202,7 @@ const EditAppointmentModal: React.FC<EditAppointmentModalProps> = ({
                   <select
                     className="form-select"
                     value={editAppointmentDate}
-                    onChange={(e) => onDateChange(e.target.value)}
+                    onChange={(e) => handleDateChange(e.target.value)}
                   >
                     {getAvailableDates(penalizedDates).map(date => (
                       <option key={date.value} value={date.value} disabled={date.isPenalized}>
@@ -140,17 +215,26 @@ const EditAppointmentModal: React.FC<EditAppointmentModalProps> = ({
                   <label htmlFor="newTime" className="form-label">
                     <strong>Nueva Hora:</strong>
                   </label>
-                  <select 
-                    className="form-select" 
-                    value={editAppointmentTime}
-                    onChange={(e) => onTimeChange(e.target.value)}
-                  >
-                    {getAvailableTimeSlotsForDate(editAppointmentDate).map(time => (
-                      <option key={time} value={time}>
-                        {time}
-                      </option>
-                    ))}
-                  </select>
+                  {loadingTimeSlots ? (
+                    <div className="form-select">
+                      <div className="d-flex align-items-center">
+                        <div className="spinner-border spinner-border-sm me-2" role="status"></div>
+                        Cargando horarios...
+                      </div>
+                    </div>
+                  ) : (
+                    <select 
+                      className="form-select" 
+                      value={editAppointmentTime}
+                      onChange={(e) => onTimeChange(e.target.value)}
+                    >
+                      {availableTimeSlots.map(time => (
+                        <option key={time} value={time}>
+                          {time}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
                 <div className="mb-3">
                   <label htmlFor="newLocker" className="form-label">
@@ -189,7 +273,7 @@ const EditAppointmentModal: React.FC<EditAppointmentModalProps> = ({
               type="button"
               className="btn btn-primary"
               onClick={handleUpdate}
-              disabled={updatingAppointment}
+              disabled={updatingAppointment || loadingTimeSlots}
             >
               {updatingAppointment ? (
                 <>

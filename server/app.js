@@ -1,6 +1,11 @@
 // app.js
 // Configuración principal de Express
 
+// Configurar zona horaria para el servidor
+process.env.TZ = 'America/Bogota'; // Zona horaria de Colombia
+console.log('🕐 Zona horaria del servidor configurada:', process.env.TZ);
+console.log('🕐 Hora actual del servidor:', new Date().toLocaleString());
+
 const express = require('express');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
