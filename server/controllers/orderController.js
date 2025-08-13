@@ -125,6 +125,91 @@ exports.getMyPurchasedProducts = async (req, res) => {
   }
 };
 
+// Obtener productos de un usuario específico (solo admin)
+exports.getUserProducts = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    console.log('🔍 [ADMIN] Buscando productos individuales para usuario:', userId);
+    
+    // Obtener todos los productos individuales del usuario especificado
+    const individualProducts = await IndividualProduct.find({ 
+      user: userId,
+      status: { $in: ['available', 'reserved', 'claimed'] }
+    }).populate('product order user');
+
+    console.log(`📊 [ADMIN] Productos individuales encontrados: ${individualProducts.length}`);
+
+    // Transformar los productos individuales al formato esperado
+    const allItems = individualProducts.map(individualProduct => {
+      try {
+        const product = individualProduct.product;
+        
+        // Verificar que el producto existe
+        if (!product) {
+          console.log('⚠️ [ADMIN] Producto no encontrado para individualProduct:', individualProduct._id);
+          return null;
+        }
+        
+        // Usar los métodos del IndividualProduct para dimensiones y volumen
+        const tieneDimensiones = individualProduct.tieneDimensiones();
+        const volumen = individualProduct.getVolumen();
+        
+        // Obtener dimensiones considerando variantes si existen
+        let dimensiones = individualProduct.dimensiones;
+        console.log('🔍 [ADMIN] Procesando producto individual:', individualProduct._id);
+        console.log('   - Variants:', individualProduct.variants);
+        console.log('   - Dimensiones base:', individualProduct.dimensiones);
+        
+        if (individualProduct.variants && individualProduct.variants.size > 0) {
+          console.log('   - Tiene variantes, calculando dimensiones de variante...');
+          const variantDimensiones = individualProduct.getVariantOrProductDimensions();
+          console.log('   - Dimensiones de variante calculadas:', variantDimensiones);
+          if (variantDimensiones) {
+            dimensiones = variantDimensiones;
+            console.log('   - Usando dimensiones de variante:', dimensiones);
+          } else {
+            console.log('   - No se encontraron dimensiones de variante, usando base');
+          }
+        } else {
+          console.log('   - No tiene variantes, usando dimensiones base');
+        }
+        
+        // Agregar los campos calculados al producto
+        product.tieneDimensiones = tieneDimensiones;
+        product.volumen = volumen;
+        
+        return {
+          _id: individualProduct._id,
+          product: product,
+          orderId: individualProduct.order?._id,
+          orderCreatedAt: individualProduct.order?.createdAt,
+          quantity: 1, // Cada producto individual tiene cantidad 1
+          remaining_quantity: individualProduct.status === 'available' ? 1 : 0,
+          isClaimed: individualProduct.status === 'claimed',
+          isReserved: individualProduct.status === 'reserved',
+          originalItemId: individualProduct._id, // ID del producto individual
+          individualIndex: individualProduct.individualIndex,
+          totalInOrder: 1, // Cada producto individual es único
+          assigned_locker: individualProduct.assignedLocker,
+          unit_price: individualProduct.unitPrice,
+          variants: individualProduct.variants ? Object.fromEntries(individualProduct.variants) : undefined,
+          dimensiones: dimensiones,
+          user: individualProduct.user // Incluir información del usuario
+        };
+      } catch (itemError) {
+        console.error('❌ [ADMIN] Error procesando producto individual:', individualProduct._id, itemError);
+        return null;
+      }
+    }).filter(item => item !== null); // Filtrar items nulos
+
+    console.log(`✅ [ADMIN] Productos transformados exitosamente: ${allItems.length}`);
+    res.json(allItems);
+  } catch (error) {
+    console.error('❌ [ADMIN] Error al obtener productos del usuario:', error);
+    res.status(500).json({ error: 'Error al obtener productos del usuario' });
+  }
+};
+
 // Reclamar productos desde inventario (función original)
 exports.claimProductsFromInventory = async (req, res) => {
   try {

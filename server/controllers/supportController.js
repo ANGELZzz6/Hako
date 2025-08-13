@@ -1,5 +1,8 @@
 const SupportTicket = require('../models/SupportTicket');
 const User = require('../models/User');
+const Product = require('../models/Product');
+const IndividualProduct = require('../models/IndividualProduct');
+const Order = require('../models/Order');
 const transporter = require('../config/nodemailer');
 
 exports.createTicket = async (req, res) => {
@@ -39,6 +42,100 @@ exports.createTicket = async (req, res) => {
 
     res.status(201).json(ticket);
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Endpoint para agregar un producto a un usuario (crear IndividualProduct)
+exports.addProductToUser = async (req, res) => {
+  try {
+    const { userId, productId, quantity, variants } = req.body;
+    
+    // Verificar que el usuario sea administrador
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'No tienes permisos para realizar esta acción' });
+    }
+    
+    // Verificar que existan el usuario y el producto
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+    
+    const product = await Product.findById(productId);
+    if (!product) {
+      return res.status(404).json({ error: 'Producto no encontrado' });
+    }
+    
+    // Verificar stock disponible
+    if (product.stock < quantity) {
+      return res.status(400).json({ error: `Stock insuficiente. Disponible: ${product.stock}` });
+    }
+    
+    // Validar variantes si el producto las tiene
+    if (product.variants && product.variants.enabled) {
+      const requiredAttributes = product.variants.attributes.filter(attr => attr.required);
+      for (const attr of requiredAttributes) {
+        if (!variants || !variants[attr.name]) {
+          return res.status(400).json({ error: `Debes seleccionar una opción para ${attr.name}` });
+        }
+      }
+    }
+    
+    // Crear una orden temporal para asociar con los productos individuales
+    const order = new Order({
+      user: userId,
+      items: [{
+        product: productId,
+        quantity: quantity,
+        unit_price: product.precio,
+        total_price: product.precio * quantity,
+        variants: variants || {}
+      }],
+      total_amount: product.precio * quantity,
+      status: 'paid',
+      external_reference: `admin_assignment_${Date.now()}_${userId}`,
+      notes: `Producto asignado manualmente por administrador`
+    });
+    
+    await order.save();
+    
+    // Crear productos individuales
+    const createdProducts = [];
+    
+    for (let i = 0; i < quantity; i++) {
+      const individualProduct = new IndividualProduct({
+        user: userId,
+        order: order._id,
+        product: productId,
+        individualIndex: i + 1,
+        status: 'available',
+        unitPrice: product.precio,
+        variants: variants ? new Map(Object.entries(variants)) : undefined,
+        dimensiones: product.dimensiones
+      });
+      
+      await individualProduct.save();
+      createdProducts.push(individualProduct);
+    }
+    
+    // Actualizar el stock del producto
+    product.stock -= quantity;
+    await product.save();
+    
+    // Poblar los productos creados con información completa
+    const populatedProducts = await IndividualProduct.find({
+      _id: { $in: createdProducts.map(p => p._id) }
+    }).populate('product').populate('user');
+    
+    res.status(201).json({
+      success: true,
+      message: `${quantity} producto(s) asignado(s) a ${user.nombre} correctamente`,
+      products: populatedProducts,
+      order: order
+    });
+  } catch (err) {
+    console.error('Error al agregar producto a usuario:', err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -185,4 +282,4 @@ exports.rateTicket = async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-}; 
+};

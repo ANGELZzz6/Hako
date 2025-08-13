@@ -45,6 +45,7 @@ import OrdersPage from './pages/OrdersPage';
 import AdminOrdersPage from './pages/AdminOrdersPage';
 import AdminLockersPage from './pages/AdminLockersPage';
 import AdminAppointmentsPage from './pages/AdminAppointmentsPage';
+import AdminSupportCompleteFlow from './pages/AdminSupportCompleteFlow';
 import orderService from './services/orderService';
 
 // Importar fuente Montserrat
@@ -672,6 +673,7 @@ const AppContent = () => {
         <Route path="/admin/orders" element={<ProtectedRoute requireAdmin><AdminOrdersPage /></ProtectedRoute>} />
         <Route path="/admin/lockers" element={<ProtectedRoute requireAdmin><AdminLockersPage /></ProtectedRoute>} />
         <Route path="/admin/appointments" element={<ProtectedRoute requireAdmin><AdminAppointmentsPage /></ProtectedRoute>} />
+        <Route path="/admin/support-complete" element={<ProtectedRoute requireAdmin><AdminSupportCompleteFlow /></ProtectedRoute>} />
         <Route path="/soporte" element={<SupportPage />} />
         <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
         <Route path="/cart-management" element={<ProtectedRoute><CartManagement /></ProtectedRoute>} />

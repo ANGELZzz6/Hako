@@ -31,6 +31,25 @@ class OrderService {
     }
   }
 
+  // Obtener productos de un usuario específico (solo admin)
+  async getUserProducts(userId: string): Promise<OrderItem[]> {
+    try {
+      const response = await fetch(`${ENDPOINTS.ORDERS}/admin/user/${userId}/products`, {
+        headers: this.getHeaders(),
+      });
+      handle401(response);
+      
+      if (!response.ok) {
+        throw new Error('Error al obtener productos del usuario');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error:', error);
+      throw error;
+    }
+  }
+
   // Obtener el pedido activo del usuario
   async getMyOrders(): Promise<Order[]> {
     try {
