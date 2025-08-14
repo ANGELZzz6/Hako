@@ -9,6 +9,7 @@ dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 const { connectDB } = require('./config/db');
 const app = require('./app');
+const { scheduleTasks } = require('./scheduledTasks');
 
 // Conectar a MongoDB Atlas
 connectDB().catch(console.error);
@@ -38,4 +39,12 @@ const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
     console.log(`Servidor escuchando en el puerto ${PORT}`);
+    
+    // Iniciar tareas programadas después de que el servidor esté funcionando
+    try {
+        scheduleTasks();
+        console.log('✅ Tareas programadas iniciadas correctamente');
+    } catch (error) {
+        console.error('❌ Error al iniciar tareas programadas:', error);
+    }
 });

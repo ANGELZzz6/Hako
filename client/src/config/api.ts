@@ -9,6 +9,7 @@ export const ENDPOINTS = {
   SUPPORT: `${API_URL}/support`,
   APPOINTMENTS: `${API_URL}/appointments`,
   DEBUG: `${API_URL}/debug`,
+  QR: `${API_URL}/qr`,
 };
 
 export default API_URL; 

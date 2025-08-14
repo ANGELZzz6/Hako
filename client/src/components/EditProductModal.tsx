@@ -124,7 +124,21 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ product, isOpen, is
         ? formData.images.filter((img): img is string => typeof img === 'string' && !!img)
         : [formData.imagen_url]
       ).filter((img): img is string => typeof img === 'string' && !!img);
-      const dataToSend = { ...formData, imagen_url: images[0], images, variants };
+      
+      // Calcular stock total de variantes si están activas
+      let stockTotal = formData.stock;
+      if (variants.enabled && variants.attributes.length > 0) {
+        stockTotal = getTotalVariantStock() || 0;
+        console.log(`📊 Stock total calculado de variantes: ${stockTotal}`);
+      }
+      
+      const dataToSend = { 
+        ...formData, 
+        imagen_url: images[0], 
+        images, 
+        variants,
+        stock: stockTotal // Usar el stock calculado
+      };
       
       // Logs detallados para debugging
       console.log('=== [ADMIN] GUARDANDO PRODUCTO ===');
@@ -238,14 +252,24 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ product, isOpen, is
 
   // Calcular stock total de variantes si están activas
   const getTotalVariantStock = () => {
-    if (!variants.enabled || !variants.attributes.length) return null;
+    if (!variants.enabled || !variants.attributes.length) return 0;
+    
     let total = 0;
+    let hasActiveOptions = false;
+    
     variants.attributes.forEach(attr => {
-      attr.options.forEach(opt => {
-        if (opt.isActive) total += Number(opt.stock) || 0;
-      });
+      if (attr.options && attr.options.length > 0) {
+        attr.options.forEach(opt => {
+          if (opt.isActive && typeof opt.stock === 'number' && opt.stock > 0) {
+            total += opt.stock;
+            hasActiveOptions = true;
+          }
+        });
+      }
     });
-    return total;
+    
+    // Solo retornar el total si hay opciones activas con stock
+    return hasActiveOptions ? total : 0;
   };
   const variantStock = getTotalVariantStock();
 
@@ -288,7 +312,15 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ product, isOpen, is
                 disabled={variantStock !== null}
               />
               {variantStock !== null && (
-                <small className="text-muted">Stock total calculado a partir de las variantes activas.</small>
+                <div className="mt-2">
+                  <small className="text-info d-block">
+                    <i className="bi bi-calculator me-1"></i>
+                    Stock total calculado: <strong>{variantStock}</strong> unidades
+                  </small>
+                  <small className="text-muted d-block">
+                    Este valor se calcula automáticamente sumando el stock de todas las variantes activas.
+                  </small>
+                </div>
               )}
             </div>
           </div>
@@ -448,6 +480,44 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ product, isOpen, is
               Producto Activo
             </label>
           </div>
+          
+          {/* Resumen de Stock de Variantes */}
+          {variants.enabled && variants.attributes.length > 0 && (
+            <div className="form-group">
+              <div className="alert alert-info">
+                <h6 className="mb-2">
+                  <i className="bi bi-boxes me-2"></i>
+                  Resumen de Stock de Variantes
+                </h6>
+                <div className="row">
+                  {variants.attributes.map((attr, attrIndex) => (
+                    <div key={attrIndex} className="col-md-6 mb-2">
+                      <strong>{attr.name}:</strong>
+                      <div className="ms-3">
+                        {attr.options.map((opt, optIndex) => (
+                          <div key={optIndex} className="d-flex justify-content-between align-items-center">
+                            <span className={opt.isActive ? 'text-success' : 'text-muted'}>
+                              {opt.value}
+                              {!opt.isActive && ' (inactivo)'}
+                            </span>
+                            <span className={`badge ${opt.isActive ? 'bg-success' : 'bg-secondary'}`}>
+                              {opt.stock} unidades
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <hr className="my-2" />
+                <div className="d-flex justify-content-between align-items-center">
+                  <strong>Stock Total:</strong>
+                  <span className="badge bg-primary fs-6">{variantStock} unidades</span>
+                </div>
+              </div>
+            </div>
+          )}
+          
           <ProductVariantManager
             variants={variants}
             onChange={setVariants}
