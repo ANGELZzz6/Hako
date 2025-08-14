@@ -104,13 +104,27 @@ exports.addProductToUser = async (req, res) => {
     const createdProducts = [];
     
     for (let i = 0; i < quantity; i++) {
+      // Calcular precio total incluyendo variantes
+      let totalPrice = product.precio;
+      if (variants && product.variants && product.variants.enabled) {
+        for (const [attrName, attrValue] of Object.entries(variants)) {
+          const attribute = product.variants.attributes.find(attr => attr.name === attrName);
+          if (attribute) {
+            const option = attribute.options.find(opt => opt.value === attrValue);
+            if (option && option.price) {
+              totalPrice += option.price;
+            }
+          }
+        }
+      }
+
       const individualProduct = new IndividualProduct({
         user: userId,
         order: order._id,
         product: productId,
         individualIndex: i + 1,
         status: 'available',
-        unitPrice: product.precio,
+        unitPrice: totalPrice,
         variants: variants ? new Map(Object.entries(variants)) : undefined,
         dimensiones: product.dimensiones
       });

@@ -424,10 +424,13 @@ const AdminSupportCompleteFlow: React.FC = () => {
             throw new Error(`La opción seleccionada para ${attr.name} no es válida`);
           }
           
-          // Validar stock de la variante específica
-          const selectedOption = attr.options.find(opt => opt.value === selectedVariants[attr.name]);
-          if (selectedOption && selectedOption.stock < quantity) {
-            throw new Error(`Stock insuficiente para la variante ${attr.name}: ${selectedOption.value}. Disponible: ${selectedOption.stock}`);
+          // Solo validar stock de la variante específica si el producto no tiene stock general suficiente
+          // Si hay stock general, permitir la asignación aunque la variante específica no tenga stock
+          if (selectedProductToAdd.stock < quantity) {
+            const selectedOption = attr.options.find(opt => opt.value === selectedVariants[attr.name]);
+            if (selectedOption && selectedOption.stock < quantity) {
+              throw new Error(`Stock insuficiente para la variante ${attr.name}: ${selectedOption.value}. Disponible: ${selectedOption.stock}`);
+            }
           }
         }
         
@@ -447,27 +450,72 @@ const AdminSupportCompleteFlow: React.FC = () => {
       
       logDebugError('Producto asignado manualmente', response, 'info');
       
-      // Actualizar la lista de productos individuales
-      setIndividualProducts(prev => [
-        ...response.products.map((p: any) => ({
-          _id: p._id,
-          product: p.product,
-          status: p.status,
-          unit_price: p.unitPrice,
-          orderCreatedAt: p.createdAt,
-          variants: p.variants ? Object.fromEntries(p.variants) : undefined,
-          user: p.user
-        })) as IndividualProduct[],
-        ...prev
-      ]);
+      // Log del precio calculado
+      console.log('💰 Precio del producto asignado:', {
+        precioBase: selectedProductToAdd.precio,
+        variantesSeleccionadas: selectedVariants,
+        precioTotal: response.products?.[0]?.unitPrice || 'No disponible'
+      });
       
-      // Limpiar selecciones
+      // Log de la estructura de la respuesta para debugging
+      console.log('🔍 Estructura de la respuesta del servidor:', {
+        responseKeys: Object.keys(response),
+        hasProducts: !!response.products,
+        productsType: typeof response.products,
+        productsLength: response.products?.length,
+        firstProduct: response.products?.[0],
+        firstProductVariants: response.products?.[0]?.variants,
+        variantsType: typeof response.products?.[0]?.variants
+      });
+      
+      // Actualizar la lista de productos individuales solo si hay productos en la respuesta
+      if (response.products && Array.isArray(response.products)) {
+        setIndividualProducts(prev => [
+          ...response.products.map((p: any) => {
+            // Validar y convertir variants de forma segura
+            let variants = undefined;
+            if (p.variants) {
+              try {
+                if (p.variants instanceof Map) {
+                  variants = Object.fromEntries(p.variants);
+                } else if (Array.isArray(p.variants)) {
+                  variants = Object.fromEntries(p.variants);
+                } else if (typeof p.variants === 'object') {
+                  variants = p.variants;
+                }
+              } catch (error) {
+                console.warn('Error al convertir variants:', error, p.variants);
+                variants = undefined;
+              }
+            }
+
+            return {
+              _id: p._id,
+              product: p.product,
+              status: p.status,
+              unit_price: p.unitPrice,
+              orderCreatedAt: p.createdAt,
+              variants,
+              user: p.user
+            };
+          }) as IndividualProduct[],
+          ...prev
+        ]);
+      } else {
+        console.warn('⚠️ La respuesta no contiene productos válidos:', response);
+      }
+      
+      // Limpiar selecciones del modal pero mantener el usuario seleccionado
       setSelectedProductToAdd(null);
       setSelectedVariants({});
       setQuantity(1);
       setShowAddProductModal(false);
       
+      // Mostrar mensaje de éxito
       alert(response.message || `Producto asignado a ${selectedUser.nombre} correctamente`);
+      
+      // Recargar la lista de productos individuales para mostrar el nuevo producto
+      await fetchIndividualProducts();
     } catch (err: any) {
       const errorMessage = err.message || err.toString();
       setAddProductError(errorMessage);

@@ -263,8 +263,15 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ product, isOpen, is
   };
 
   // Calcular stock total de variantes si están activas, considerando un único atributo como driver
-  const getTotalVariantStock = () => {
-    if (!variants.enabled || !variants.attributes.length) return 0;
+  const [variantStock, setVariantStock] = useState(0);
+
+  useEffect(() => {
+    if (!variants.enabled || !variants.attributes.length) {
+      setVariantStock(0);
+      setVariantStockDetails({ driverName: undefined, totalsByAttribute: [] });
+      setVariantStockError('');
+      return;
+    }
 
     const totalsByAttribute = variants.attributes.map(attr => {
       const totalForAttr = (attr.options || []).reduce((acc, opt) => {
@@ -285,13 +292,12 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ product, isOpen, is
 
     if (drivers.length > 1) {
       setVariantStockError('Hay más de un atributo con stock definido. Solo un atributo debe concentrar el stock (por ejemplo, Talla). Ajusta los valores para continuar.');
-      return 0;
+      setVariantStock(0);
+    } else {
+      setVariantStockError('');
+      setVariantStock(drivers.length === 1 ? drivers[0].total : 0);
     }
-
-    setVariantStockError('');
-    return drivers.length === 1 ? drivers[0].total : 0;
-  };
-  const variantStock = getTotalVariantStock();
+  }, [variants]);
 
   if (!isOpen) return null;
 
@@ -552,7 +558,7 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ product, isOpen, is
                       ))}
                     </ul>
                     <div className="text-danger">
-                      Ajusta los valores para que solo uno de los atributos tenga stock (> 0).
+                      Ajusta los valores para que solo uno de los atributos tenga stock (&gt; 0).
                     </div>
                   </div>
                 )}
