@@ -33,6 +33,7 @@ export interface VariantAttribute {
   required: boolean;
   options: VariantOption[];
   definesDimensions?: boolean; // Indica si este atributo define dimensiones
+  definesStock?: boolean; // Indica si este atributo controla el stock total
 }
 
 export interface ProductVariants {

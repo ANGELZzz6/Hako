@@ -58,6 +58,8 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ product, isOpen, is
   const [uploading, setUploading] = useState(false);
   const [categorias, setCategorias] = useState<string[]>([]);
   const [categoriaInput, setCategoriaInput] = useState('');
+  const [variantStockError, setVariantStockError] = useState<string>('');
+  const [variantStockDetails, setVariantStockDetails] = useState<{ driverName?: string; totalsByAttribute: Array<{ name: string; total: number }>}>({ driverName: undefined, totalsByAttribute: [] });
 
   const capitalizeFirst = (str: string) => str.charAt(0).toUpperCase() + str.slice(1);
 
@@ -125,10 +127,20 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ product, isOpen, is
         : [formData.imagen_url]
       ).filter((img): img is string => typeof img === 'string' && !!img);
       
-      // Calcular stock total de variantes si están activas
+      // Calcular stock total de variantes si están activas, con validación de único atributo driver
       let stockTotal = formData.stock;
       if (variants.enabled && variants.attributes.length > 0) {
-        stockTotal = getTotalVariantStock() || 0;
+        const totalsByAttribute = variants.attributes.map(attr => ({
+          name: attr.name,
+          total: (attr.options || []).reduce((acc, opt) => (
+            opt.isActive && typeof opt.stock === 'number' && opt.stock > 0 ? acc + opt.stock : acc
+          ), 0)
+        }));
+        const drivers = totalsByAttribute.filter(t => t.total > 0);
+        if (drivers.length > 1) {
+          throw new Error('Hay más de un atributo con stock definido. Solo un atributo debe concentrar el stock (por ejemplo, Talla). Ajusta los valores para continuar.');
+        }
+        stockTotal = drivers.length === 1 ? drivers[0].total : 0;
         console.log(`📊 Stock total calculado de variantes: ${stockTotal}`);
       }
       
@@ -250,26 +262,34 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ product, isOpen, is
     }
   };
 
-  // Calcular stock total de variantes si están activas
+  // Calcular stock total de variantes si están activas, considerando un único atributo como driver
   const getTotalVariantStock = () => {
     if (!variants.enabled || !variants.attributes.length) return 0;
-    
-    let total = 0;
-    let hasActiveOptions = false;
-    
-    variants.attributes.forEach(attr => {
-      if (attr.options && attr.options.length > 0) {
-        attr.options.forEach(opt => {
-          if (opt.isActive && typeof opt.stock === 'number' && opt.stock > 0) {
-            total += opt.stock;
-            hasActiveOptions = true;
-          }
-        });
-      }
+
+    const totalsByAttribute = variants.attributes.map(attr => {
+      const totalForAttr = (attr.options || []).reduce((acc, opt) => {
+        if (opt.isActive && typeof opt.stock === 'number' && opt.stock > 0) {
+          return acc + opt.stock;
+        }
+        return acc;
+      }, 0);
+      return { name: attr.name, total: totalForAttr };
     });
-    
-    // Solo retornar el total si hay opciones activas con stock
-    return hasActiveOptions ? total : 0;
+
+    const drivers = totalsByAttribute.filter(t => t.total > 0);
+
+    setVariantStockDetails({
+      driverName: drivers.length === 1 ? drivers[0].name : undefined,
+      totalsByAttribute
+    });
+
+    if (drivers.length > 1) {
+      setVariantStockError('Hay más de un atributo con stock definido. Solo un atributo debe concentrar el stock (por ejemplo, Talla). Ajusta los valores para continuar.');
+      return 0;
+    }
+
+    setVariantStockError('');
+    return drivers.length === 1 ? drivers[0].total : 0;
   };
   const variantStock = getTotalVariantStock();
 
@@ -304,22 +324,28 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ product, isOpen, is
                 type="number"
                 id="stock"
                 name="stock"
-                value={variantStock !== null ? variantStock : formData.stock}
+                value={variants.enabled && variants.attributes.length > 0 ? variantStock : formData.stock}
                 onChange={handleChange}
                 required
                 className="form-control"
                 min="0"
-                disabled={variantStock !== null}
+                disabled={variants.enabled && variants.attributes.length > 0}
               />
-              {variantStock !== null && (
+              {variants.enabled && variants.attributes.length > 0 && (
                 <div className="mt-2">
                   <small className="text-info d-block">
                     <i className="bi bi-calculator me-1"></i>
                     Stock total calculado: <strong>{variantStock}</strong> unidades
                   </small>
                   <small className="text-muted d-block">
-                    Este valor se calcula automáticamente sumando el stock de todas las variantes activas.
+                    Este valor se calcula automáticamente desde un único atributo con stock (p. ej., Talla).
                   </small>
+                  {variantStockError && (
+                    <small className="text-danger d-block mt-1">
+                      <i className="bi bi-exclamation-triangle me-1"></i>
+                      {variantStockError}
+                    </small>
+                  )}
                 </div>
               )}
             </div>
@@ -484,7 +510,7 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ product, isOpen, is
           {/* Resumen de Stock de Variantes */}
           {variants.enabled && variants.attributes.length > 0 && (
             <div className="form-group">
-              <div className="alert alert-info">
+              <div className={`alert ${variantStockError ? 'alert-danger' : 'alert-info'}`}>
                 <h6 className="mb-2">
                   <i className="bi bi-boxes me-2"></i>
                   Resumen de Stock de Variantes
@@ -510,10 +536,26 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ product, isOpen, is
                   ))}
                 </div>
                 <hr className="my-2" />
-                <div className="d-flex justify-content-between align-items-center">
-                  <strong>Stock Total:</strong>
-                  <span className="badge bg-primary fs-6">{variantStock} unidades</span>
-                </div>
+                {!variantStockError ? (
+                  <div className="d-flex justify-content-between align-items-center">
+                    <strong>Stock Total{variantStockDetails.driverName ? ` (desde "${variantStockDetails.driverName}")` : ''}:</strong>
+                    <span className="badge bg-primary fs-6">{variantStock} unidades</span>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="mb-2">
+                      <strong>Totales por atributo:</strong>
+                    </div>
+                    <ul className="mb-2">
+                      {variantStockDetails.totalsByAttribute.map((t, i) => (
+                        <li key={i}>{t.name}: {t.total}</li>
+                      ))}
+                    </ul>
+                    <div className="text-danger">
+                      Ajusta los valores para que solo uno de los atributos tenga stock (> 0).
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}

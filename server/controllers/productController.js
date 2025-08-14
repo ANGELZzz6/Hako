@@ -150,11 +150,27 @@ exports.createProduct = async (req, res) => {
       }
     }
 
+    // Si hay variantes, validar que solo un atributo concentre el stock y calcular el stock total
+    let computedStock = parseInt(stock);
+    if (variants && variants.enabled && Array.isArray(variants.attributes)) {
+      const totalsByAttribute = variants.attributes.map(attr => ({
+        name: attr.name,
+        total: Array.isArray(attr.options)
+          ? attr.options.reduce((acc, opt) => (opt && opt.isActive && typeof opt.stock === 'number' && opt.stock > 0 ? acc + opt.stock : acc), 0)
+          : 0
+      }));
+      const drivers = totalsByAttribute.filter(t => t.total > 0);
+      if (drivers.length > 1) {
+        return res.status(400).json({ error: 'Hay más de un atributo con stock definido. Solo uno debe controlar el stock total (ej: Talla).' });
+      }
+      computedStock = drivers.length === 1 ? drivers[0].total : 0;
+    }
+
     const product = new Product({
       nombre: nombre.trim(),
       descripcion: descripcion.trim(),
       precio: parseFloat(precio),
-      stock: parseInt(stock),
+      stock: computedStock,
       imagen_url,
       categoria: categoria.trim(),
       variants: variants || { enabled: false, attributes: [] },
@@ -301,7 +317,22 @@ exports.updateProduct = async (req, res) => {
     if (nombre) updateData.nombre = nombre.trim();
     if (descripcion) updateData.descripcion = descripcion.trim();
     if (precio !== undefined) updateData.precio = parseFloat(precio);
-    if (stock !== undefined) updateData.stock = parseInt(stock);
+    // Si se envían variantes habilitadas, recomputar el stock desde variantes
+    if (variants && variants.enabled && Array.isArray(variants.attributes)) {
+      const totalsByAttribute = variants.attributes.map(attr => ({
+        name: attr.name,
+        total: Array.isArray(attr.options)
+          ? attr.options.reduce((acc, opt) => (opt && opt.isActive && typeof opt.stock === 'number' && opt.stock > 0 ? acc + opt.stock : acc), 0)
+          : 0
+      }));
+      const drivers = totalsByAttribute.filter(t => t.total > 0);
+      if (drivers.length > 1) {
+        return res.status(400).json({ error: 'Hay más de un atributo con stock definido. Solo uno debe controlar el stock total (ej: Talla).' });
+      }
+      updateData.stock = drivers.length === 1 ? drivers[0].total : 0;
+    } else if (stock !== undefined) {
+      updateData.stock = parseInt(stock);
+    }
     if (imagen_url) updateData.imagen_url = imagen_url;
     if (isActive !== undefined) updateData.isActive = isActive;
     if (adminRating !== undefined) updateData.adminRating = adminRating;
