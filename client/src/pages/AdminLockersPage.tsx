@@ -237,6 +237,7 @@ const AdminLockersPage: React.FC = () => {
   // Cargar citas cuando cambia la fecha
   useEffect(() => {
     if (selectedDate) {
+      console.log('🔍 useEffect - Fecha seleccionada:', selectedDate);
       loadAppointmentsForDate(selectedDate);
     }
   }, [selectedDate]);
@@ -244,9 +245,22 @@ const AdminLockersPage: React.FC = () => {
   // Cargar reservas cuando cambia la hora
   useEffect(() => {
     if (selectedDate && selectedTime) {
+      console.log('🔍 useEffect - Fecha y hora seleccionadas:', selectedDate, selectedTime);
       loadReservationsForDateTime(selectedDate, selectedTime);
     }
   }, [selectedDate, selectedTime]);
+
+  // Debug: Log del estado actual
+  useEffect(() => {
+    console.log('🔍 Estado actual AdminLockersPage:', {
+      selectedDate,
+      selectedTime,
+      appointmentsCount: appointments.length,
+      reservationsCount: reservations.length,
+      loading,
+      error
+    });
+  }, [selectedDate, selectedTime, appointments, reservations, loading, error]);
 
   const loadAppointmentsForDate = async (date: string) => {
     try {
@@ -267,8 +281,28 @@ const AdminLockersPage: React.FC = () => {
     } catch (err: any) {
       setError('Error al cargar las citas: ' + err.message);
       console.error('Error loading appointments:', err);
+      
+      // Debug adicional
+      console.error('🔍 Error completo:', err);
+      console.error('🔍 Error message:', err.message);
+      console.error('🔍 Error stack:', err.stack);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Función de prueba para verificar la API
+  const testAPI = async () => {
+    try {
+      console.log('🔍 Probando API...');
+      const testData = await appointmentService.getAllAppointments({
+        date: selectedDate || new Date().toISOString().split('T')[0]
+      });
+      console.log('🔍 API funcionando, datos recibidos:', testData.length);
+      alert(`API funcionando correctamente. Citas encontradas: ${testData.length}`);
+    } catch (error) {
+      console.error('🔍 Error en API:', error);
+      alert(`Error en API: ${error}`);
     }
   };
 
@@ -724,6 +758,58 @@ const AdminLockersPage: React.FC = () => {
                       </select>
                     </div>
                   </div>
+                  
+                  {/* Panel de Debug */}
+                  <div className="row mt-3">
+                    <div className="col-12">
+                      <div className="alert alert-secondary debug-panel">
+                        <h6 className="mb-2">
+                          <i className="bi bi-info-circle me-2"></i>
+                          Estado del Sistema
+                        </h6>
+                        <div className="row">
+                          <div className="col-md-3">
+                            <small><strong>Fecha:</strong> {selectedDate || 'No seleccionada'}</small>
+                          </div>
+                          <div className="col-md-3">
+                            <small><strong>Hora:</strong> {selectedTime || 'No seleccionada'}</small>
+                          </div>
+                          <div className="col-md-3">
+                            <small><strong>Citas:</strong> {appointments.length}</small>
+                          </div>
+                          <div className="col-md-3">
+                            <small><strong>Reservas:</strong> {reservations.length}</small>
+                          </div>
+                        </div>
+                        {loading && (
+                          <div className="mt-2">
+                            <small className="text-info">
+                              <i className="bi bi-arrow-clockwise me-1"></i>
+                              Cargando...
+                            </small>
+                          </div>
+                        )}
+                        {error && (
+                          <div className="mt-2">
+                            <small className="text-danger">
+                              <i className="bi bi-exclamation-triangle me-1"></i>
+                              Error: {error}
+                            </small>
+                          </div>
+                        )}
+                        <div className="mt-2">
+                          <button
+                            className="btn btn-outline-warning btn-sm"
+                            onClick={testAPI}
+                            title="Probar conexión con la API"
+                          >
+                            <i className="bi bi-wifi me-1"></i>
+                            Probar API
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -737,6 +823,65 @@ const AdminLockersPage: React.FC = () => {
                   <i className="bi bi-info-circle me-2"></i>
                   <strong>Mostrando reservas para:</strong> {formatDate(selectedDate)} a las {selectedTime}
                   <span className="badge bg-primary ms-2">{filteredReservations.length} reservas</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Información de Citas Disponibles */}
+          {selectedDate && !selectedTime && appointments.length > 0 && (
+            <div className="row mb-4">
+              <div className="col-12">
+                <div className="alert alert-success">
+                  <i className="bi bi-calendar-check me-2"></i>
+                  <strong>Citas disponibles para {formatDate(selectedDate)}:</strong> {appointments.length} citas encontradas
+                  <br />
+                  <small className="text-muted">
+                    Selecciona una hora específica para ver las reservas de casilleros
+                  </small>
+                  <div className="mt-2">
+                    <button
+                      className="btn btn-outline-success btn-sm"
+                      onClick={() => loadAppointmentsForDate(selectedDate)}
+                      title="Recargar citas"
+                    >
+                      <i className="bi bi-arrow-clockwise me-1"></i>
+                      Recargar Citas
+                    </button>
+                    <button
+                      className="btn btn-outline-info btn-sm ms-2"
+                      onClick={() => {
+                        console.log('🔍 Debug - Estado completo:', {
+                          selectedDate,
+                          selectedTime,
+                          appointments,
+                          reservations,
+                          loading,
+                          error
+                        });
+                      }}
+                      title="Mostrar debug en consola"
+                    >
+                      <i className="bi bi-bug me-1"></i>
+                      Debug
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Información de Citas Disponibles */}
+          {selectedDate && !selectedTime && appointments.length === 0 && (
+            <div className="row mb-4">
+              <div className="col-12">
+                <div className="alert alert-warning">
+                  <i className="bi bi-exclamation-triangle me-2"></i>
+                  <strong>No hay citas programadas para {formatDate(selectedDate)}</strong>
+                  <br />
+                  <small className="text-muted">
+                    No se encontraron citas para esta fecha
+                  </small>
                 </div>
               </div>
             </div>
@@ -948,6 +1093,97 @@ const AdminLockersPage: React.FC = () => {
                     <p className="text-muted">
                       Elige una fecha y hora específica para ver las reservas de casilleros
                     </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Tabla de Citas Disponibles (antes de seleccionar hora) */}
+          {selectedDate && !selectedTime && appointments.length > 0 && (
+            <div className="row">
+              <div className="col-12">
+                <div className="card appointments-table">
+                  <div className="card-header">
+                    <h5 className="mb-0">
+                      <i className="bi bi-calendar-event me-2"></i>
+                      Citas Disponibles para {formatDate(selectedDate)}
+                    </h5>
+                  </div>
+                  <div className="card-body">
+                    <div className="table-responsive">
+                      <table className="table table-hover">
+                        <thead className="table-dark">
+                          <tr>
+                            <th>Hora</th>
+                            <th>Usuario</th>
+                            <th>Email</th>
+                            <th>Productos</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {appointments.map((appointment, index) => (
+                            <tr key={index}>
+                              <td>
+                                <span className="time-badge">
+                                  {appointment.timeSlot}
+                                </span>
+                              </td>
+                              <td>
+                                <div className="user-info">
+                                  <div className="user-name">{appointment.user?.nombre || 'N/A'}</div>
+                                </div>
+                              </td>
+                              <td>
+                                <div className="user-email">{appointment.user?.email || 'N/A'}</div>
+                              </td>
+                              <td>
+                                <div className="items-list">
+                                  {appointment.itemsToPickup.map((item, idx) => (
+                                    <div key={idx} className="item-badge">
+                                      <div className="d-flex align-items-center">
+                                        <img 
+                                          src={item.product?.imagen_url || 
+                                               (item.individualProduct as any)?.product?.imagen_url || 
+                                               (item.originalProduct as any)?.imagen_url || ''} 
+                                          alt="Producto"
+                                          style={{ width: 20, height: 20, objectFit: 'cover', borderRadius: 2, marginRight: 8 }}
+                                        />
+                                        <span className="item-name">
+                                          {item.product?.nombre || 
+                                           (item.individualProduct as any)?.product?.nombre || 
+                                           (item.originalProduct as any)?.nombre || 'Producto sin nombre'}
+                                        </span>
+                                      </div>
+                                      <span className="item-quantity">x{item.quantity}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </td>
+                              <td>
+                                <span className={`badge bg-${getStatusColor(appointment.status)}`}>
+                                  {getStatusLabel(appointment.status)}
+                                </span>
+                              </td>
+                              <td>
+                                <button
+                                  className="btn btn-outline-primary btn-sm"
+                                  onClick={() => {
+                                    setSelectedTime(appointment.timeSlot);
+                                  }}
+                                  title="Seleccionar esta hora"
+                                >
+                                  <i className="bi bi-clock me-1"></i>
+                                  Seleccionar
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
               </div>

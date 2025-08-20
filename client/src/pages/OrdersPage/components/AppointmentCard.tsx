@@ -1,8 +1,25 @@
 import React, { useState } from 'react';
-import { getTimeUntilAppointment, canModifyAppointment, isAppointmentExpired } from '../utils/dateUtils';
+import { getTimeUntilAppointment, canModifyAppointment, isAppointmentExpired, formatAppointmentDate, debugDateIssue } from '../utils/dateUtils';
 import qrService from '../../../services/qrService';
+import appointmentService from '../../../services/appointmentService';
 import type { QRCode } from '../../../services/qrService';
+import './AppointmentCard.css';
 
+/**
+ * Componente para mostrar una tarjeta de cita/reserva
+ * 
+ * Funcionalidades:
+ * - Mostrar información de la reserva
+ * - Generar y mostrar código QR
+ * - Modificar o cancelar reserva
+ * - Botón "Recoger Test" para marcar productos como recogidos
+ * 
+ * El botón "Recoger Test" permite:
+ * 1. Marcar la cita como 'completed' en el backend
+ * 2. Los productos pasan a estado 'recogido'
+ * 3. La reserva se mueve a historial/completadas
+ * 4. Ya no aparece en "Mis Órdenes" activas
+ */
 interface AppointmentCardProps {
   appointment: any;
   onEdit: (appointment: any) => void;
@@ -21,6 +38,7 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
   const [generatingQR, setGeneratingQR] = useState(false);
   const [qrCode, setQrCode] = useState<QRCode | null>(null);
   const [showQRModal, setShowQRModal] = useState(false);
+  const [pickingUp, setPickingUp] = useState(false);
 
   // Verificar si la cita está activa (no vencida y no completada)
   const isAppointmentActive = !isAppointmentExpired(appointment) && appointment.status !== 'completed';
@@ -75,10 +93,43 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
     }
   };
 
+  // Marcar cita como recogida (test)
+  const handlePickupTest = async () => {
+    try {
+      setPickingUp(true);
+      
+      const response = await appointmentService.markAsCompleted(appointment._id);
+      
+      if (response.success) {
+        console.log('✅ Cita marcada como completada:', response.appointment);
+        
+        // Cerrar la modal
+        setShowQRModal(false);
+        
+        // Mostrar mensaje de éxito
+        alert('✅ Productos marcados como recogidos exitosamente. La reserva se moverá a tu historial.');
+        
+        // Opción 1: Recargar la página para reflejar los cambios
+        window.location.reload();
+        
+        // Opción 2: Actualizar el estado local (implementar después)
+        // TODO: Implementar callback para actualizar el estado del padre
+        // onAppointmentCompleted?.(appointment._id);
+      } else {
+        throw new Error(response.message || 'Error al marcar como completada');
+      }
+    } catch (error: any) {
+      console.error('Error al marcar como recogida:', error);
+      alert(`❌ Error al marcar como recogida: ${error.message}`);
+    } finally {
+      setPickingUp(false);
+    }
+  };
+
   return (
     <>
       <div key={appointment._id} className="col-12 mb-3">
-        <div className="card border-success">
+        <div className="card border-success appointment-card">
           <div className="card-header bg-success text-white">
             <div className="d-flex justify-content-between align-items-center">
               <h6 className="mb-0">
@@ -95,8 +146,20 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
               <div className="col-md-3">
                 <p className="mb-1">
                   <strong>Fecha:</strong><br />
-                  {new Date(appointment.scheduledDate).toLocaleDateString('es-CO')}
+                  {formatAppointmentDate(appointment.scheduledDate)}
                 </p>
+                {/* Botón de debug temporal */}
+                <button
+                  className="btn btn-outline-secondary btn-sm mb-2"
+                  onClick={() => {
+                    console.log('🔍 Debug de fecha para cita:', appointment._id);
+                    debugDateIssue(appointment.scheduledDate, appointment.timeSlot);
+                  }}
+                  title="Debug de fecha (temporal)"
+                >
+                  <i className="bi bi-bug me-1"></i>
+                  Debug Fecha
+                </button>
                 <p className="mb-1">
                   <strong>Hora:</strong><br />
                   {appointment.timeSlot}
@@ -217,7 +280,7 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
                     <div className="col-6">
                       <small className="text-muted">
                         <strong>Fecha:</strong><br />
-                        {new Date(appointment.scheduledDate).toLocaleDateString('es-CO')}
+                        {formatAppointmentDate(appointment.scheduledDate)}
                       </small>
                     </div>
                     <div className="col-6">
@@ -271,6 +334,29 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
               
               {/* Botón Cerrar Centrado */}
               <div className="modal-footer justify-content-center py-2">
+                {/* Botón Recoger Test - Solo visible si la cita está activa */}
+                {isAppointmentActive && (
+                  <button
+                    type="button"
+                    className="btn btn-success btn-sm me-2"
+                    onClick={handlePickupTest}
+                    disabled={pickingUp}
+                    title="Marcar productos como recogidos (test)"
+                  >
+                    {pickingUp ? (
+                      <>
+                        <span className="spinner-border spinner-border-sm me-1" role="status"></span>
+                        Procesando...
+                      </>
+                    ) : (
+                      <>
+                        <i className="bi bi-box-arrow-in-down me-1"></i>
+                        Recoger Test
+                      </>
+                    )}
+                  </button>
+                )}
+                
                 <button
                   type="button"
                   className="btn btn-primary btn-sm px-4"

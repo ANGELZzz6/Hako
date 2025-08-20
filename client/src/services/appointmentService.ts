@@ -24,7 +24,7 @@ export interface Appointment {
   timeSlot: string;
   status: 'scheduled' | 'confirmed' | 'completed' | 'cancelled' | 'no_show';
   itemsToPickup: Array<{
-    product: {
+    product?: {
       _id: string;
       nombre: string;
       imagen_url: string;
@@ -38,8 +38,36 @@ export interface Appointment {
       alto: number;
     };
     volumen?: number;
-    individualProduct?: string;
-    originalProduct?: string;
+    individualProduct?: {
+      _id: string;
+      product: {
+        _id: string;
+        nombre: string;
+        imagen_url: string;
+        dimensiones?: {
+          largo: number;
+          ancho: number;
+          alto: number;
+        };
+        variants?: any;
+      };
+      dimensiones?: {
+        largo: number;
+        ancho: number;
+        alto: number;
+      };
+    };
+    originalProduct?: {
+      _id: string;
+      nombre: string;
+      imagen_url: string;
+      dimensiones?: {
+        largo: number;
+        ancho: number;
+        alto: number;
+      };
+      variants?: any;
+    };
   }>;
   notes?: string;
   contactInfo?: {
@@ -423,6 +451,32 @@ class AppointmentService {
       return await response.json();
     } catch (error) {
       console.error('Error:', error);
+      throw error;
+    }
+  }
+
+  // Marcar una cita como completada (recogida)
+  async markAsCompleted(appointmentId: string): Promise<{
+    success: boolean;
+    message: string;
+    appointment: Appointment;
+  }> {
+    try {
+      const response = await fetch(`${ENDPOINTS.APPOINTMENTS}/${appointmentId}/complete`, {
+        method: 'PUT',
+        headers: this.getHeaders(),
+      });
+      
+      handle401(response);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error al marcar la cita como completada');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error al marcar cita como completada:', error);
       throw error;
     }
   }

@@ -1,0 +1,197 @@
+/* Estilos para AppointmentCard */
+.appointment-card {
+  margin-bottom: 1rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.appointment-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+}
+
+.appointment-card .card-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 12px 12px 0 0;
+  border-bottom: none;
+}
+
+.appointment-card .card-header .status-badge {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 20px;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.appointment-card .card-body {
+  padding: 1.5rem;
+}
+
+.appointment-card .card-body .row {
+  align-items: center;
+}
+
+.appointment-card .card-body p {
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.appointment-card .card-body strong {
+  color: #495057;
+  font-weight: 600;
+}
+
+.appointment-card .btn-group {
+  gap: 0.5rem;
+}
+
+.appointment-card .btn {
+  border-radius: 8px;
+  font-size: 0.85rem;
+  padding: 0.5rem 1rem;
+  transition: all 0.2s ease;
+}
+
+.appointment-card .btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.appointment-card .btn-outline-info {
+  color: #0dcaf0;
+  border-color: #0dcaf0;
+}
+
+.appointment-card .btn-outline-info:hover {
+  background-color: #0dcaf0;
+  border-color: #0dcaf0;
+  color: white;
+}
+
+.appointment-card .btn-outline-primary {
+  color: #0d6efd;
+  border-color: #0d6efd;
+}
+
+.appointment-card .btn-outline-primary:hover {
+  background-color: #0d6efd;
+  border-color: #0d6efd;
+  color: white;
+}
+
+.appointment-card .btn-outline-warning {
+  color: #ffc107;
+  border-color: #ffc107;
+}
+
+.appointment-card .btn-outline-warning:hover {
+  background-color: #ffc107;
+  border-color: #ffc107;
+  color: #212529;
+}
+
+.appointment-card .btn-outline-danger {
+  color: #dc3545;
+  border-color: #dc3545;
+}
+
+.appointment-card .btn-outline-danger:hover {
+  background-color: #dc3545;
+  border-color: #dc3545;
+  color: white;
+}
+
+.appointment-card .text-success {
+  color: #198754 !important;
+}
+
+.appointment-card .text-danger {
+  color: #dc3545 !important;
+}
+
+.appointment-card .text-muted {
+  color: #6c757d !important;
+}
+
+/* Modal del QR */
+.appointment-card .modal-content {
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.appointment-card .modal-header {
+  background: linear-gradient(135deg, #0d6efd 0%, #0b5ed7 100%);
+  color: white;
+  border-radius: 12px 12px 0 0;
+  border-bottom: none;
+}
+
+.appointment-card .modal-title {
+  font-weight: 600;
+}
+
+.appointment-card .modal-body {
+  padding: 2rem;
+}
+
+.appointment-card .modal-footer {
+  border-top: none;
+  padding: 1rem 2rem 2rem;
+}
+
+/* Botón Recoger Test */
+.appointment-card .btn-success {
+  background: linear-gradient(135deg, #198754 0%, #20c997 100%);
+  border: none;
+  color: white;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.appointment-card .btn-success:hover {
+  background: linear-gradient(135deg, #157347 0%, #1aa085 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(25, 135, 84, 0.3);
+}
+
+.appointment-card .btn-success:disabled {
+  background: #6c757d;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Animación para el spinner */
+.appointment-card .spinner-border-sm {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .appointment-card .card-body {
+    padding: 1rem;
+  }
+  
+  .appointment-card .btn-group {
+    flex-direction: column;
+    width: 100%;
+  }
+  
+  .appointment-card .btn {
+    width: 100%;
+    margin-bottom: 0.5rem;
+  }
+  
+  .appointment-card .modal-dialog {
+    margin: 1rem;
+  }
+  
+  .appointment-card .modal-body {
+    padding: 1rem;
+  }
+}
