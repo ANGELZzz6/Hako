@@ -1,61 +1,78 @@
 const mongoose = require('mongoose');
-const User = require('./models/User');
-const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+require('dotenv').config();
 
 // Conectar a la base de datos
-mongoose.connect(process.env.MONGODB_URI, {
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/hako', {
   useNewUrlParser: true,
-  useUnifiedTopology: true,
+  useUnifiedTopology: true
 });
 
-const cleanupExpiredPenalties = async () => {
+const User = require('./models/User');
+
+async function cleanupExpiredPenalties() {
   try {
-    console.log('🧹 Iniciando limpieza de penalizaciones expiradas...');
+    console.log('🧹 Iniciando limpieza automática de penalizaciones expiradas...');
+    console.log(`⏰ ${new Date().toLocaleString('es-CO')}`);
     
     const now = new Date();
     const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     
-    console.log(`⏰ Fecha límite: ${twentyFourHoursAgo.toLocaleString('es-CO')}`);
+    console.log(`📅 Fecha límite para penalizaciones: ${twentyFourHoursAgo.toLocaleString('es-CO')}`);
     
-    // Buscar usuarios con penalizaciones
-    const usersWithPenalties = await User.find({
+    // Buscar usuarios con penalizaciones expiradas
+    const usersWithExpiredPenalties = await User.find({
       'reservationPenalties.createdAt': { $lt: twentyFourHoursAgo }
     });
     
-    console.log(`🔍 Encontrados ${usersWithPenalties.length} usuarios con penalizaciones potencialmente expiradas`);
+    console.log(`📊 Encontrados ${usersWithExpiredPenalties.length} usuarios con penalizaciones expiradas`);
+    
+    if (usersWithExpiredPenalties.length === 0) {
+      console.log('✅ No hay penalizaciones expiradas para limpiar');
+      return;
+    }
     
     let totalCleaned = 0;
-    let usersProcessed = 0;
+    let errorCount = 0;
     
-    for (const user of usersWithPenalties) {
-      const originalCount = user.reservationPenalties.length;
-      
-      // Filtrar penalizaciones que no han expirado
-      user.reservationPenalties = user.reservationPenalties.filter(penalty => {
-        const penaltyTime = new Date(penalty.createdAt);
-        const hoursSincePenalty = (now.getTime() - penaltyTime.getTime()) / (1000 * 60 * 60);
-        return hoursSincePenalty < 24;
-      });
-      
-      const newCount = user.reservationPenalties.length;
-      const cleaned = originalCount - newCount;
-      
-      if (cleaned > 0) {
-        await user.save();
-        totalCleaned += cleaned;
-        usersProcessed++;
-        console.log(`✅ Usuario ${user.email}: ${cleaned} penalizaciones limpiadas`);
+    for (const user of usersWithExpiredPenalties) {
+      try {
+        const originalCount = user.reservationPenalties.length;
+        
+        // Filtrar penalizaciones que no han expirado
+        user.reservationPenalties = user.reservationPenalties.filter(penalty => {
+          const penaltyTime = new Date(penalty.createdAt);
+          return penaltyTime >= twentyFourHoursAgo;
+        });
+        
+        const newCount = user.reservationPenalties.length;
+        const cleaned = originalCount - newCount;
+        
+        if (cleaned > 0) {
+          await user.save();
+          totalCleaned += cleaned;
+          console.log(`✅ Usuario ${user.email}: ${cleaned} penalizaciones expiradas limpiadas`);
+        }
+      } catch (error) {
+        errorCount++;
+        console.error(`❌ Error limpiando penalizaciones del usuario ${user.email}:`, error.message);
       }
     }
     
     console.log(`🎉 Limpieza completada:`);
-    console.log(`   - Usuarios procesados: ${usersProcessed}`);
-    console.log(`   - Penalizaciones eliminadas: ${totalCleaned}`);
+    console.log(`  - Total procesados: ${usersWithExpiredPenalties.length}`);
+    console.log(`  - Penalizaciones limpiadas: ${totalCleaned}`);
+    console.log(`  - Errores: ${errorCount}`);
     
-    if (totalCleaned === 0) {
-      console.log(`✨ No se encontraron penalizaciones expiradas para limpiar`);
-    }
+    // Mostrar estadísticas finales
+    const totalUsers = await User.countDocuments();
+    const usersWithActivePenalties = await User.countDocuments({
+      'reservationPenalties.createdAt': { $gte: twentyFourHoursAgo }
+    });
+    
+    console.log(`📊 Estadísticas finales:`);
+    console.log(`  - Total de usuarios: ${totalUsers}`);
+    console.log(`  - Usuarios con penalizaciones activas: ${usersWithActivePenalties}`);
+    console.log(`  - Usuarios sin penalizaciones: ${totalUsers - usersWithActivePenalties}`);
     
   } catch (error) {
     console.error('❌ Error durante la limpieza:', error);
@@ -64,7 +81,7 @@ const cleanupExpiredPenalties = async () => {
     await mongoose.connection.close();
     console.log('🔌 Conexión a la base de datos cerrada');
   }
-};
+}
 
 // Ejecutar la limpieza
 cleanupExpiredPenalties(); 

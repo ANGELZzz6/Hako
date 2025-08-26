@@ -203,6 +203,7 @@ export const createColombiaDate = (dateString: string): Date => {
 export const getAvailableDates = (penalizedDates: string[] = []) => {
   const dates = [];
   const today = new Date();
+  
   for (let i = 0; i < 7; i++) {
     const date = new Date(today);
     date.setDate(today.getDate() + i);
@@ -211,15 +212,28 @@ export const getAvailableDates = (penalizedDates: string[] = []) => {
     const day = String(date.getDate()).padStart(2, '0');
     const dateStr = `${year}-${month}-${day}`;
     const isPenalized = penalizedDates.includes(dateStr);
+    
+    // MEJORADA: Información más detallada sobre penalizaciones
+    let penaltyInfo = null;
+    if (isPenalized) {
+      penaltyInfo = {
+        reason: 'Reserva vencida',
+        message: 'No puedes reservar para esta fecha debido a una reserva vencida anterior',
+        expiresIn: '24 horas desde la penalización'
+      };
+    }
+    
     dates.push({
       value: dateStr,
       label: date.toLocaleDateString('es-CO', {
         weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
       }),
       isToday: i === 0,
-      isPenalized
+      isPenalized,
+      penaltyInfo
     });
   }
+  
   return dates;
 };
 

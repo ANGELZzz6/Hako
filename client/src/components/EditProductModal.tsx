@@ -322,7 +322,7 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ product, isOpen, is
           <div className="form-row">
             <div className="form-group">
               <label htmlFor="precio">Precio ($)</label>
-              <input type="number" id="precio" name="precio" value={formData.precio} onChange={handleChange} required className="form-control" min="0" step="0.01" />
+              <input type="number" id="precio" name="precio" value={formData.precio || ''} onChange={handleChange} required className="form-control" min="0" step="0.01" />
             </div>
             <div className="form-group">
               <label htmlFor="stock">Stock</label>
@@ -330,7 +330,7 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ product, isOpen, is
                 type="number"
                 id="stock"
                 name="stock"
-                value={variants.enabled && variants.attributes.length > 0 ? variantStock : formData.stock}
+                value={variants.enabled && variants.attributes.length > 0 ? variantStock : (formData.stock || '')}
                 onChange={handleChange}
                 required
                 className="form-control"
@@ -364,7 +364,7 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ product, isOpen, is
                 type="number" 
                 id="dimensiones_largo" 
                 name="dimensiones.largo" 
-                value={formData.dimensiones?.largo || 0} 
+                value={formData.dimensiones?.largo || ''} 
                 onChange={(e) => setFormData(prev => ({
                   ...prev,
                   dimensiones: {
@@ -383,7 +383,7 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ product, isOpen, is
                 type="number" 
                 id="dimensiones_ancho" 
                 name="dimensiones.ancho" 
-                value={formData.dimensiones?.ancho || 0} 
+                value={formData.dimensiones?.ancho || ''} 
                 onChange={(e) => setFormData(prev => ({
                   ...prev,
                   dimensiones: {
@@ -405,7 +405,7 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ product, isOpen, is
                 type="number" 
                 id="dimensiones_alto" 
                 name="dimensiones.alto" 
-                value={formData.dimensiones?.alto || 0} 
+                value={formData.dimensiones?.alto || ''} 
                 onChange={(e) => setFormData(prev => ({
                   ...prev,
                   dimensiones: {
@@ -424,7 +424,7 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ product, isOpen, is
                 type="number" 
                 id="dimensiones_peso" 
                 name="dimensiones.peso" 
-                value={formData.dimensiones?.peso || 0} 
+                value={formData.dimensiones?.peso || ''} 
                 onChange={(e) => setFormData(prev => ({
                   ...prev,
                   dimensiones: {

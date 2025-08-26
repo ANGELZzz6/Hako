@@ -39,12 +39,22 @@ const ProductVariantManager: React.FC<ProductVariantManagerProps> = ({
 }) => {
   const [newAttributeName, setNewAttributeName] = useState('');
   const [newOptionValue, setNewOptionValue] = useState('');
-  const [newOptionPrice, setNewOptionPrice] = useState(0);
-  const [newOptionStock, setNewOptionStock] = useState(0);
-  const [newOptionPeso, setNewOptionPeso] = useState(0);
-  const [newOptionLargo, setNewOptionLargo] = useState(0);
-  const [newOptionAncho, setNewOptionAncho] = useState(0);
-  const [newOptionAlto, setNewOptionAlto] = useState(0);
+  const [newOptionPrice, setNewOptionPrice] = useState('');
+  const [newOptionStock, setNewOptionStock] = useState('');
+  const [newOptionPeso, setNewOptionPeso] = useState('');
+  const [newOptionLargo, setNewOptionLargo] = useState('');
+  const [newOptionAncho, setNewOptionAncho] = useState('');
+  const [newOptionAlto, setNewOptionAlto] = useState('');
+  
+  // Estados para edición de variantes
+  const [editingOption, setEditingOption] = useState<{attributeIndex: number, optionIndex: number} | null>(null);
+  const [editOptionValue, setEditOptionValue] = useState('');
+  const [editOptionPrice, setEditOptionPrice] = useState('');
+  const [editOptionStock, setEditOptionStock] = useState('');
+  const [editOptionLargo, setEditOptionLargo] = useState('');
+  const [editOptionAncho, setEditOptionAncho] = useState('');
+  const [editOptionAlto, setEditOptionAlto] = useState('');
+  const [editOptionPeso, setEditOptionPeso] = useState('');
 
   const handleToggleVariants = () => {
     onChange({
@@ -123,14 +133,14 @@ const ProductVariantManager: React.FC<ProductVariantManagerProps> = ({
     const hasStockDriver = variants.attributes.some(a => a.definesStock);
     const newOption: VariantOption = {
       value: newOptionValue.trim(),
-      price: newOptionPrice,
-      stock: hasStockDriver && !newAttribute.definesStock ? 0 : newOptionStock,
+      price: parseFloat(newOptionPrice) || 0,
+      stock: hasStockDriver && !newAttribute.definesStock ? 0 : (parseFloat(newOptionStock) || 0),
       isActive: true,
       dimensiones: newAttribute.definesDimensions ? {
-        largo: newOptionLargo || 0,
-        ancho: newOptionAncho || 0,
-        alto: newOptionAlto || 0,
-        peso: newOptionPeso || 0
+        largo: parseFloat(newOptionLargo) || 0,
+        ancho: parseFloat(newOptionAncho) || 0,
+        alto: parseFloat(newOptionAlto) || 0,
+        peso: parseFloat(newOptionPeso) || 0
       } : undefined
     };
 
@@ -150,12 +160,12 @@ const ProductVariantManager: React.FC<ProductVariantManagerProps> = ({
     });
 
     setNewOptionValue('');
-    setNewOptionPrice(0);
-    setNewOptionStock(0);
-    setNewOptionPeso(0);
-    setNewOptionLargo(0);
-    setNewOptionAncho(0);
-    setNewOptionAlto(0);
+    setNewOptionPrice('');
+    setNewOptionStock('');
+    setNewOptionPeso('');
+    setNewOptionLargo('');
+    setNewOptionAncho('');
+    setNewOptionAlto('');
   };
 
   const removeOption = (attributeIndex: number, optionIndex: number) => {
@@ -165,6 +175,60 @@ const ProductVariantManager: React.FC<ProductVariantManagerProps> = ({
       ...variants,
       attributes: newAttributes
     });
+  };
+
+  // Función para iniciar edición de una opción
+  const startEditOption = (attributeIndex: number, optionIndex: number) => {
+    const option = variants.attributes[attributeIndex].options[optionIndex];
+    setEditingOption({ attributeIndex, optionIndex });
+    setEditOptionValue(option.value);
+    setEditOptionPrice(option.price.toString());
+    setEditOptionStock(option.stock.toString());
+    setEditOptionLargo(option.dimensiones?.largo?.toString() || '');
+    setEditOptionAncho(option.dimensiones?.ancho?.toString() || '');
+    setEditOptionAlto(option.dimensiones?.alto?.toString() || '');
+    setEditOptionPeso(option.dimensiones?.peso?.toString() || '');
+  };
+
+  // Función para cancelar edición
+  const cancelEditOption = () => {
+    setEditingOption(null);
+    setEditOptionValue('');
+    setEditOptionPrice('');
+    setEditOptionStock('');
+    setEditOptionLargo('');
+    setEditOptionAncho('');
+    setEditOptionAlto('');
+    setEditOptionPeso('');
+  };
+
+  // Función para guardar cambios de edición
+  const saveEditOption = () => {
+    if (!editingOption) return;
+
+    const { attributeIndex, optionIndex } = editingOption;
+    const newAttributes = [...variants.attributes];
+    const option = newAttributes[attributeIndex].options[optionIndex];
+
+    option.value = editOptionValue;
+    option.price = parseFloat(editOptionPrice) || 0;
+    option.stock = parseFloat(editOptionStock) || 0;
+
+    if (newAttributes[attributeIndex].definesDimensions) {
+      option.dimensiones = {
+        largo: parseFloat(editOptionLargo) || 0,
+        ancho: parseFloat(editOptionAncho) || 0,
+        alto: parseFloat(editOptionAlto) || 0,
+        peso: parseFloat(editOptionPeso) || 0
+      };
+    }
+
+    onChange({
+      ...variants,
+      attributes: newAttributes
+    });
+
+    cancelEditOption();
   };
 
   const toggleOptionActive = (attributeIndex: number, optionIndex: number) => {
@@ -357,7 +421,7 @@ const ProductVariantManager: React.FC<ProductVariantManagerProps> = ({
                             type="number"
                             placeholder="0"
                             value={newOptionPrice}
-                            onChange={(e) => setNewOptionPrice(Number(e.target.value))}
+                            onChange={(e) => setNewOptionPrice(e.target.value)}
                           />
                         </Form.Group>
                       </Col>
@@ -368,7 +432,7 @@ const ProductVariantManager: React.FC<ProductVariantManagerProps> = ({
                             type="number"
                             placeholder="0"
                             value={newOptionStock}
-                            onChange={(e) => setNewOptionStock(Number(e.target.value))}
+                            onChange={(e) => setNewOptionStock(e.target.value)}
                             disabled={variants.attributes.some(a => a.definesStock) && !attribute.definesStock}
                           />
                           {variants.attributes.some(a => a.definesStock) && !attribute.definesStock && (
@@ -382,25 +446,25 @@ const ProductVariantManager: React.FC<ProductVariantManagerProps> = ({
                           <Form.Group as={Row} className="mb-2">
                             <Form.Label column sm={4}>Largo (cm)</Form.Label>
                             <Col sm={8}>
-                              <Form.Control type="number" value={newOptionLargo} min={0} step={0.1} onChange={e => setNewOptionLargo(parseFloat(e.target.value) || 0)} />
+                              <Form.Control type="number" value={newOptionLargo} min={0} step={0.1} onChange={e => setNewOptionLargo(e.target.value)} />
                             </Col>
                           </Form.Group>
                           <Form.Group as={Row} className="mb-2">
                             <Form.Label column sm={4}>Ancho (cm)</Form.Label>
                             <Col sm={8}>
-                              <Form.Control type="number" value={newOptionAncho} min={0} step={0.1} onChange={e => setNewOptionAncho(parseFloat(e.target.value) || 0)} />
+                              <Form.Control type="number" value={newOptionAncho} min={0} step={0.1} onChange={e => setNewOptionAncho(e.target.value)} />
                             </Col>
                           </Form.Group>
                           <Form.Group as={Row} className="mb-2">
                             <Form.Label column sm={4}>Alto (cm)</Form.Label>
                             <Col sm={8}>
-                              <Form.Control type="number" value={newOptionAlto} min={0} step={0.1} onChange={e => setNewOptionAlto(parseFloat(e.target.value) || 0)} />
+                              <Form.Control type="number" value={newOptionAlto} min={0} step={0.1} onChange={e => setNewOptionAlto(e.target.value)} />
                             </Col>
                           </Form.Group>
                           <Form.Group as={Row} className="mb-2">
                             <Form.Label column sm={4}>Peso (kg)</Form.Label>
                             <Col sm={8}>
-                              <Form.Control type="number" value={newOptionPeso} min={0} step={0.1} onChange={e => setNewOptionPeso(parseFloat(e.target.value) || 0)} />
+                              <Form.Control type="number" value={newOptionPeso} min={0} step={0.1} onChange={e => setNewOptionPeso(e.target.value)} />
                             </Col>
                           </Form.Group>
                         </Col>
@@ -437,58 +501,153 @@ const ProductVariantManager: React.FC<ProductVariantManagerProps> = ({
                           </thead>
                           <tbody>
                             {attribute.options.map((option, optionIndex) => (
-                              <tr key={optionIndex}>
-                                <td>
-                                  <Form.Control
-                                    type="text"
-                                    value={option.value}
-                                    onChange={(e) => updateOptionValue(index, optionIndex, e.target.value)}
-                                    size="sm"
-                                  />
-                                </td>
-                                <td>
-                                  <Form.Control
-                                    type="number"
-                                    value={option.price}
-                                    onChange={(e) => updateOptionPrice(index, optionIndex, Number(e.target.value))}
-                                    size="sm"
-                                  />
-                                </td>
-                                <td>
-                                  <Form.Control
-                                    type="number"
-                                    value={option.stock}
-                                    onChange={(e) => updateOptionStock(index, optionIndex, Number(e.target.value))}
-                                    disabled={variants.attributes.some(a => a.definesStock) && !attribute.definesStock}
-                                    size="sm"
-                                  />
-                                  {variants.attributes.some(a => a.definesStock) && !attribute.definesStock && (
-                                    <Form.Text muted>El stock se gestiona en el atributo marcado.</Form.Text>
+                              <React.Fragment key={optionIndex}>
+                                <tr>
+                                  {editingOption?.attributeIndex === index && editingOption?.optionIndex === optionIndex ? (
+                                    // Modo de edición
+                                    <>
+                                      <td>
+                                        <Form.Control
+                                          type="text"
+                                          value={editOptionValue}
+                                          onChange={(e) => setEditOptionValue(e.target.value)}
+                                          size="sm"
+                                        />
+                                      </td>
+                                      <td>
+                                        <Form.Control
+                                          type="number"
+                                          value={editOptionPrice}
+                                          onChange={(e) => setEditOptionPrice(e.target.value)}
+                                          size="sm"
+                                        />
+                                      </td>
+                                      <td>
+                                        <Form.Control
+                                          type="number"
+                                          value={editOptionStock}
+                                          onChange={(e) => setEditOptionStock(e.target.value)}
+                                          disabled={variants.attributes.some(a => a.definesStock) && !attribute.definesStock}
+                                          size="sm"
+                                        />
+                                      </td>
+                                      <td>
+                                        <Badge bg={option.isActive ? 'success' : 'secondary'}>
+                                          {option.isActive ? 'Activo' : 'Inactivo'}
+                                        </Badge>
+                                      </td>
+                                      <td>
+                                        <Button
+                                          variant="outline-success"
+                                          size="sm"
+                                          onClick={saveEditOption}
+                                          className="me-1"
+                                        >
+                                          <i className="bi bi-check"></i>
+                                        </Button>
+                                        <Button
+                                          variant="outline-secondary"
+                                          size="sm"
+                                          onClick={cancelEditOption}
+                                        >
+                                          <i className="bi bi-x"></i>
+                                        </Button>
+                                      </td>
+                                    </>
+                                  ) : (
+                                    // Modo de visualización
+                                    <>
+                                      <td>{option.value}</td>
+                                      <td>{option.price}</td>
+                                      <td>{option.stock}</td>
+                                      <td>
+                                        <Badge bg={option.isActive ? 'success' : 'secondary'}>
+                                          {option.isActive ? 'Activo' : 'Inactivo'}
+                                        </Badge>
+                                      </td>
+                                      <td>
+                                        <Button
+                                          variant="outline-primary"
+                                          size="sm"
+                                          onClick={() => startEditOption(index, optionIndex)}
+                                          className="me-1"
+                                          title="Editar opción"
+                                        >
+                                          <i className="bi bi-pencil"></i>
+                                        </Button>
+                                        <Button
+                                          variant="outline-secondary"
+                                          size="sm"
+                                          onClick={() => toggleOptionActive(index, optionIndex)}
+                                          className="me-1"
+                                        >
+                                          {option.isActive ? 'Desactivar' : 'Activar'}
+                                        </Button>
+                                        <Button
+                                          variant="outline-danger"
+                                          size="sm"
+                                          onClick={() => removeOption(index, optionIndex)}
+                                        >
+                                          <i className="bi bi-trash"></i>
+                                        </Button>
+                                      </td>
+                                    </>
                                   )}
-                                </td>
-                                <td>
-                                  <Badge bg={option.isActive ? 'success' : 'secondary'}>
-                                    {option.isActive ? 'Activo' : 'Inactivo'}
-                                  </Badge>
-                                </td>
-                                <td>
-                                  <Button
-                                    variant="outline-secondary"
-                                    size="sm"
-                                    onClick={() => toggleOptionActive(index, optionIndex)}
-                                    className="me-1"
-                                  >
-                                    {option.isActive ? 'Desactivar' : 'Activar'}
-                                  </Button>
-                                  <Button
-                                    variant="outline-danger"
-                                    size="sm"
-                                    onClick={() => removeOption(index, optionIndex)}
-                                  >
-                                    <i className="bi bi-trash"></i>
-                                  </Button>
-                                </td>
-                              </tr>
+                                </tr>
+                                {/* Fila adicional para dimensiones en modo de edición */}
+                                {editingOption?.attributeIndex === index && editingOption?.optionIndex === optionIndex && attribute.definesDimensions && (
+                                  <tr>
+                                    <td colSpan={5}>
+                                      <div className="row g-2">
+                                        <div className="col-md-3">
+                                          <Form.Label size="sm">Largo (cm)</Form.Label>
+                                          <Form.Control
+                                            type="number"
+                                            value={editOptionLargo}
+                                            onChange={(e) => setEditOptionLargo(e.target.value)}
+                                            size="sm"
+                                            min="0"
+                                            step="0.1"
+                                          />
+                                        </div>
+                                        <div className="col-md-3">
+                                          <Form.Label size="sm">Ancho (cm)</Form.Label>
+                                          <Form.Control
+                                            type="number"
+                                            value={editOptionAncho}
+                                            onChange={(e) => setEditOptionAncho(e.target.value)}
+                                            size="sm"
+                                            min="0"
+                                            step="0.1"
+                                          />
+                                        </div>
+                                        <div className="col-md-3">
+                                          <Form.Label size="sm">Alto (cm)</Form.Label>
+                                          <Form.Control
+                                            type="number"
+                                            value={editOptionAlto}
+                                            onChange={(e) => setEditOptionAlto(e.target.value)}
+                                            size="sm"
+                                            min="0"
+                                            step="0.1"
+                                          />
+                                        </div>
+                                        <div className="col-md-3">
+                                          <Form.Label size="sm">Peso (kg)</Form.Label>
+                                          <Form.Control
+                                            type="number"
+                                            value={editOptionPeso}
+                                            onChange={(e) => setEditOptionPeso(e.target.value)}
+                                            size="sm"
+                                            min="0"
+                                            step="0.1"
+                                          />
+                                        </div>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
+                              </React.Fragment>
                             ))}
                           </tbody>
                         </table>

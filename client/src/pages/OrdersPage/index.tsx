@@ -725,9 +725,20 @@ const OrdersPage: React.FC = () => {
 
   // Función para agendar cita
   const handleScheduleAppointment = async (appointmentsData: CreateAppointmentData[]) => {
-    const penalized = appointmentsData.some(app => penalizedDates.includes(app.scheduledDate));
-    if (penalized) {
-      setPenaltyWarning('No puedes reservar para un día en el que tuviste una reserva vencida. Elige otro día.');
+    // MEJORADA: Validación más específica de penalizaciones
+    const penalizedAppointments = appointmentsData.filter(app => penalizedDates.includes(app.scheduledDate));
+    
+    if (penalizedAppointments.length > 0) {
+      const penalizedDatesList = penalizedAppointments.map(app => 
+        new Date(app.scheduledDate).toLocaleDateString('es-CO', { 
+          weekday: 'long', 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        })
+      ).join(', ');
+      
+      setPenaltyWarning(`No puedes reservar para las siguientes fechas debido a reservas vencidas: ${penalizedDatesList}. Las penalizaciones expiran en 24 horas.`);
       return;
     }
     setPenaltyWarning('');
@@ -1119,6 +1130,96 @@ const OrdersPage: React.FC = () => {
                   }
                   return null;
                 })()}
+
+                {/* Mis Reservas Completadas */}
+                <div className="mb-5">
+                  <h4 className="mb-3">
+                    <i className="bi bi-check-circle me-2"></i>
+                    Mis Reservas Completadas
+                  </h4>
+                  
+                  {loadingAppointments ? (
+                    <div className="text-center py-3">
+                      <div className="spinner-border spinner-border-sm" role="status">
+                        <span className="visually-hidden">Cargando reservas completadas...</span>
+                      </div>
+                    </div>
+                  ) : myAppointments.filter(appointment => appointment.status === 'completed').length > 0 ? (
+                    <div className="row mb-4">
+                      {myAppointments
+                        .filter(appointment => appointment.status === 'completed')
+                        .map(appointment => (
+                          <div key={appointment._id} className="col-12 mb-3">
+                            <div className="card border-success appointment-card">
+                              <div className="card-header bg-success text-white">
+                                <div className="d-flex justify-content-between align-items-center">
+                                  <h6 className="mb-0">
+                                    <i className="bi bi-calendar-check me-2"></i>
+                                    Reserva #{appointment._id.slice(-6)} - Completada
+                                  </h6>
+                                  <span className="badge bg-success">
+                                    <i className="bi bi-check-circle me-1"></i>
+                                    Completada
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="card-body">
+                                <div className="row">
+                                  <div className="col-md-3">
+                                    <p className="mb-1">
+                                      <strong>Fecha:</strong><br />
+                                      {new Date(appointment.scheduledDate).toLocaleDateString('es-CO', {
+                                        weekday: 'long',
+                                        year: 'numeric',
+                                        month: 'long',
+                                        day: 'numeric'
+                                      })}
+                                    </p>
+                                    <p className="mb-1">
+                                      <strong>Hora:</strong><br />
+                                      {appointment.timeSlot}
+                                    </p>
+                                    <p className="mb-1">
+                                      <strong>Completada el:</strong><br />
+                                      {appointment.completedAt ? new Date(appointment.completedAt).toLocaleDateString('es-CO', {
+                                        year: 'numeric',
+                                        month: 'long',
+                                        day: 'numeric',
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                      }) : 'N/A'}
+                                    </p>
+                                  </div>
+                                  <div className="col-md-3">
+                                    <p className="mb-1">
+                                      <strong>Casilleros utilizados:</strong><br />
+                                      {appointment.itemsToPickup.map((item: any) => item.lockerNumber).join(', ')}
+                                    </p>
+                                    <p className="mb-1">
+                                      <strong>Productos recogidos:</strong><br />
+                                      {appointment.itemsToPickup.length} producto{appointment.itemsToPickup.length > 1 ? 's' : ''}
+                                    </p>
+                                  </div>
+                                  <div className="col-md-6">
+                                    <div className="alert alert-success mb-0">
+                                      <i className="bi bi-info-circle me-2"></i>
+                                      <strong>Reserva Finalizada:</strong> Esta reserva fue completada exitosamente. 
+                                      Los productos han sido recogidos y los casilleros liberados.
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  ) : (
+                    <div className="alert alert-info text-center">
+                      <i className="bi bi-calendar-x me-2"></i>
+                      No tienes reservas completadas
+                    </div>
+                  )}
+                </div>
               </div>
             </>
           ) : (

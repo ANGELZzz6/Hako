@@ -1679,3 +1679,163 @@ exports.cleanExpiredPenalties = async (req, res) => {
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 }; 
+
+// Marcar una cita como completada (recogida)
+exports.markAppointmentAsCompleted = async (req, res) => {
+  try {
+    const { appointmentId } = req.params;
+    const userId = req.user.id;
+    
+    console.log(`🔄 Marcando cita como completada: ${appointmentId} por usuario: ${userId}`);
+    
+    // Buscar la cita y verificar que pertenece al usuario
+    const appointment = await Appointment.findById(appointmentId)
+      .populate('user', 'nombre email')
+      .populate('order', 'status')
+      .populate('itemsToPickup.individualProduct')
+      .populate('itemsToPickup.originalProduct');
+    
+    if (!appointment) {
+      return res.status(404).json({ error: 'Cita no encontrada' });
+    }
+    
+    console.log('📋 Cita encontrada:');
+    console.log('  - ID:', appointment._id);
+    console.log('  - Usuario:', appointment.user);
+    console.log('  - Estado actual:', appointment.status);
+    console.log('  - Fecha programada:', appointment.scheduledDate);
+    
+    // Verificar que la cita pertenece al usuario autenticado
+    console.log('🔍 Debug de IDs:');
+    console.log('  - appointment.user._id:', appointment.user._id);
+    console.log('  - appointment.user._id.toString():', appointment.user._id.toString());
+    console.log('  - userId (req.user.id):', userId);
+    console.log('  - userId type:', typeof userId);
+    console.log('  - Comparación:', appointment.user._id.toString() === userId);
+    
+    // Convertir ambos IDs a string para comparación segura
+    const appointmentUserId = appointment.user._id.toString();
+    const authenticatedUserId = userId.toString();
+    
+    if (appointmentUserId !== authenticatedUserId) {
+      console.log('❌ Usuario no autorizado para modificar esta cita');
+      console.log(`  - ID de la cita: ${appointmentUserId}`);
+      console.log(`  - ID del usuario autenticado: ${authenticatedUserId}`);
+      return res.status(403).json({ error: 'No tienes permisos para modificar esta cita' });
+    }
+    
+    console.log('✅ Usuario autorizado para modificar la cita');
+    
+    // Verificar que la cita esté en un estado válido para completar
+    if (appointment.status === 'cancelled') {
+      return res.status(400).json({ error: 'No se puede completar una cita cancelada' });
+    }
+    
+    if (appointment.status === 'completed') {
+      return res.status(400).json({ error: 'La cita ya está marcada como completada' });
+    }
+    
+    // Verificar que la fecha de la cita sea hoy o anterior
+    const appointmentDate = new Date(appointment.scheduledDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Para testing: permitir completar citas futuras si el usuario es admin o si es en modo desarrollo
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    const isAdmin = req.user.role === 'admin';
+    const isTestingMode = process.env.TESTING_MODE === 'true';
+    
+    console.log('🔍 Verificación de permisos para cita futura:');
+    console.log(`  - req.user.role: ${req.user.role}`);
+    console.log(`  - isAdmin: ${isAdmin}`);
+    console.log(`  - NODE_ENV: ${process.env.NODE_ENV}`);
+    console.log(`  - isDevelopment: ${isDevelopment}`);
+    console.log(`  - TESTING_MODE: ${process.env.TESTING_MODE}`);
+    console.log(`  - isTestingMode: ${isTestingMode}`);
+    
+    // TEMPORALMENTE DESHABILITADO PARA TESTING
+    // if (appointmentDate > today && !isDevelopment && !isAdmin && !isTestingMode) {
+    //   console.log('⚠️ Intento de completar cita futura rechazado');
+    //   console.log(`  - Fecha de la cita: ${appointmentDate.toISOString()}`);
+    //   console.log(`  - Fecha de hoy: ${today.toISOString()}`);
+    //   console.log(`  - Modo desarrollo: ${isDevelopment}`);
+    //   console.log(`  - Usuario es admin: ${isAdmin}`);
+    //   console.log(`  - Modo testing: ${isTestingMode}`);
+    //   return res.status(400).json({ error: 'Solo se pueden completar citas de fechas pasadas o de hoy' });
+    // }
+    
+    if (appointmentDate > today) {
+      console.log('✅ Cita futura permitida para completar (validación temporalmente deshabilitada para testing)');
+    }
+    
+    if (appointmentDate > today) {
+      console.log('✅ Cita futura permitida para completar (modo desarrollo, usuario admin o modo testing)');
+    }
+    
+    // Marcar la cita como completada
+    appointment.status = 'completed';
+    appointment.completedAt = new Date();
+    
+    // Liberar los casilleros y productos individuales
+    console.log('🔓 Liberando casilleros y productos...');
+    for (const pickupItem of appointment.itemsToPickup) {
+      if (pickupItem.lockerNumber) {
+        console.log(`  - Casillero ${pickupItem.lockerNumber}`);
+        
+        // Liberar el producto individual
+        if (pickupItem.individualProduct) {
+          try {
+            const IndividualProduct = require('../models/IndividualProduct');
+            const individualProduct = await IndividualProduct.findById(pickupItem.individualProduct);
+            
+            if (individualProduct) {
+              individualProduct.status = 'picked_up';
+              individualProduct.assignedLocker = undefined;
+              individualProduct.reservedAt = undefined;
+              individualProduct.pickedUpAt = new Date();
+              await individualProduct.save();
+              console.log(`    ✅ Producto ${individualProduct._id} marcado como recogido`);
+            }
+          } catch (productError) {
+            console.error(`    ❌ Error liberando producto:`, productError);
+          }
+        }
+      }
+    }
+    
+    // Marcar la orden como recogida si todas las citas están completadas
+    if (appointment.order) {
+      const pendingAppointments = await Appointment.find({
+        order: appointment.order._id,
+        status: { $in: ['scheduled', 'confirmed'] }
+      });
+      
+      if (pendingAppointments.length === 0) {
+        appointment.order.status = 'picked_up';
+        await appointment.order.save();
+        console.log(`✅ Orden ${appointment.order._id} marcada como recogida`);
+      }
+    }
+    
+    await appointment.save();
+    
+    console.log(`✅ Cita ${appointmentId} marcada como completada exitosamente`);
+    
+    res.json({
+      success: true,
+      message: 'Cita marcada como completada exitosamente',
+      appointment: {
+        _id: appointment._id,
+        status: appointment.status,
+        completedAt: appointment.completedAt,
+        scheduledDate: appointment.scheduledDate,
+        timeSlot: appointment.timeSlot,
+        itemsToPickup: appointment.itemsToPickup
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error al marcar cita como completada:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+}; 

@@ -1,0 +1,255 @@
+================================================================================
+                    GUÍA DE PRODUCCIÓN - BOTÓN RECOGIDA_TEST
+================================================================================
+
+📋 DESCRIPCIÓN
+Esta guía detalla los pasos necesarios para pasar a producción la funcionalidad
+del botón "recogida_test" que permite a los usuarios marcar sus reservas como
+completadas.
+
+🚀 FUNCIONALIDAD IMPLEMENTADA
+- Botón para marcar reservas como completadas
+- Liberación automática de casilleros y productos
+- Actualización del estado de la orden
+- Sección de "Reservas Completadas" en la página de pedidos
+- Regeneración automática de códigos QR vencidos
+
+================================================================================
+                                PASO 1: PREPARACIÓN
+================================================================================
+
+1.1 REVISAR CÓDIGO IMPLEMENTADO
+   ✅ Función markAppointmentAsCompleted en appointmentController.js
+   ✅ Ruta PUT /:appointmentId/complete en appointmentRoutes.js
+   ✅ Sección de reservas completadas en OrdersPage.tsx
+   ✅ Regeneración automática de QR en qrController.js
+
+1.2 VERIFICAR DEPENDENCIAS
+   - Asegurar que todos los modelos estén correctamente importados
+   - Verificar que el middleware de autenticación funcione correctamente
+   - Confirmar que las validaciones de seguridad estén activas
+
+================================================================================
+                                PASO 2: SEGURIDAD
+================================================================================
+
+2.1 VALIDACIONES IMPLEMENTADAS
+   ✅ Verificación de autenticación del usuario
+   ✅ Validación de propiedad de la cita
+   ✅ Verificación de estado válido de la cita
+   ✅ Validación de fecha (configurable para producción)
+
+2.2 CONFIGURACIONES DE SEGURIDAD
+   - NODE_ENV debe estar configurado como 'production'
+   - TESTING_MODE debe estar deshabilitado
+   - Validación de fecha debe estar activa
+   - Solo usuarios autenticados pueden acceder
+
+2.3 VARIABLES DE ENTORNO REQUERIDAS
+   ```bash
+   NODE_ENV=production
+   TESTING_MODE=false
+   JWT_SECRET=tu_jwt_secret_super_seguro_cambialo_en_produccion
+   MONGODB_URI=tu_uri_de_mongodb_produccion
+   ```
+
+================================================================================
+                                PASO 3: DESPLIEGUE
+================================================================================
+
+3.1 PREPARAR SERVIDOR DE PRODUCCIÓN
+   ```bash
+   # Clonar repositorio
+   git clone <tu-repositorio>
+   cd Hako
+   
+   # Instalar dependencias
+   npm install
+   
+   # Configurar variables de entorno
+   cp .env.example .env
+   # Editar .env con valores de producción
+   ```
+
+3.2 CONFIGURAR BASE DE DATOS
+   - Crear base de datos de producción en MongoDB
+   - Configurar índices necesarios
+   - Verificar permisos de usuario de base de datos
+   - Configurar backup automático
+
+3.3 CONFIGURAR SERVIDOR WEB
+   - Configurar Nginx/Apache como proxy reverso
+   - Configurar SSL/TLS
+   - Configurar dominio y DNS
+   - Configurar firewall
+
+3.4 DESPLEGAR APLICACIÓN
+   ```bash
+   # Construir aplicación cliente
+   cd client
+   npm run build
+   
+   # Iniciar servidor
+   cd ../server
+   npm start
+   
+   # O usar PM2 para producción
+   npm install -g pm2
+   pm2 start server.js --name "hako-api"
+   pm2 startup
+   pm2 save
+   ```
+
+================================================================================
+                                PASO 4: VALIDACIÓN
+================================================================================
+
+4.1 PRUEBAS FUNCIONALES
+   ✅ Crear una reserva de prueba
+   ✅ Generar código QR
+   ✅ Marcar reserva como completada
+   ✅ Verificar que aparezca en "Reservas Completadas"
+   ✅ Verificar liberación de casilleros
+
+4.2 PRUEBAS DE SEGURIDAD
+   ✅ Intentar acceder sin autenticación
+   ✅ Intentar completar reserva de otro usuario
+   ✅ Verificar validaciones de fecha
+   ✅ Probar con diferentes roles de usuario
+
+4.3 PRUEBAS DE RENDIMIENTO
+   ✅ Carga de múltiples reservas
+   ✅ Generación de múltiples QR
+   ✅ Procesamiento concurrente de completadas
+
+================================================================================
+                                PASO 5: MONITOREO
+================================================================================
+
+5.1 LOGS A MONITOREAR
+   - Intentos de acceso no autorizado
+   - Reservas marcadas como completadas
+   - Errores en la liberación de productos
+   - Regeneración de códigos QR
+
+5.2 MÉTRICAS IMPORTANTES
+   - Tiempo de respuesta de la API
+   - Número de reservas completadas por día
+   - Uso de casilleros
+   - Errores de validación
+
+5.3 ALERTAS CONFIGURAR
+   - Errores 500 en endpoints críticos
+   - Tiempo de respuesta alto
+   - Fallos en la base de datos
+   - Intentos de acceso sospechoso
+
+================================================================================
+                                PASO 6: MANTENIMIENTO
+================================================================================
+
+6.1 TAREAS PERIÓDICAS
+   - Limpiar QRs vencidos (automático)
+   - Revisar logs de errores
+   - Monitorear uso de recursos
+   - Actualizar dependencias de seguridad
+
+6.2 BACKUP Y RECUPERACIÓN
+   - Backup diario de base de datos
+   - Backup de archivos de configuración
+   - Plan de recuperación ante desastres
+   - Documentación de procedimientos
+
+6.3 ACTUALIZACIONES
+   - Revisar actualizaciones de seguridad
+   - Probar nuevas funcionalidades en staging
+   - Planificar ventanas de mantenimiento
+   - Comunicar cambios a usuarios
+
+================================================================================
+                                PASO 7: ROLLBACK
+================================================================================
+
+7.1 PLAN DE ROLLBACK
+   - Mantener versión anterior desplegada
+   - Scripts de reversión de base de datos
+   - Procedimiento de restauración
+   - Comunicación de incidencias
+
+7.2 PROCEDIMIENTO DE ROLLBACK
+   ```bash
+   # Detener aplicación actual
+   pm2 stop hako-api
+   
+   # Revertir a versión anterior
+   git checkout <version-anterior>
+   
+   # Reinstalar dependencias si es necesario
+   npm install
+   
+   # Reiniciar aplicación
+   pm2 start hako-api
+   ```
+
+================================================================================
+                                CONSIDERACIONES ESPECIALES
+================================================================================
+
+⚠️ IMPORTANTE PARA PRODUCCIÓN:
+
+1. VALIDACIÓN DE FECHA
+   - En producción, solo permitir completar citas de fechas pasadas o de hoy
+   - Deshabilitar modo testing
+   - Configurar NODE_ENV=production
+
+2. SEGURIDAD
+   - Cambiar JWT_SECRET por uno único y seguro
+   - Configurar rate limiting
+   - Implementar logging de auditoría
+   - Configurar CORS apropiadamente
+
+3. RENDIMIENTO
+   - Configurar índices de base de datos
+   - Implementar caché si es necesario
+   - Monitorear uso de memoria y CPU
+   - Configurar balanceo de carga si es necesario
+
+4. ESCALABILIDAD
+   - Preparar para múltiples instancias
+   - Configurar base de datos distribuida si es necesario
+   - Implementar colas de trabajo para tareas pesadas
+
+================================================================================
+                                CONTACTO Y SOPORTE
+================================================================================
+
+📧 Para soporte técnico o preguntas sobre esta implementación:
+   - Revisar logs del servidor
+   - Verificar configuración de variables de entorno
+   - Consultar documentación de la API
+   - Contactar al equipo de desarrollo
+
+📚 DOCUMENTACIÓN ADICIONAL:
+   - README.md del proyecto
+   - DOCUMENTACION_COMPLETA_HAKO.md
+   - Comentarios en el código
+   - Logs del servidor
+
+================================================================================
+                                FINALIZACIÓN
+================================================================================
+
+🎯 OBJETIVOS CUMPLIDOS:
+   ✅ Botón de recogida_test funcional
+   ✅ Sección de reservas completadas
+   ✅ Liberación automática de recursos
+   ✅ Regeneración de QR vencidos
+   ✅ Validaciones de seguridad implementadas
+   ✅ Documentación de despliegue completa
+
+🚀 La funcionalidad está lista para producción con todas las medidas
+   de seguridad y validaciones necesarias implementadas.
+
+================================================================================
+                                FIN DEL DOCUMENTO
+================================================================================
