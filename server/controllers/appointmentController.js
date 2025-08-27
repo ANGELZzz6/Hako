@@ -109,10 +109,44 @@ exports.getAvailableTimeSlots = async (req, res) => {
 
 // Crear una nueva cita
 exports.createAppointment = async (req, res) => {
-  try {
-    const { orderId, scheduledDate, timeSlot, itemsToPickup, notes, contactInfo } = req.body;
-    
-    // Debug: Ver qué datos está recibiendo el backend
+      try {
+      const { orderId, scheduledDate, timeSlot, itemsToPickup, notes, contactInfo } = req.body;
+      
+      // Bloquear si el usuario tiene reservas vencidas (scheduled/confirmed en el pasado)
+      {
+        const activeAppointments = await Appointment.find({
+          user: req.user.id,
+          status: { $in: ['scheduled', 'confirmed'] }
+        });
+        
+        if (activeAppointments.length > 0) {
+          const now = new Date();
+          console.log('🔍 Verificando reservas vencidas...');
+          console.log('⏰ Hora actual:', now.toISOString());
+          
+          const hasExpired = activeAppointments.some(app => {
+            const appDate = new Date(app.scheduledDate);
+            const [h, m] = (app.timeSlot || '00:00').split(':');
+            appDate.setHours(parseInt(h || '0'), parseInt(m || '0'), 0, 0);
+            
+            console.log(`📅 Reserva ${app._id}: ${appDate.toISOString()} (${app.scheduledDate} ${app.timeSlot})`);
+            console.log(`   ¿Está vencida? ${appDate < now}`);
+            
+            return appDate < now;
+          });
+          
+          if (hasExpired) {
+            console.log('❌ Usuario tiene reservas vencidas - BLOQUEANDO');
+            return res.status(403).json({
+              error: 'Tienes reservas vencidas. Primero edítalas o cancélalas antes de crear una nueva reserva.'
+            });
+          }
+          
+          console.log('✅ Usuario no tiene reservas vencidas - PERMITIENDO');
+        }
+      }
+      
+      // Debug: Ver qué datos está recibiendo el backend
     console.log('🔍 Backend recibió:', {
       orderId,
       scheduledDate,
@@ -238,12 +272,24 @@ exports.createAppointment = async (req, res) => {
         });
       }
       
+      // Calcular dimensiones y volumen basados en variantes del producto individual
+      const dims = typeof individualProduct.getVariantOrProductDimensions === 'function'
+        ? individualProduct.getVariantOrProductDimensions()
+        : (individualProduct.dimensiones || individualProduct.product?.dimensiones || null);
+      const vol = typeof individualProduct.getVariantOrProductVolume === 'function'
+        ? individualProduct.getVariantOrProductVolume()
+        : (dims ? dims.largo * dims.ancho * dims.alto : null);
+
       validItems.push({
         individualProduct: individualProduct._id,
         originalProduct: individualProduct.product._id,
         quantity: 1, // Siempre 1 para productos individuales
         lockerNumber: pickupItem.lockerNumber,
-        individualProductId: individualProduct._id
+        individualProductId: individualProduct._id,
+        // Enviar variantes y dimensiones para visualización combinada correcta
+        variants: individualProduct.variants ? Object.fromEntries(individualProduct.variants) : undefined,
+        dimensiones: dims || undefined,
+        volumen: vol || undefined
       });
     }
     
@@ -270,14 +316,30 @@ exports.createAppointment = async (req, res) => {
         productsByLocker.get(item.lockerNumber).push(item);
       });
 
-      // Para cada casillero solicitado, buscar una reserva existente que lo use
-      for (const [lockerNumber, products] of productsByLocker) {
-        const existingAppointment = existingAppointments.find(app => 
-          app.itemsToPickup.some(item => item.lockerNumber === lockerNumber)
-        );
+              // Para cada casillero solicitado, buscar una reserva existente que lo use
+        for (const [lockerNumber, products] of productsByLocker) {
+          let existingAppointment = existingAppointments.find(app => 
+            app.itemsToPickup.some(item => item.lockerNumber === lockerNumber)
+          );
 
-        if (existingAppointment) {
-          console.log(`✅ Agregando productos al casillero ${lockerNumber} en reserva existente ${existingAppointment._id}`);
+          if (existingAppointment) {
+            // Si la reserva está vencida, actualizar su fecha/hora a la próxima disponible antes de agregar
+            const appDateTime = new Date(existingAppointment.scheduledDate);
+            const [h, m] = (existingAppointment.timeSlot || '00:00').split(':');
+            appDateTime.setHours(parseInt(h || '0'), parseInt(m || '0'), 0, 0);
+            const now = new Date();
+            if (appDateTime < now) {
+              console.log(`♻️ Reserva ${existingAppointment._id} está vencida. Reprogramando antes de agregar productos...`);
+              // Buscar siguiente día/hora disponible (simple: mañana misma hora)
+              const newDate = new Date(now);
+              newDate.setDate(newDate.getDate() + 1);
+              newDate.setHours(0, 0, 0, 0);
+              existingAppointment.scheduledDate = newDate;
+              // Mantener mismo timeSlot si es válido; en producción podrías consultar getAvailableTimeSlots
+              await existingAppointment.save();
+            }
+            
+            console.log(`✅ Agregando productos al casillero ${lockerNumber} en reserva existente ${existingAppointment._id}`);
           
           // Agregar productos a la reserva existente
           for (const product of products) {
@@ -285,7 +347,11 @@ exports.createAppointment = async (req, res) => {
               individualProduct: product.individualProduct,
               originalProduct: product.originalProduct,
               quantity: product.quantity,
-              lockerNumber: product.lockerNumber
+              lockerNumber: product.lockerNumber,
+              // También persistir variantes y dimensiones
+              variants: product.variants,
+              dimensiones: product.dimensiones,
+              volumen: product.volumen
             });
           }
           
@@ -387,7 +453,13 @@ exports.getMyAppointments = async (req, res) => {
   try {
     const appointments = await Appointment.find({ user: req.user.id })
       .populate('order', 'total_amount status')
-      .populate('itemsToPickup.individualProduct')
+      .populate({
+        path: 'itemsToPickup.individualProduct',
+        populate: {
+          path: 'product',
+          select: 'nombre imagen_url dimensiones variants'
+        }
+      })
       .populate('itemsToPickup.originalProduct', 'nombre imagen_url descripcion dimensiones variants')
       .sort({ scheduledDate: 1, timeSlot: 1 });
     
@@ -454,7 +526,13 @@ exports.getMyAppointment = async (req, res) => {
       user: req.user.id 
     })
     .populate('order', 'total_amount status')
-    .populate('itemsToPickup.individualProduct')
+    .populate({
+      path: 'itemsToPickup.individualProduct',
+      populate: {
+        path: 'product',
+        select: 'nombre imagen_url dimensiones variants'
+      }
+    })
     .populate('itemsToPickup.originalProduct', 'nombre imagen_url descripcion dimensiones variants');
     
     if (!appointment) {
@@ -1276,11 +1354,45 @@ exports.deleteAppointment = async (req, res) => {
 
 // Agregar productos a una reserva existente
 exports.addProductsToAppointment = async (req, res) => {
-  try {
-    const { appointmentId } = req.params;
-    const { products } = req.body;
-    
-    console.log('🔄 Agregando productos a reserva existente:', appointmentId);
+      try {
+      const { appointmentId } = req.params;
+      const { products } = req.body;
+      
+      // Bloquear si el usuario tiene reservas vencidas
+      {
+        const activeAppointments = await Appointment.find({
+          user: req.user.id,
+          status: { $in: ['scheduled', 'confirmed'] }
+        });
+        
+        if (activeAppointments.length > 0) {
+          const now = new Date();
+          console.log('🔍 Verificando reservas vencidas (addProductsToAppointment)...');
+          console.log('⏰ Hora actual:', now.toISOString());
+          
+          const hasExpired = activeAppointments.some(app => {
+            const appDate = new Date(app.scheduledDate);
+            const [h, m] = (app.timeSlot || '00:00').split(':');
+            appDate.setHours(parseInt(h || '0'), parseInt(m || '0'), 0, 0);
+            
+            console.log(`📅 Reserva ${app._id}: ${appDate.toISOString()} (${app.scheduledDate} ${app.timeSlot})`);
+            console.log(`   ¿Está vencida? ${appDate < now}`);
+            
+            return appDate < now;
+          });
+          
+          if (hasExpired) {
+            console.log('❌ Usuario tiene reservas vencidas - BLOQUEANDO');
+            return res.status(403).json({
+              error: 'Tienes reservas vencidas. Primero edítalas o cancélalas antes de agregar productos.'
+            });
+          }
+          
+          console.log('✅ Usuario no tiene reservas vencidas - PERMITIENDO');
+        }
+      }
+      
+      console.log('🔄 Agregando productos a reserva existente:', appointmentId);
     console.log('📦 Productos a agregar:', products);
     
     // Validar datos requeridos
@@ -1329,12 +1441,23 @@ exports.addProductsToAppointment = async (req, res) => {
         return res.status(400).json({ error: `El producto ya está ${individualProduct.status}` });
       }
       
+      // Calcular dimensiones y volumen considerando variantes
+      const dims = typeof individualProduct.getVariantOrProductDimensions === 'function'
+        ? individualProduct.getVariantOrProductDimensions()
+        : (individualProduct.dimensiones || individualProduct.product?.dimensiones || null);
+      const vol = typeof individualProduct.getVariantOrProductVolume === 'function'
+        ? individualProduct.getVariantOrProductVolume()
+        : (dims ? dims.largo * dims.ancho * dims.alto : null);
+
       validProducts.push({
         individualProduct: individualProduct._id, // Referencia al producto individual
         originalProduct: individualProduct.product._id, // Referencia al producto original
         quantity: productData.quantity || 1,
         lockerNumber: productData.lockerNumber,
-        individualProductId: individualProduct._id
+        individualProductId: individualProduct._id,
+        variants: individualProduct.variants ? Object.fromEntries(individualProduct.variants) : undefined,
+        dimensiones: dims || undefined,
+        volumen: vol || undefined
       });
     }
     
@@ -1377,10 +1500,45 @@ exports.addProductsToAppointment = async (req, res) => {
 
 // Crear múltiples reservas (una por casillero)
 exports.createMultipleAppointments = async (req, res) => {
-  try {
-    const { appointments } = req.body;
-    
-    console.log('🔍 Backend recibió múltiples reservas:', appointments);
+      try {
+      const { appointments } = req.body;
+      
+      // Bloquear si el usuario tiene reservas vencidas antes de procesar múltiples
+      {
+        const userId = req.user.id;
+        const activeAppointments = await Appointment.find({
+          user: userId,
+          status: { $in: ['scheduled', 'confirmed'] }
+        });
+        
+        if (activeAppointments.length > 0) {
+          const now = new Date();
+          console.log('🔍 Verificando reservas vencidas (createMultipleAppointments)...');
+          console.log('⏰ Hora actual:', now.toISOString());
+          
+          const hasExpired = activeAppointments.some(app => {
+            const appDate = new Date(app.scheduledDate);
+            const [h, m] = (app.timeSlot || '00:00').split(':');
+            appDate.setHours(parseInt(h || '0'), parseInt(m || '0'), 0, 0);
+            
+            console.log(`📅 Reserva ${app._id}: ${appDate.toISOString()} (${app.scheduledDate} ${app.timeSlot})`);
+            console.log(`   ¿Está vencida? ${appDate < now}`);
+            
+            return appDate < now;
+          });
+          
+          if (hasExpired) {
+            console.log('❌ Usuario tiene reservas vencidas - BLOQUEANDO');
+            return res.status(403).json({
+              error: 'Tienes reservas vencidas. Primero edítalas o cancélalas antes de crear nuevas reservas.'
+            });
+          }
+          
+          console.log('✅ Usuario no tiene reservas vencidas - PERMITIENDO');
+        }
+      }
+      
+      console.log('🔍 Backend recibió múltiples reservas:', appointments);
     
     // Validar datos requeridos
     if (!appointments || !Array.isArray(appointments) || appointments.length === 0) {

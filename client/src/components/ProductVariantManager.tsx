@@ -45,6 +45,7 @@ const ProductVariantManager: React.FC<ProductVariantManagerProps> = ({
   const [newOptionLargo, setNewOptionLargo] = useState('');
   const [newOptionAncho, setNewOptionAncho] = useState('');
   const [newOptionAlto, setNewOptionAlto] = useState('');
+  const isAddAttributeDisabled = newAttributeName.trim() === '';
   
   // Estados para edición de variantes
   const [editingOption, setEditingOption] = useState<{attributeIndex: number, optionIndex: number} | null>(null);
@@ -335,14 +336,15 @@ const ProductVariantManager: React.FC<ProductVariantManagerProps> = ({
                   </Form.Group>
                 </Col>
                 <Col md={6} className="d-flex align-items-end">
-                  <Button 
-                    variant="primary" 
+                  <button
+                    type="button"
+                    className="btn btn-primary"
                     onClick={addAttribute}
-                    disabled={!newAttributeName.trim()}
+                    disabled={isAddAttributeDisabled}
                   >
                     <i className="bi bi-plus-circle me-2"></i>
                     Agregar Atributo
-                  </Button>
+                  </button>
                 </Col>
               </Row>
             </div>
@@ -361,39 +363,46 @@ const ProductVariantManager: React.FC<ProductVariantManagerProps> = ({
                       </h6>
                     </div>
                     <div className="d-flex gap-2 flex-wrap">
-                      <Form.Check
-                        type="radio"
-                        id={`defines-dimensions-${index}`}
-                        label="Este atributo define dimensiones"
-                        checked={attribute.definesDimensions || false}
-                        onChange={() => handleSetDefinesDimensions(index)}
-                        name="definesDimensionsGroup"
-                        className="mb-2"
-                      />
-                      <Form.Check
-                        type="radio"
-                        id={`defines-stock-${index}`}
-                        label="Este atributo controla el stock"
-                        checked={attribute.definesStock || false}
-                        onChange={() => handleSetDefinesStock(index)}
-                        name="definesStockGroup"
-                        className="mb-2"
-                      />
-                      <Button
-                        variant="outline-secondary"
-                        size="sm"
+                      <div className="form-check mb-2">
+                        <input
+                          className="form-check-input"
+                          type="radio"
+                          id={`defines-dimensions-${index}`}
+                          name="definesDimensionsGroup"
+                          checked={attribute.definesDimensions || false}
+                          onChange={() => handleSetDefinesDimensions(index)}
+                        />
+                        <label className="form-check-label" htmlFor={`defines-dimensions-${index}`}>
+                          Este atributo define dimensiones
+                        </label>
+                      </div>
+                      <div className="form-check mb-2">
+                        <input
+                          className="form-check-input"
+                          type="radio"
+                          id={`defines-stock-${index}`}
+                          name="definesStockGroup"
+                          checked={attribute.definesStock || false}
+                          onChange={() => handleSetDefinesStock(index)}
+                        />
+                        <label className="form-check-label" htmlFor={`defines-stock-${index}`}>
+                          Este atributo controla el stock
+                        </label>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn btn-outline-secondary btn-sm me-2"
                         onClick={() => toggleAttributeRequired(index)}
-                        className="me-2"
                       >
                         {attribute.required ? 'Opcional' : 'Obligatorio'}
-                      </Button>
-                      <Button
-                        variant="outline-danger"
-                        size="sm"
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-outline-danger btn-sm"
                         onClick={() => removeAttribute(index)}
                       >
                         <i className="bi bi-trash"></i>
-                      </Button>
+                      </button>
                     </div>
                   </div>
                 </Card.Header>
@@ -443,42 +452,51 @@ const ProductVariantManager: React.FC<ProductVariantManagerProps> = ({
                       {/* Inputs para dimensiones en el formulario de nueva opción */}
                       {attribute.definesDimensions && (
                         <Col md={2}>
-                          <Form.Group as={Row} className="mb-2">
-                            <Form.Label column sm={4}>Largo (cm)</Form.Label>
-                            <Col sm={8}>
-                              <Form.Control type="number" value={newOptionLargo} min={0} step={0.1} onChange={e => setNewOptionLargo(e.target.value)} />
-                            </Col>
-                          </Form.Group>
-                          <Form.Group as={Row} className="mb-2">
-                            <Form.Label column sm={4}>Ancho (cm)</Form.Label>
-                            <Col sm={8}>
-                              <Form.Control type="number" value={newOptionAncho} min={0} step={0.1} onChange={e => setNewOptionAncho(e.target.value)} />
-                            </Col>
-                          </Form.Group>
-                          <Form.Group as={Row} className="mb-2">
-                            <Form.Label column sm={4}>Alto (cm)</Form.Label>
-                            <Col sm={8}>
-                              <Form.Control type="number" value={newOptionAlto} min={0} step={0.1} onChange={e => setNewOptionAlto(e.target.value)} />
-                            </Col>
-                          </Form.Group>
-                          <Form.Group as={Row} className="mb-2">
-                            <Form.Label column sm={4}>Peso (kg)</Form.Label>
-                            <Col sm={8}>
-                              <Form.Control type="number" value={newOptionPeso} min={0} step={0.1} onChange={e => setNewOptionPeso(e.target.value)} />
-                            </Col>
-                          </Form.Group>
+                          <Row className="mb-2">
+                            <Form.Group>
+                              <Form.Label column sm={4}>Largo (cm)</Form.Label>
+                              <Col sm={8}>
+                                <Form.Control type="number" value={newOptionLargo} min={0} step={0.1} onChange={e => setNewOptionLargo(e.target.value)} />
+                              </Col>
+                            </Form.Group>
+                          </Row>
+                          <Row className="mb-2">
+                            <Form.Group>
+                              <Form.Label column sm={4}>Ancho (cm)</Form.Label>
+                              <Col sm={8}>
+                                <Form.Control type="number" value={newOptionAncho} min={0} step={0.1} onChange={e => setNewOptionAncho(e.target.value)} />
+                              </Col>
+                            </Form.Group>
+                          </Row>
+                          <Row className="mb-2">
+                            <Form.Group>
+                              <Form.Label column sm={4}>Alto (cm)</Form.Label>
+                              <Col sm={8}>
+                                <Form.Control type="number" value={newOptionAlto} min={0} step={0.1} onChange={e => setNewOptionAlto(e.target.value)} />
+                              </Col>
+                            </Form.Group>
+                          </Row>
+                          <Row className="mb-2">
+                            <Form.Group>
+                              <Form.Label column sm={4}>Peso (kg)</Form.Label>
+                              <Col sm={8}>
+                                <Form.Control type="number" value={newOptionPeso} min={0} step={0.1} onChange={e => setNewOptionPeso(e.target.value)} />
+                              </Col>
+                            </Form.Group>
+                          </Row>
                         </Col>
                       )}
-                      <Col md={3} className="d-flex align-items-end justify-content-end">
-                        <Button 
-                          variant="success" 
+                      <div className="col-md-3 d-flex align-items-end justify-content-end">
+                        <button
+                          type="button"
+                          className="btn btn-success"
                           onClick={() => addOption(index)}
                           disabled={!newOptionValue.trim()}
                         >
                           <i className="bi bi-plus me-2"></i>
                           Agregar Opción
-                        </Button>
-                      </Col>
+                        </button>
+                      </div>
                     </Row>
                   </div>
 
@@ -537,21 +555,20 @@ const ProductVariantManager: React.FC<ProductVariantManagerProps> = ({
                                         </Badge>
                                       </td>
                                       <td>
-                                        <Button
-                                          variant="outline-success"
-                                          size="sm"
+                                        <button
+                                          type="button"
+                                          className="btn btn-outline-success btn-sm me-1"
                                           onClick={saveEditOption}
-                                          className="me-1"
                                         >
                                           <i className="bi bi-check"></i>
-                                        </Button>
-                                        <Button
-                                          variant="outline-secondary"
-                                          size="sm"
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className="btn btn-outline-secondary btn-sm"
                                           onClick={cancelEditOption}
                                         >
                                           <i className="bi bi-x"></i>
-                                        </Button>
+                                        </button>
                                       </td>
                                     </>
                                   ) : (
@@ -566,30 +583,28 @@ const ProductVariantManager: React.FC<ProductVariantManagerProps> = ({
                                         </Badge>
                                       </td>
                                       <td>
-                                        <Button
-                                          variant="outline-primary"
-                                          size="sm"
+                                        <button
+                                          type="button"
+                                          className="btn btn-outline-primary btn-sm me-1"
                                           onClick={() => startEditOption(index, optionIndex)}
-                                          className="me-1"
                                           title="Editar opción"
                                         >
                                           <i className="bi bi-pencil"></i>
-                                        </Button>
-                                        <Button
-                                          variant="outline-secondary"
-                                          size="sm"
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className="btn btn-outline-secondary btn-sm me-1"
                                           onClick={() => toggleOptionActive(index, optionIndex)}
-                                          className="me-1"
                                         >
                                           {option.isActive ? 'Desactivar' : 'Activar'}
-                                        </Button>
-                                        <Button
-                                          variant="outline-danger"
-                                          size="sm"
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className="btn btn-outline-danger btn-sm"
                                           onClick={() => removeOption(index, optionIndex)}
                                         >
                                           <i className="bi bi-trash"></i>
-                                        </Button>
+                                        </button>
                                       </td>
                                     </>
                                   )}

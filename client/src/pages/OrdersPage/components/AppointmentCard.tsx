@@ -1,9 +1,12 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { getTimeUntilAppointment, canModifyAppointment, isAppointmentExpired, formatAppointmentDate, debugDateIssue } from '../utils/dateUtils';
 import qrService from '../../../services/qrService';
 import appointmentService from '../../../services/appointmentService';
 import type { QRCode } from '../../../services/qrService';
 import './AppointmentCard.css';
+import Locker3DCanvas from '../../../components/Locker3DCanvas';
+import gridPackingService, { type Locker3D, type Product3D } from '../../../services/gridPackingService';
+import { getDimensiones, getVolumen } from '../utils/productUtils';
 
 /**
  * Componente para mostrar una tarjeta de cita/reserva
@@ -26,6 +29,7 @@ interface AppointmentCardProps {
   onCancel: (appointmentId: string) => void;
   cancellingAppointment: boolean;
   updatingAppointment: boolean;
+  purchasedProducts?: any[];
 }
 
 const AppointmentCard: React.FC<AppointmentCardProps> = ({
@@ -33,12 +37,84 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
   onEdit,
   onCancel,
   cancellingAppointment,
-  updatingAppointment
+  updatingAppointment,
+  purchasedProducts
 }) => {
   const [generatingQR, setGeneratingQR] = useState(false);
   const [qrCode, setQrCode] = useState<QRCode | null>(null);
   const [showQRModal, setShowQRModal] = useState(false);
   const [pickingUp, setPickingUp] = useState(false);
+  const [showLockerModal, setShowLockerModal] = useState(false);
+
+  const lockerBins = useMemo(() => {
+    try {
+      const items = (appointment.itemsToPickup || []) as any[];
+      const lockers = Array.from(new Set(items.map(i => i.lockerNumber))) as number[];
+      const result: Locker3D[] = [];
+      lockers.forEach((lockerNumber) => {
+        const lockerItems = items.filter(i => i.lockerNumber === lockerNumber);
+        const products3D: Product3D[] = lockerItems.map((item) => {
+          // Resolver dimensiones usando el producto individual cuando esté disponible
+          let individualProduct = purchasedProducts?.find(p => p._id === (item as any).individualProduct)
+            || purchasedProducts?.find(p => p._id === (item as any).individualProductId)
+            || purchasedProducts?.find(p => p.product?._id === (item as any).originalProduct)
+            || purchasedProducts?.find(p => p._id === item.product?._id)
+            || purchasedProducts?.find(p => p.product?.nombre === item.product?.nombre)
+            || purchasedProducts?.find(p => p.product?._id === item.product?._id);
+          const rawSelectedVariants = (item as any).variants || (item as any).variantSelections || individualProduct?.variants || (individualProduct as any)?.variantSelections || {};
+          const fullProduct = individualProduct?.product && individualProduct.product.variants ? individualProduct.product : item.product;
+          const normalizeVariants = (product: any, selection: Record<string, string>) => {
+            try {
+              const result: Record<string, string> = {};
+              const selEntries = Object.entries(selection || {}).map(([k, v]) => [String(k).toLowerCase(), v]) as [string, string][];
+              const attrs = product?.variants?.attributes || [];
+              attrs.forEach((attr: any) => {
+                const keyLc = String(attr?.name || '').toLowerCase();
+                const match = selEntries.find(([k]) => k === keyLc);
+                if (match) result[attr.name] = match[1];
+              });
+              return Object.keys(result).length > 0 ? result : (selection || {});
+            } catch {
+              return selection || {};
+            }
+          };
+          const selectedVariants = normalizeVariants(fullProduct, rawSelectedVariants);
+          const dimSource = individualProduct ? {
+            ...individualProduct,
+            product: fullProduct,
+            variants: selectedVariants,
+            dimensiones: item.dimensiones || individualProduct.dimensiones
+          } : {
+            ...item,
+            product: fullProduct,
+            variants: selectedVariants
+          };
+          const dims = getDimensiones(dimSource as any);
+          const length = dims?.largo ?? 15;
+          const width = dims?.ancho ?? 15;
+          const height = dims?.alto ?? 15;
+          const volume = getVolumen(dimSource as any) || (length * width * height);
+          return {
+            id: item.product?._id || item.individualProduct || `${item.originalProduct || 'prod'}_${Math.random()}`,
+            name: item.product?.nombre || 'Producto',
+            dimensions: { length, width, height },
+            quantity: item.quantity || 1,
+            volume,
+          };
+        });
+        const pack = gridPackingService.packProducts3D(products3D);
+        if (pack.lockers.length > 0) {
+          const bin: Locker3D = { ...pack.lockers[0], id: `locker_${lockerNumber}` };
+          (bin as any).lockerNumber = lockerNumber;
+          result.push(bin);
+        }
+      });
+      return result;
+    } catch (e) {
+      console.error('Error creando bins de casillero para la reserva:', e);
+      return [] as Locker3D[];
+    }
+  }, [appointment.itemsToPickup]);
 
   // Verificar si la cita está activa (no vencida y no completada)
   const isAppointmentActive = !isAppointmentExpired(appointment) && appointment.status !== 'completed';
@@ -203,6 +279,14 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
                       )}
                     </button>
                   )}
+                  {/* Ver casillero */}
+                  <button
+                    className="btn btn-outline-success btn-sm"
+                    onClick={() => setShowLockerModal(true)}
+                  >
+                    <i className="bi bi-box-seam me-1"></i>
+                    Ver casillero
+                  </button>
                   
                   {isAppointmentExpired(appointment) ? (
                     <button
@@ -364,6 +448,74 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
                 >
                   <i className="bi bi-check-circle me-1"></i>
                   Entendido
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para visualizar casillero(s) de la reserva */}
+      {showLockerModal && (
+        <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog modal-lg modal-dialog-centered">
+            <div className="modal-content">
+              <div className="modal-header bg-success text-white py-2">
+                <h6 className="modal-title mb-0">
+                  <i className="bi bi-box-seam me-2"></i>
+                  Casillero(s) de la reserva
+                </h6>
+                <button type="button" className="btn-close btn-close-white" onClick={() => setShowLockerModal(false)}></button>
+              </div>
+              <div className="modal-body">
+                <div className="mb-3">
+                  <small className="text-muted d-block">
+                    <strong>Reserva:</strong> #{appointment._id?.slice?.(-6) || ''}
+                  </small>
+                  <small className="text-muted d-block">
+                    <strong>Fecha:</strong> {formatAppointmentDate(appointment.scheduledDate)}
+                  </small>
+                  <small className="text-muted d-block">
+                    <strong>Hora:</strong> {appointment.timeSlot}
+                  </small>
+                  <small className="text-muted d-block">
+                    <strong>Casilleros:</strong> {lockerBins.map(l => (l as any).lockerNumber || parseInt(String(l.id).replace('locker_', ''))).join(', ')}
+                  </small>
+                </div>
+
+                <div className="row g-3">
+                  {lockerBins.map((locker) => {
+                    const lockerNum = (locker as any).lockerNumber || parseInt(String(locker.id).replace('locker_', ''));
+                    return (
+                    <div className="col-md-6" key={lockerNum}>
+                      <div className="card h-100">
+                        <div className="card-header bg-light">
+                          <strong>Casillero {lockerNum}</strong>
+                        </div>
+                        <div className="card-body d-flex justify-content-center">
+                          <Locker3DCanvas bin={locker} />
+                        </div>
+                      </div>
+                    </div>
+                    );
+                  })}
+                </div>
+
+                <div className="mt-3">
+                  <h6>Productos a recoger</h6>
+                  <ul className="list-unstyled small mb-0">
+                    {(appointment.itemsToPickup || []).map((it: any, idx: number) => (
+                      <li key={idx} className="mb-1">
+                        <i className="bi bi-dot"></i>
+                        Casillero {it.lockerNumber} · x{it.quantity} · {it.product?.nombre || it.originalProduct?.nombre || 'Producto'}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+              <div className="modal-footer py-2">
+                <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowLockerModal(false)}>
+                  Cerrar
                 </button>
               </div>
             </div>

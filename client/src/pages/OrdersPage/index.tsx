@@ -10,7 +10,7 @@ import Locker3DCanvas from '../../components/Locker3DCanvas';
 import type { CreateAppointmentData } from '../../services/appointmentService';
 import type { Appointment } from '../../services/appointmentService';
 import { getDimensiones, getVolumen, tieneDimensiones, hasLockerSpace } from './utils/productUtils';
-import { createLocalDate } from './utils/dateUtils';
+import { createLocalDate, hasExpiredAppointments } from './utils/dateUtils';
 import { useOrdersPage } from './hooks/useOrdersPage';
 import ProductCard from './components/ProductCard';
 import LockerVisualization from './components/LockerVisualization';
@@ -441,8 +441,52 @@ const OrdersPage: React.FC = () => {
             individualProductId: item.individualProductId
           });
           
-          // Usar directamente las dimensiones del backend si están disponibles
-          if (item.dimensiones) {
+          // Resolver dimensiones como en la previsualización: construir fuente con
+          // - product: el más completo (para tener attributes/definesDimensions)
+          // - variants: selección real del item (o alternativas)
+          const candidateFromPurchased = purchasedProducts.find(p => p._id === (item as any).individualProduct)
+            || purchasedProducts.find(p => p._id === (item as any).individualProductId)
+            || purchasedProducts.find(p => p.product?._id === (item as any).originalProduct)
+            || purchasedProducts.find(p => p._id === item.product._id)
+            || purchasedProducts.find(p => p.product?.nombre === item.product.nombre)
+            || purchasedProducts.find(p => p.product?._id === item.product._id);
+          const rawSelectedVariants = (item as any).variants || (item as any).variantSelections || candidateFromPurchased?.variants || (candidateFromPurchased as any)?.variantSelections || {};
+          // Prefiere el producto con estructura completa de variantes
+          const fullProduct = candidateFromPurchased?.product && candidateFromPurchased.product.variants ? candidateFromPurchased.product : item.product;
+          // Normalizar claves de variantes a los nombres de atributos del producto (case-insensitive)
+          const normalizeVariants = (product: any, selection: Record<string, string>) => {
+            try {
+              const result: Record<string, string> = {};
+              const selEntries = Object.entries(selection || {}).map(([k, v]) => [String(k).toLowerCase(), v]) as [string, string][];
+              const attrs = product?.variants?.attributes || [];
+              attrs.forEach((attr: any) => {
+                const keyLc = String(attr?.name || '').toLowerCase();
+                const match = selEntries.find(([k]) => k === keyLc);
+                if (match) result[attr.name] = match[1];
+              });
+              return Object.keys(result).length > 0 ? result : (selection || {});
+            } catch {
+              return selection || {};
+            }
+          };
+          const selectedVariants = normalizeVariants(fullProduct, rawSelectedVariants);
+          const sourceForDims = {
+            ...(candidateFromPurchased || {}),
+            product: fullProduct,
+            variants: selectedVariants,
+            dimensiones: item.dimensiones || candidateFromPurchased?.dimensiones,
+          } as any;
+          const dimsFromHelper = getDimensiones(sourceForDims);
+          if (dimsFromHelper && dimsFromHelper.largo && dimsFromHelper.ancho && dimsFromHelper.alto) {
+            dimensions = {
+              length: dimsFromHelper.largo,
+              width: dimsFromHelper.ancho,
+              height: dimsFromHelper.alto
+            };
+            volume = item.volumen || getVolumen(sourceForDims) || (dimensions.length * dimensions.width * dimensions.height);
+            console.log(`✅ Usando dimensiones vía helper para ${item.product.nombre}:`, dimensions);
+          } else if (item.dimensiones) {
+            // Fallback directo a backend si por alguna razón el helper no devuelve
             dimensions = {
               length: item.dimensiones.largo,
               width: item.dimensiones.ancho,
@@ -450,49 +494,6 @@ const OrdersPage: React.FC = () => {
             };
             volume = item.volumen || (item.dimensiones.largo * item.dimensiones.ancho * item.dimensiones.alto);
             console.log(`✅ Usando dimensiones del backend para ${item.product.nombre}:`, dimensions);
-          } else {
-            // Fallback: buscar en el producto individual correspondiente
-            console.log(`⚠️ No hay dimensiones del backend para ${item.product.nombre}, buscando en producto individual`);
-            
-            // Buscar el producto individual correspondiente
-            let individualProduct = purchasedProducts.find(p => 
-              p._id === item.product._id
-            );
-            
-            if (!individualProduct) {
-              individualProduct = purchasedProducts.find(p => 
-                p.product?.nombre === item.product.nombre
-              );
-            }
-            
-            if (!individualProduct) {
-              individualProduct = purchasedProducts.find(p => 
-                p.product?._id === item.product._id
-              );
-            }
-            
-            if (individualProduct && individualProduct.dimensiones) {
-              dimensions = {
-                length: individualProduct.dimensiones.largo,
-                width: individualProduct.dimensiones.ancho,
-                height: individualProduct.dimensiones.alto
-              };
-              volume = individualProduct.product?.volumen || (individualProduct.dimensiones.largo * individualProduct.dimensiones.ancho * individualProduct.dimensiones.alto);
-              console.log(`✅ Usando dimensiones del producto individual para ${item.product.nombre}:`, dimensions);
-            } else {
-              // Último fallback: usar la misma lógica que la visualización previa a la reserva
-              console.log(`⚠️ No hay dimensiones del producto individual para ${item.product.nombre}, usando fallback`);
-              const dimensiones = getDimensiones(item);
-              if (dimensiones) {
-                dimensions = {
-                  length: dimensiones.largo,
-                  width: dimensiones.ancho,
-                  height: dimensiones.alto
-                };
-                volume = getVolumen(item);
-                console.log(`📏 Usando dimensiones del fallback para ${item.product.nombre}:`, dimensions);
-              }
-            }
           }
           
           // Asegurar que el volumen se calcule correctamente solo si no se calculó antes
@@ -895,14 +896,32 @@ const OrdersPage: React.FC = () => {
             </button>
             <div className="d-flex gap-2 align-items-center">
               {validPurchasedProducts.length > 0 && selectedProducts.size === 0 && (
-                <button 
-                  className="btn btn-outline-primary"
-                  onClick={selectAllAvailableProducts}
-                  disabled={loading}
-                >
-                  <i className="bi bi-check-all me-1"></i>
-                  Seleccionar Todos los Productos
-                </button>
+                <>
+                  {(() => {
+                    // Verificar si hay reservas vencidas usando la función utilitaria
+                    const hasExpired = hasExpiredAppointments(myAppointments);
+
+                    if (hasExpired) {
+                      return (
+                        <div className="text-danger fw-bold">
+                          <i className="bi bi-exclamation-triangle me-2"></i>
+                          Primero actualiza tus reservas vencidas
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <button 
+                        className="btn btn-outline-primary"
+                        onClick={selectAllAvailableProducts}
+                        disabled={loading}
+                      >
+                        <i className="bi bi-check-all me-1"></i>
+                        Seleccionar Todos los Productos
+                      </button>
+                    );
+                  })()}
+                </>
               )}
               {selectedProducts.size > 0 && (
                 <>
@@ -1061,6 +1080,7 @@ const OrdersPage: React.FC = () => {
                           onCancel={handleCancelAppointment}
                           cancellingAppointment={cancellingAppointment}
                           updatingAppointment={updatingAppointment}
+                          purchasedProducts={purchasedProducts}
                         />
                       ))}
                   </div>
