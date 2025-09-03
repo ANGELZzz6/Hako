@@ -1,21 +1,23 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import orderService from '../services/orderService';
 import appointmentService from '../services/appointmentService';
 import type { Appointment } from '../services/appointmentService';
 import Locker3DCanvas from '../components/Locker3DCanvas';
 import gridPackingService from '../services/gridPackingService';
+import lockerAssignmentService, { type LockerAssignment, type LockerProduct } from '../services/lockerAssignmentService';
+import DateUtils from '../utils/dateUtils';
+
 import './AdminLockersPage.css';
 
 interface LockerReservation {
   lockerNumber: number;
-  appointment: Appointment;
+  assignment: LockerAssignment;
   user: {
     nombre: string;
     email: string;
   };
-  items: any[];
+  items: LockerProduct[];
   status: string;
 }
 
@@ -25,155 +27,7 @@ interface FilterOptions {
   lockerNumber: string;
 }
 
-// Función para obtener dimensiones de un item (copiada de OrdersPage)
-const getDimensiones = (item: any) => {
-  console.log('🔍 getDimensiones llamado con:', {
-    itemId: item._id,
-    hasDimensiones: !!item.dimensiones,
-    dimensiones: item.dimensiones,
-    hasVariants: !!item.variants,
-    variants: item.variants,
-    hasProduct: !!item.product,
-    productVariants: item.product?.variants,
-    productDimensiones: item.product?.dimensiones,
-    // NUEVO: Verificar la nueva estructura del backend
-    hasIndividualProduct: !!item.individualProduct,
-    individualProductDimensions: item.individualProduct?.dimensiones,
-    individualProductName: item.individualProduct?.product?.nombre,
-    individualProductVariants: item.individualProduct?.variants,
-    individualProductProductVariants: item.individualProduct?.product?.variants,
-    hasOriginalProduct: !!item.originalProduct,
-    originalProductDimensions: item.originalProduct?.dimensiones,
-    originalProductName: item.originalProduct?.nombre,
-    originalProductVariants: item.originalProduct?.variants
-  });
 
-  // PRIORIDAD 1: Si el item tiene dimensiones propias (ya calculadas en el backend), usarlas
-  if (item.dimensiones) {
-    console.log('✅ Usando dimensiones propias del item (backend):', item.dimensiones);
-    return item.dimensiones;
-  }
-  
-  // PRIORIDAD 2: Si el item tiene individualProduct con variantes, procesar las variantes
-  if (item.individualProduct?.variants && item.individualProduct?.product?.variants?.enabled) {
-    console.log('🔍 Procesando variantes del producto individual');
-    
-    // Convertir Map a objeto si es necesario
-    const variants = item.individualProduct.variants instanceof Map 
-      ? Object.fromEntries(item.individualProduct.variants)
-      : item.individualProduct.variants;
-    
-    console.log('🔍 Variantes del producto individual:', variants);
-    
-    // Buscar atributos que definen dimensiones
-    const dimensionAttributes = item.individualProduct.product.variants.attributes.filter((a: any) => a.definesDimensions);
-    console.log('📏 Atributos que definen dimensiones:', dimensionAttributes);
-    
-    // Si hay múltiples atributos que definen dimensiones, usar el primero que tenga dimensiones válidas
-    for (const attr of dimensionAttributes) {
-      const selectedValue = variants[attr.name];
-      console.log(`🔍 Atributo ${attr.name}, valor seleccionado:`, selectedValue);
-      
-      if (selectedValue) {
-        const option = attr.options.find((opt: any) => opt.value === selectedValue);
-        console.log(`🔍 Opción encontrada para ${attr.name}:`, option);
-        
-        if (option && option.dimensiones && 
-            option.dimensiones.largo && 
-            option.dimensiones.ancho && 
-            option.dimensiones.alto) {
-          console.log('✅ Usando dimensiones de la variante del producto individual:', option.dimensiones);
-          return option.dimensiones;
-        }
-      }
-    }
-  }
-  
-  // PRIORIDAD 3: Si el item tiene originalProduct con variantes, procesar las variantes
-  if (item.originalProduct?.variants && item.originalProduct?.variants?.enabled) {
-    console.log('🔍 Procesando variantes del producto original');
-    
-    // Convertir Map a objeto si es necesario
-    const variants = item.originalProduct.variants instanceof Map 
-      ? Object.fromEntries(item.originalProduct.variants)
-      : item.originalProduct.variants;
-    
-    console.log('🔍 Variantes del producto original:', variants);
-    
-    // Buscar atributos que definen dimensiones
-    const dimensionAttributes = item.originalProduct.variants.attributes.filter((a: any) => a.definesDimensions);
-    console.log('📏 Atributos que definen dimensiones:', dimensionAttributes);
-    
-    // Si hay múltiples atributos que definen dimensiones, usar el primero que tenga dimensiones válidas
-    for (const attr of dimensionAttributes) {
-      const selectedValue = variants[attr.name];
-      console.log(`🔍 Atributo ${attr.name}, valor seleccionado:`, selectedValue);
-      
-      if (selectedValue) {
-        const option = attr.options.find((opt: any) => opt.value === selectedValue);
-        console.log(`🔍 Opción encontrada para ${attr.name}:`, option);
-        
-        if (option && option.dimensiones && 
-            option.dimensiones.largo && 
-            option.dimensiones.ancho && 
-            option.dimensiones.alto) {
-          console.log('✅ Usando dimensiones de la variante del producto original:', option.dimensiones);
-          return option.dimensiones;
-        }
-      }
-    }
-  }
-  
-  // PRIORIDAD 4: Si el item tiene individualProduct con dimensiones, usarlas
-  if (item.individualProduct?.dimensiones) {
-    console.log('✅ Usando dimensiones del producto individual:', item.individualProduct.dimensiones);
-    return item.individualProduct.dimensiones;
-  }
-  
-  // PRIORIDAD 5: Si el item tiene originalProduct con dimensiones, usarlas
-  if (item.originalProduct?.dimensiones) {
-    console.log('✅ Usando dimensiones del producto original:', item.originalProduct.dimensiones);
-    return item.originalProduct.dimensiones;
-  }
-  
-  // PRIORIDAD 6: Si el item tiene variantes seleccionadas y el producto tiene variantes, intentar calcular dimensiones de la variante
-  if (item.variants && item.product?.variants?.enabled && item.product.variants.attributes) {
-    console.log('🔍 Procesando variantes para dimensiones');
-    
-    // Buscar atributos que definen dimensiones
-    const dimensionAttributes = item.product.variants.attributes.filter((a: any) => a.definesDimensions);
-    console.log('📏 Atributos que definen dimensiones:', dimensionAttributes);
-    
-    // Si hay múltiples atributos que definen dimensiones, usar el primero que tenga dimensiones válidas
-    for (const attr of dimensionAttributes) {
-      const selectedValue = item.variants[attr.name];
-      console.log(`🔍 Atributo ${attr.name}, valor seleccionado:`, selectedValue);
-      
-      if (selectedValue) {
-        const option = attr.options.find((opt: any) => opt.value === selectedValue);
-        console.log(`🔍 Opción encontrada para ${attr.name}:`, option);
-        
-        if (option && option.dimensiones && 
-            option.dimensiones.largo && 
-            option.dimensiones.ancho && 
-            option.dimensiones.alto) {
-          console.log('✅ Usando dimensiones de la variante:', option.dimensiones);
-          return option.dimensiones;
-        }
-      }
-    }
-  }
-  
-  // PRIORIDAD 7: Si no, usar dimensiones del producto base
-  console.log('⚠️ Usando dimensiones del producto base:', item.product?.dimensiones);
-  return item.product?.dimensiones;
-};
-
-// Función para obtener volumen de un item (copiada de OrdersPage)
-const getVolumen = (item: any) => {
-  const d = getDimensiones(item);
-  return d && d.largo && d.ancho && d.alto ? d.largo * d.ancho * d.alto : 0;
-};
 
 const AdminLockersPage: React.FC = () => {
   const { isAuthenticated, isAdmin, isLoading } = useAuth();
@@ -183,8 +37,10 @@ const AdminLockersPage: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [selectedTime, setSelectedTime] = useState<string>('');
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [lockerAssignments, setLockerAssignments] = useState<LockerAssignment[]>([]);
   const [reservations, setReservations] = useState<LockerReservation[]>([]);
   const [loading, setLoading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState('');
   
   // Estados para visualización 3D
@@ -227,11 +83,7 @@ const AdminLockersPage: React.FC = () => {
 
   // Establecer fecha actual por defecto
   useEffect(() => {
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const day = String(today.getDate()).padStart(2, '0');
-    setSelectedDate(`${year}-${month}-${day}`);
+    setSelectedDate(DateUtils.getCurrentDate());
   }, []);
 
   // Cargar citas cuando cambia la fecha
@@ -306,190 +158,168 @@ const AdminLockersPage: React.FC = () => {
     }
   };
 
-  const loadReservationsForDateTime = (date: string, time: string) => {
-    console.log('🔍 loadReservationsForDateTime - Fecha seleccionada:', date);
-    console.log('🔍 loadReservationsForDateTime - Hora seleccionada:', time);
-    console.log('🔍 loadReservationsForDateTime - Citas disponibles:', appointments.length);
-    
-    // Filtrar citas para la fecha y hora seleccionadas
-    const filteredAppointments = appointments.filter(apt => {
-      // CORRECCIÓN: Usar una comparación más robusta para evitar problemas de zona horaria
-      const appointmentDate = new Date(apt.scheduledDate);
+  // Función para sincronizar asignaciones desde citas existentes
+  const syncLockerAssignments = async () => {
+    try {
+      setLoading(true);
+      setError('');
       
-      // Crear fecha de comparación en la zona horaria local
-      const [year, month, day] = date.split('-');
-      const comparisonDate = new Date(Number(year), Number(month) - 1, Number(day));
+      console.log('🔍 Sincronizando asignaciones de casilleros para fecha:', selectedDate);
       
-      // Comparar solo la fecha (sin hora) usando toDateString()
-      const appointmentDateOnly = appointmentDate.toDateString();
-      const comparisonDateOnly = comparisonDate.toDateString();
+      const assignments = await lockerAssignmentService.syncFromAppointments(selectedDate);
+      console.log('🔍 Asignaciones sincronizadas:', assignments);
       
-      console.log('🔍 Comparando cita:', {
-        appointmentId: apt._id,
-        appointmentDate: apt.scheduledDate,
-        appointmentDateOnly: appointmentDateOnly,
-        comparisonDateOnly: comparisonDateOnly,
-        selectedDate: date,
-        appointmentTimeSlot: apt.timeSlot,
-        selectedTime: time,
-        matches: appointmentDateOnly === comparisonDateOnly && apt.timeSlot === time
-      });
+      // Si hay hora seleccionada, cargar las reservas para esa hora
+      if (selectedTime) {
+        await loadReservationsForDateTime(selectedDate, selectedTime);
+      }
       
-      return appointmentDateOnly === comparisonDateOnly && apt.timeSlot === time;
-    });
-
-    console.log('🔍 Citas filtradas:', filteredAppointments.length);
-
-    // Convertir a formato de reservas
-    const reservationsData: LockerReservation[] = filteredAppointments.map(apt => ({
-      lockerNumber: apt.itemsToPickup[0]?.lockerNumber || 0,
-      appointment: apt,
-      user: {
-        nombre: apt.user?.nombre || 'N/A',
-        email: apt.user?.email || 'N/A'
-      },
-      items: apt.itemsToPickup.map(item => {
-        const productName = item.product?.nombre || 
-                           ((item.individualProduct as any)?.product?.nombre) || 
-                           ((item.originalProduct as any)?.nombre) || 
-                           'Producto sin nombre';
-        
-        const productImage = item.product?.imagen_url || 
-                            ((item.individualProduct as any)?.product?.imagen_url) || 
-                            ((item.originalProduct as any)?.imagen_url) || 
-                            '';
-        
-        return {
-          nombre: productName,
-          cantidad: item.quantity,
-          imagen_url: productImage
-        };
-      }),
-      status: apt.status
-    }));
-
-    console.log('🔍 Reservas generadas:', reservationsData.length);
-    setReservations(reservationsData);
+      alert(`Sincronización completada. ${assignments.length} asignaciones procesadas.`);
+      
+    } catch (err: any) {
+      setError('Error al sincronizar: ' + err.message);
+      console.error('Error syncing locker assignments:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Función para generar datos 3D para un casillero específico (CORREGIDA)
+  // Función para sincronizar todas las citas existentes
+  const syncAllAppointments = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      
+      console.log('🔍 Sincronizando todas las citas existentes...');
+      
+      const response = await fetch('/api/sync/sync-all-appointments', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error('Error en la sincronización');
+      }
+      
+      const result = await response.json();
+      console.log('🔍 Resultado de sincronización:', result);
+      
+      // Recargar las citas y reservas
+      await loadAppointmentsForDate(selectedDate);
+      if (selectedTime) {
+        await loadReservationsForDateTime(selectedDate, selectedTime);
+      }
+      
+      alert('Sincronización completa de todas las citas exitosa.');
+      
+    } catch (err: any) {
+      setError('Error al sincronizar todas las citas: ' + err.message);
+      console.error('Error syncing all appointments:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadReservationsForDateTime = async (date: string, time: string) => {
+    try {
+      setLoading(true);
+      setError('');
+      
+      console.log('🔍 loadReservationsForDateTime - Fecha seleccionada:', date);
+      console.log('🔍 loadReservationsForDateTime - Hora seleccionada:', time);
+      
+      // Obtener asignaciones de casilleros para la fecha y hora específicas
+      let assignments = await lockerAssignmentService.getAssignmentsByDateTime(date, time);
+      console.log('🔍 Asignaciones de casilleros obtenidas:', assignments);
+      
+      // Si no hay assignments, intentar sincronizar automáticamente
+      if (assignments.length === 0) {
+        console.log('⚠️ No se encontraron assignments, intentando sincronizar...');
+        setSyncing(true);
+        try {
+          await lockerAssignmentService.syncFromAppointments(date);
+          console.log('✅ Sincronización completada, reintentando obtener assignments...');
+          
+          // Reintentar obtener assignments después de la sincronización
+          assignments = await lockerAssignmentService.getAssignmentsByDateTime(date, time);
+          console.log('🔍 Asignaciones después de sincronización:', assignments);
+        } catch (syncError) {
+          console.error('❌ Error en sincronización automática:', syncError);
+          // Continuar sin assignments si la sincronización falla
+        } finally {
+          setSyncing(false);
+        }
+      }
+      
+      // Convertir a formato de reservas
+      const reservationsData: LockerReservation[] = assignments.map(assignment => ({
+        lockerNumber: assignment.lockerNumber,
+        assignment: assignment,
+        user: {
+          nombre: assignment.userName,
+          email: assignment.userEmail
+        },
+        items: assignment.products,
+        status: assignment.status
+      }));
+
+      console.log('🔍 Reservas generadas:', reservationsData.length);
+      setReservations(reservationsData);
+      setLockerAssignments(assignments);
+      
+      // Si aún no hay reservas, mostrar mensaje informativo
+      if (reservationsData.length === 0) {
+        setError('No se encontraron reservas para esta fecha y hora. Intenta sincronizar manualmente usando los botones de sincronización.');
+      }
+      
+    } catch (err: any) {
+      setError('Error al cargar las reservas: ' + err.message);
+      console.error('Error loading reservations:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Función para generar datos 3D para un casillero específico (NUEVA LÓGICA)
   const generate3DDataForLocker = (lockerNumber: number) => {
     try {
-      // Obtener todas las reservas para este casillero en la fecha/hora seleccionada
-      const lockerAppointments = appointments.filter(apt => {
-        // Usar la misma lógica de comparación de fechas que en loadReservationsForDateTime
-        const appointmentDate = new Date(apt.scheduledDate);
-        const [year, month, day] = selectedDate.split('-');
-        const comparisonDate = new Date(Number(year), Number(month) - 1, Number(day));
-        
-        const appointmentDateOnly = appointmentDate.toDateString();
-        const comparisonDateOnly = comparisonDate.toDateString();
-        
-        return appointmentDateOnly === comparisonDateOnly && 
-               apt.timeSlot === selectedTime &&
-               apt.itemsToPickup.some(item => item.lockerNumber === lockerNumber);
-      });
-
-      if (lockerAppointments.length === 0) {
+      // Buscar la asignación del casillero específico
+      const assignment = lockerAssignments.find(ass => ass.lockerNumber === lockerNumber);
+      
+      if (!assignment) {
+        console.log(`🔍 No se encontró asignación para el casillero ${lockerNumber}`);
         return null;
       }
 
-      console.log('🔍 Citas encontradas para casillero', lockerNumber, ':', lockerAppointments.length);
-      console.log('🔍 Primera cita:', lockerAppointments[0]);
+      console.log(`🔍 Generando datos 3D para casillero ${lockerNumber}:`, assignment);
 
-      // Convertir productos al formato Product3D usando la misma lógica que OrdersPage
-      const products3D = lockerAppointments.flatMap(apt => 
-        apt.itemsToPickup
-          .filter(item => item.lockerNumber === lockerNumber)
-          .map(item => {
-            console.log('🔍 Item completo del backend:', item);
-            console.log('🔍 Item.product:', item.product);
-            console.log('🔍 Item.dimensiones:', item.dimensiones);
-            console.log('🔍 Item.volumen:', item.volumen);
-            console.log('🔍 Item.individualProduct:', item.individualProduct);
-            console.log('🔍 Item.originalProduct:', item.originalProduct);
-            console.log('🔍 Item.individualProductId:', (item as any).individualProductId);
-            console.log('🔍 Item.originalProductId:', (item as any).originalProductId);
-            console.log('🔍 Item.variants:', (item as any).variants);
-            console.log('🔍 Item.quantity:', item.quantity);
-            console.log('🔍 Item.lockerNumber:', item.lockerNumber);
+      // Convertir productos al formato Product3D usando la nueva lógica
+      const products3D = assignment.products.map(product => {
+        console.log(`🔍 Procesando producto: ${product.productName}`, {
+          dimensions: product.dimensions,
+          calculatedSlots: product.calculatedSlots,
+          volume: product.volume,
+          variants: product.variants
+        });
 
-            // Usar la misma lógica de dimensiones que en OrdersPage
-            const dimensiones = getDimensiones(item);
-            const volumen = getVolumen(item);
-            
-            console.log(`🔍 Procesando item ${item.product?.nombre}:`, {
-              dimensiones: dimensiones,
-              volumen: volumen,
-              hasDimensiones: !!dimensiones,
-              hasVolumen: !!volumen
-            });
-
-            // CORRECCIÓN: Usar la misma lógica que en OrdersPage
-            let length = 15, width = 15, height = 15;
-            let volume = 3375; // 15x15x15 como fallback
-            
-            // PRIORIDAD 1: Usar dimensiones del backend si están disponibles (como en OrdersPage)
-            if (item.dimensiones) {
-              length = item.dimensiones.largo;
-              width = item.dimensiones.ancho;
-              height = item.dimensiones.alto;
-              volume = item.volumen || (length * width * height);
-              console.log(`✅ Usando dimensiones del backend para ${item.product?.nombre}:`, { length, width, height, volume });
-            } else if (dimensiones) {
-              // PRIORIDAD 2: Usar dimensiones calculadas por getDimensiones
-              length = dimensiones.largo;
-              width = dimensiones.ancho;
-              height = dimensiones.alto;
-              volume = volumen || (length * width * height);
-              console.log(`✅ Usando dimensiones calculadas para ${item.product?.nombre}:`, { length, width, height, volume });
-            }
-
-            // VERIFICAR: Si las dimensiones están en milímetros, convertir a centímetros
-            if (length > 100 || width > 100 || height > 100) {
-              console.log(`⚠️ Dimensiones muy grandes detectadas, convirtiendo de mm a cm:`, { length, width, height });
-              length = length / 10;
-              width = width / 10;
-              height = height / 10;
-              volume = length * width * height;
-              console.log(`✅ Dimensiones convertidas:`, { length, width, height, volume });
-            }
-
-            console.log(`📏 Dimensiones finales para ${item.product?.nombre}:`, {
-              original: dimensiones,
-              backend: item.dimensiones,
-              converted: { length, width, height },
-              volume: length * width * height
-            });
-
-            const productName = item.product?.nombre || 
-                               ((item.individualProduct as any)?.product?.nombre) || 
-                               ((item.originalProduct as any)?.nombre) || 
-                               'Producto sin nombre';
-            
-            console.log(`🏷️ Nombre del producto obtenido:`, {
-              productName: productName,
-              itemProduct: item.product?.nombre,
-              individualProductName: (item.individualProduct as any)?.product?.nombre,
-              originalProductName: (item.originalProduct as any)?.nombre
-            });
-
-            return {
-              id: item.product?._id || 
-                   ((item.individualProduct as any)?._id) || 
-                   ((item.originalProduct as any)?._id) || 
-                   'unknown',
-              name: productName,
-              dimensions: {
-                length: length,
-                width: width,
-                height: height
-              },
-              quantity: item.quantity,
-              volume: length * width * height
-            };
-          })
-      );
+        // Usar las dimensiones ya calculadas y guardadas
+        const { largo, ancho, alto } = product.dimensions;
+        
+        // Convertir a formato esperado por gridPackingService
+        return {
+          id: product.productId,
+          name: product.productName,
+          dimensions: {
+            length: largo,
+            width: ancho,
+            height: alto
+          },
+          quantity: product.quantity,
+          volume: product.volume
+        };
+      });
 
       console.log('📦 Productos 3D generados:', products3D);
 
@@ -501,18 +331,6 @@ const AdminLockersPage: React.FC = () => {
         failedProducts: result.failedProducts.length,
         rejectedProducts: result.rejectedProducts.length,
         totalEfficiency: result.totalEfficiency
-      });
-
-      // Log detallado de cada locker
-      result.lockers.forEach((locker, index) => {
-        console.log(`📦 Locker ${index + 1}:`, {
-          id: locker.id,
-          usedSlots: locker.usedSlots,
-          totalSlots: 27,
-          products: locker.packedProducts.length,
-          isFull: locker.isFull,
-          productsList: locker.packedProducts.map(p => p.product.name)
-        });
       });
 
       if (result.lockers.length > 0) {
@@ -628,8 +446,8 @@ const AdminLockersPage: React.FC = () => {
         `"${reservation.user.nombre}"`,
         `"${reservation.user.email}"`,
         reservation.status,
-        `"${reservation.items.map(item => item.nombre).join('; ')}"`,
-        reservation.items.reduce((total, item) => total + item.cantidad, 0)
+                 `"${reservation.items.map(item => item.productName).join('; ')}"`,
+         reservation.items.reduce((total, item) => total + item.quantity, 0)
       ].join(','))
     ].join('\n');
 
@@ -645,13 +463,7 @@ const AdminLockersPage: React.FC = () => {
   };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('es-CO', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+    return DateUtils.formatDateForDisplay(dateString);
   };
 
   const getStatusLabel = (status: string) => {
@@ -723,12 +535,8 @@ const AdminLockersPage: React.FC = () => {
                         className="form-control"
                         value={selectedDate}
                         onChange={(e) => handleDateChange(e.target.value)}
-                        min={new Date().toISOString().split('T')[0]}
-                        max={(() => {
-                          const maxDate = new Date();
-                          maxDate.setDate(maxDate.getDate() + 30); // Permitir hasta 30 días adelante
-                          return maxDate.toISOString().split('T')[0];
-                        })()}
+                        min={DateUtils.getCurrentDate()}
+                        max={DateUtils.getMaxAllowedDate()}
                         style={{ 
                           position: 'relative',
                           zIndex: 1
@@ -797,16 +605,25 @@ const AdminLockersPage: React.FC = () => {
                             </small>
                           </div>
                         )}
-                        <div className="mt-2">
-                          <button
-                            className="btn btn-outline-warning btn-sm"
-                            onClick={testAPI}
-                            title="Probar conexión con la API"
-                          >
-                            <i className="bi bi-wifi me-1"></i>
-                            Probar API
-                          </button>
-                        </div>
+                                                 <div className="mt-2">
+                           <button
+                             className="btn btn-outline-warning btn-sm me-2"
+                             onClick={testAPI}
+                             title="Probar conexión con la API"
+                           >
+                             <i className="bi bi-wifi me-1"></i>
+                             Probar API
+                           </button>
+                           <button
+                             className="btn btn-outline-success btn-sm"
+                             onClick={syncLockerAssignments}
+                             title="Sincronizar asignaciones de casilleros"
+                             disabled={!selectedDate}
+                           >
+                             <i className="bi bi-arrow-repeat me-1"></i>
+                             Sincronizar
+                           </button>
+                         </div>
                       </div>
                     </div>
                   </div>
@@ -907,6 +724,44 @@ const AdminLockersPage: React.FC = () => {
                           Exportar CSV
                         </button>
                         <button
+                          className="btn btn-outline-success btn-sm me-2"
+                          onClick={syncLockerAssignments}
+                          disabled={loading || syncing}
+                        >
+                          {syncing ? (
+                            <>
+                              <div className="spinner-border spinner-border-sm me-1" role="status">
+                                <span className="visually-hidden">Sincronizando...</span>
+                              </div>
+                              Sincronizando...
+                            </>
+                          ) : (
+                            <>
+                              <i className="bi bi-arrow-clockwise me-1"></i>
+                              Sincronizar Fecha
+                            </>
+                          )}
+                        </button>
+                        <button
+                          className="btn btn-outline-warning btn-sm me-2"
+                          onClick={syncAllAppointments}
+                          disabled={loading || syncing}
+                        >
+                          {syncing ? (
+                            <>
+                              <div className="spinner-border spinner-border-sm me-1" role="status">
+                                <span className="visually-hidden">Sincronizando...</span>
+                              </div>
+                              Sincronizando...
+                            </>
+                          ) : (
+                            <>
+                              <i className="bi bi-arrow-repeat me-1"></i>
+                              Sincronizar Todo
+                            </>
+                          )}
+                        </button>
+                        <button
                           className="btn btn-outline-secondary btn-sm"
                           onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
                         >
@@ -987,6 +842,15 @@ const AdminLockersPage: React.FC = () => {
                           <span className="visually-hidden">Cargando...</span>
                         </div>
                       </div>
+                    ) : syncing ? (
+                      <div className="alert alert-info text-center">
+                        <div className="d-flex align-items-center justify-content-center">
+                          <div className="spinner-border spinner-border-sm me-2" role="status">
+                            <span className="visually-hidden">Sincronizando...</span>
+                          </div>
+                          <span>Sincronizando asignaciones de casilleros...</span>
+                        </div>
+                      </div>
                     ) : error ? (
                       <div className="alert alert-danger text-center">{error}</div>
                     ) : filteredReservations.length === 0 ? (
@@ -1029,21 +893,20 @@ const AdminLockersPage: React.FC = () => {
                                   <div className="user-email">{reservation.user.email}</div>
                                 </td>
                                 <td>
-                                  <div className="items-list">
-                                    {reservation.items.map((item, idx) => (
-                                      <div key={idx} className="item-badge">
-                                        <div className="d-flex align-items-center">
-                                          <img 
-                                            src={item.imagen_url} 
-                                            alt={item.nombre}
-                                            style={{ width: 20, height: 20, objectFit: 'cover', borderRadius: 2, marginRight: 8 }}
-                                          />
-                                          <span className="item-name">{item.nombre}</span>
-                                        </div>
-                                        <span className="item-quantity">x{item.cantidad}</span>
-                                      </div>
-                                    ))}
-                                  </div>
+                                                                     <div className="items-list">
+                                     {reservation.items.map((item, idx) => (
+                                       <div key={idx} className="item-badge">
+                                         <div className="d-flex align-items-center">
+                                           <div className="bg-secondary rounded me-2 d-flex align-items-center justify-content-center" 
+                                                style={{ width: 20, height: 20 }}>
+                                             <i className="bi bi-box text-white" style={{ fontSize: '10px' }}></i>
+                                           </div>
+                                           <span className="item-name">{item.productName}</span>
+                                         </div>
+                                         <span className="item-quantity">x{item.quantity}</span>
+                                       </div>
+                                     ))}
+                                   </div>
                                 </td>
                                 <td>
                                   <span className={`badge bg-${getStatusColor(reservation.status)}`}>
@@ -1140,27 +1003,24 @@ const AdminLockersPage: React.FC = () => {
                                 <div className="user-email">{appointment.user?.email || 'N/A'}</div>
                               </td>
                               <td>
-                                <div className="items-list">
-                                  {appointment.itemsToPickup.map((item, idx) => (
-                                    <div key={idx} className="item-badge">
-                                      <div className="d-flex align-items-center">
-                                        <img 
-                                          src={item.product?.imagen_url || 
-                                               (item.individualProduct as any)?.product?.imagen_url || 
-                                               (item.originalProduct as any)?.imagen_url || ''} 
-                                          alt="Producto"
-                                          style={{ width: 20, height: 20, objectFit: 'cover', borderRadius: 2, marginRight: 8 }}
-                                        />
-                                        <span className="item-name">
-                                          {item.product?.nombre || 
-                                           (item.individualProduct as any)?.product?.nombre || 
-                                           (item.originalProduct as any)?.nombre || 'Producto sin nombre'}
-                                        </span>
-                                      </div>
-                                      <span className="item-quantity">x{item.quantity}</span>
-                                    </div>
-                                  ))}
-                                </div>
+                                                                 <div className="items-list">
+                                   {appointment.itemsToPickup.map((item, idx) => (
+                                     <div key={idx} className="item-badge">
+                                       <div className="d-flex align-items-center">
+                                         <div className="bg-secondary rounded me-2 d-flex align-items-center justify-content-center" 
+                                              style={{ width: 20, height: 20 }}>
+                                           <i className="bi bi-box text-white" style={{ fontSize: '10px' }}></i>
+                                         </div>
+                                         <span className="item-name">
+                                           {item.product?.nombre || 
+                                            (item.individualProduct as any)?.product?.nombre || 
+                                            (item.originalProduct as any)?.nombre || 'Producto sin nombre'}
+                                         </span>
+                                       </div>
+                                       <span className="item-quantity">x{item.quantity}</span>
+                                     </div>
+                                   ))}
+                                 </div>
                               </td>
                               <td>
                                 <span className={`badge bg-${getStatusColor(appointment.status)}`}>
@@ -1170,8 +1030,10 @@ const AdminLockersPage: React.FC = () => {
                               <td>
                                 <button
                                   className="btn btn-outline-primary btn-sm"
-                                  onClick={() => {
+                                  onClick={async () => {
                                     setSelectedTime(appointment.timeSlot);
+                                    // Cargar reservas automáticamente al seleccionar hora
+                                    await loadReservationsForDateTime(selectedDate, appointment.timeSlot);
                                   }}
                                   title="Seleccionar esta hora"
                                 >
@@ -1323,37 +1185,31 @@ const AdminLockersPage: React.FC = () => {
                     </h6>
                   </div>
                   <div className="card-body">
-                    <div className="row">
-                      {selectedReservation.items.map((item, index) => (
-                        <div key={index} className="col-md-6 mb-3">
-                          <div className="card border">
-                            <div className="card-body p-3">
-                              <div className="d-flex align-items-center">
-                                {item.imagen_url && (
-                                  <img 
-                                    src={item.imagen_url} 
-                                    alt={item.nombre}
-                                    className="me-3"
-                                    style={{ 
-                                      width: '60px', 
-                                      height: '60px', 
-                                      objectFit: 'cover',
-                                      borderRadius: '8px'
-                                    }}
-                                  />
-                                )}
-                                <div className="flex-grow-1">
-                                  <h6 className="mb-1">{item.nombre}</h6>
-                                  <p className="mb-0 text-muted">
-                                    <strong>Cantidad:</strong> {item.cantidad}
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                                         <div className="row">
+                       {selectedReservation.items.map((item, index) => (
+                         <div key={index} className="col-md-6 mb-3">
+                           <div className="card border">
+                             <div className="card-body p-3">
+                               <div className="d-flex align-items-center">
+                                 <div className="bg-secondary rounded me-3 d-flex align-items-center justify-content-center" 
+                                      style={{ width: '60px', height: '60px' }}>
+                                   <i className="bi bi-box text-white" style={{ fontSize: '24px' }}></i>
+                                 </div>
+                                 <div className="flex-grow-1">
+                                   <h6 className="mb-1">{item.productName}</h6>
+                                   <p className="mb-0 text-muted">
+                                     <strong>Cantidad:</strong> {item.quantity}
+                                   </p>
+                                   <p className="mb-0 text-muted">
+                                     <strong>Slots:</strong> {item.calculatedSlots}
+                                   </p>
+                                 </div>
+                               </div>
+                             </div>
+                           </div>
+                         </div>
+                       ))}
+                     </div>
                   </div>
                 </div>
 
@@ -1366,16 +1222,17 @@ const AdminLockersPage: React.FC = () => {
                     </h6>
                   </div>
                   <div className="card-body">
-                    <div className="row">
-                      <div className="col-md-6">
-                        <p><strong>ID de Reserva:</strong> <code>{selectedReservation.appointment._id}</code></p>
-                        <p><strong>Fecha de Creación:</strong> {new Date(selectedReservation.appointment.createdAt || '').toLocaleDateString()}</p>
-                      </div>
-                      <div className="col-md-6">
-                        <p><strong>Total de Productos:</strong> {selectedReservation.items.reduce((sum, item) => sum + item.cantidad, 0)}</p>
-                        <p><strong>Tipos de Productos:</strong> {selectedReservation.items.length}</p>
-                      </div>
-                    </div>
+                                         <div className="row">
+                       <div className="col-md-6">
+                         <p><strong>ID de Reserva:</strong> <code>{selectedReservation.assignment._id}</code></p>
+                         <p><strong>Fecha de Creación:</strong> {new Date(selectedReservation.assignment.createdAt || '').toLocaleDateString()}</p>
+                       </div>
+                       <div className="col-md-6">
+                         <p><strong>Total de Productos:</strong> {selectedReservation.items.reduce((sum, item) => sum + item.quantity, 0)}</p>
+                         <p><strong>Tipos de Productos:</strong> {selectedReservation.items.length}</p>
+                         <p><strong>Total de Slots:</strong> {selectedReservation.assignment.totalSlotsUsed}/27</p>
+                       </div>
+                     </div>
                   </div>
                 </div>
               </div>

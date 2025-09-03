@@ -8,6 +8,7 @@ export const ENDPOINTS = {
   ORDERS: `${API_URL}/orders`,
   SUPPORT: `${API_URL}/support`,
   APPOINTMENTS: `${API_URL}/appointments`,
+  LOCKER_ASSIGNMENTS: `${API_URL}/locker-assignments`,
   DEBUG: `${API_URL}/debug`,
   QR: `${API_URL}/qr`,
 };

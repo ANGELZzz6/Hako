@@ -1,6 +1,7 @@
 const Appointment = require('../models/Appointment');
 const Order = require('../models/Order');
 const IndividualProduct = require('../models/IndividualProduct');
+const lockerAssignmentService = require('../services/lockerAssignmentService');
 
 // Función utilitaria para crear fechas locales correctamente
 const createLocalDate = (dateString) => {
@@ -426,6 +427,16 @@ exports.createAppointment = async (req, res) => {
         await order.save();
       }
       
+      // Sincronizar automáticamente con locker assignments
+      try {
+        console.log('🔄 Sincronizando automáticamente con locker assignments...');
+        await lockerAssignmentService.syncFromAppointments(appointment.scheduledDate);
+        console.log('✅ Sincronización automática completada');
+      } catch (syncError) {
+        console.error('⚠️ Error en sincronización automática:', syncError);
+        // No fallar la creación de la cita por errores de sincronización
+      }
+
       res.status(201).json({
         message: 'Productos agregados a reservas existentes y nueva reserva creada exitosamente',
         appointment: {
@@ -437,6 +448,16 @@ exports.createAppointment = async (req, res) => {
       });
     } else {
       // Todos los productos se agregaron a reservas existentes
+      // Sincronizar automáticamente con locker assignments
+      try {
+        console.log('🔄 Sincronizando automáticamente con locker assignments...');
+        await lockerAssignmentService.syncFromAppointments(selectedDate);
+        console.log('✅ Sincronización automática completada');
+      } catch (syncError) {
+        console.error('⚠️ Error en sincronización automática:', syncError);
+        // No fallar la operación por errores de sincronización
+      }
+
       res.status(200).json({
         message: 'Productos agregados a reservas existentes exitosamente'
       });
@@ -1185,6 +1206,16 @@ exports.updateAppointmentStatus = async (req, res) => {
     }
     
     await appointment.save();
+    
+    // Sincronizar automáticamente con locker assignments
+    try {
+      console.log('🔄 Sincronizando automáticamente con locker assignments después de actualizar estado...');
+      await lockerAssignmentService.syncFromAppointments(appointment.scheduledDate);
+      console.log('✅ Sincronización automática completada');
+    } catch (syncError) {
+      console.error('⚠️ Error en sincronización automática:', syncError);
+      // No fallar la actualización por errores de sincronización
+    }
     
     res.json({
       message: 'Estado de cita actualizado exitosamente',

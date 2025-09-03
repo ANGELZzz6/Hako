@@ -308,22 +308,54 @@ const AdminAppointmentsPage: React.FC = () => {
                       </td>
                       <td>
                         <div className="small">
-                          {appointment.itemsToPickup.map((item, idx) => (
-                            <div key={idx} className="d-flex align-items-center mb-1">
-                              <img 
-                                src={item.product.imagen_url} 
-                                alt={item.product.nombre}
-                                className="rounded me-2"
-                                style={{ width: 24, height: 24, objectFit: 'cover' }}
-                              />
-                              <span className="text-truncate" style={{ maxWidth: '120px' }}>
-                                {item.product.nombre}
-                              </span>
-                              <span className="badge bg-secondary ms-1">
-                                {item.quantity} - C{item.lockerNumber}
-                              </span>
-                            </div>
-                          ))}
+                          {appointment.itemsToPickup.map((item, idx) => {
+                            // Obtener la información del producto de manera segura
+                            const productInfo = item.product || item.individualProduct?.product || item.originalProduct;
+                            
+                            if (!productInfo) {
+                              return (
+                                <div key={idx} className="d-flex align-items-center mb-1">
+                                  <div className="bg-secondary rounded me-2 d-flex align-items-center justify-content-center" 
+                                       style={{ width: 24, height: 24 }}>
+                                    <i className="bi bi-box text-white" style={{ fontSize: '12px' }}></i>
+                                  </div>
+                                  <span className="text-truncate text-muted" style={{ maxWidth: '120px' }}>
+                                    Producto no disponible
+                                  </span>
+                                  <span className="badge bg-secondary ms-1">
+                                    {item.quantity} - C{item.lockerNumber}
+                                  </span>
+                                </div>
+                              );
+                            }
+                            
+                            return (
+                              <div key={idx} className="d-flex align-items-center mb-1">
+                                <img 
+                                  src={productInfo.imagen_url || '/placeholder-product.png'} 
+                                  alt={productInfo.nombre || 'Producto'}
+                                  className="rounded me-2"
+                                  style={{ width: 24, height: 24, objectFit: 'cover' }}
+                                  onError={(e) => {
+                                    // Fallback a un ícono si la imagen falla
+                                    const target = e.target as HTMLImageElement;
+                                    target.style.display = 'none';
+                                    target.nextElementSibling?.classList.remove('d-none');
+                                  }}
+                                />
+                                <div className="bg-secondary rounded me-2 d-flex align-items-center justify-content-center d-none" 
+                                     style={{ width: 24, height: 24 }}>
+                                  <i className="bi bi-box text-white" style={{ fontSize: '12px' }}></i>
+                                </div>
+                                <span className="text-truncate" style={{ maxWidth: '120px' }}>
+                                  {productInfo.nombre || 'Producto sin nombre'}
+                                </span>
+                                <span className="badge bg-secondary ms-1">
+                                  {item.quantity} - C{item.lockerNumber}
+                                </span>
+                              </div>
+                            );
+                          })}
                         </div>
                       </td>
                       <td>

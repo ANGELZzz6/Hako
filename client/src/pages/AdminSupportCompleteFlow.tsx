@@ -171,43 +171,44 @@ const AdminSupportCompleteFlow: React.FC = () => {
     }
   }, [isAuthenticated, isAdmin]);
   
+  // Función para cargar productos individuales
+  const fetchIndividualProducts = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      
+      // Obtener productos comprados por usuarios (que incluyen productos individuales)
+      const purchasedProducts = await orderService.getMyPurchasedProducts();
+      
+      // Transformar los datos al formato esperado
+      const transformedProducts: IndividualProduct[] = purchasedProducts.map((item: any) => ({
+        _id: item._id || item.originalItemId,
+        product: item.product,
+        dimensiones: item.dimensiones,
+        status: item.isClaimed ? 'claimed' : item.isReserved ? 'reserved' : 'available',
+        assigned_locker: item.assigned_locker,
+        unit_price: item.unit_price || item.product.precio,
+        reservedAt: item.reservedAt,
+        claimedAt: item.claimedAt,
+        pickedUpAt: item.pickedUpAt,
+        orderId: item.orderId,
+        orderCreatedAt: item.orderCreatedAt,
+        individualIndex: item.individualIndex,
+        variants: item.variants,
+        user: item.user, // Añadir usuario propietario
+      }));
+      
+      setIndividualProducts(transformedProducts);
+    } catch (err: any) {
+      setError('Error al cargar los productos individuales: ' + (err.message || err.toString()));
+      logDebugError('Error al cargar productos', err, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Cargar productos individuales
   useEffect(() => {
-    const fetchIndividualProducts = async () => {
-      try {
-        setLoading(true);
-        setError('');
-        
-        // Obtener productos comprados por usuarios (que incluyen productos individuales)
-        const purchasedProducts = await orderService.getMyPurchasedProducts();
-        
-        // Transformar los datos al formato esperado
-        const transformedProducts: IndividualProduct[] = purchasedProducts.map((item: any) => ({
-          _id: item._id || item.originalItemId,
-          product: item.product,
-          dimensiones: item.dimensiones,
-          status: item.isClaimed ? 'claimed' : item.isReserved ? 'reserved' : 'available',
-          assigned_locker: item.assigned_locker,
-          unit_price: item.unit_price || item.product.precio,
-          reservedAt: item.reservedAt,
-          claimedAt: item.claimedAt,
-          pickedUpAt: item.pickedUpAt,
-          orderId: item.orderId,
-          orderCreatedAt: item.orderCreatedAt,
-          individualIndex: item.individualIndex,
-          variants: item.variants,
-          user: item.user, // Añadir usuario propietario
-        }));
-        
-        setIndividualProducts(transformedProducts);
-      } catch (err: any) {
-        setError('Error al cargar los productos individuales: ' + (err.message || err.toString()));
-        logDebugError('Error al cargar productos', err, 'error');
-      } finally {
-        setLoading(false);
-      }
-    };
-    
     if (isAuthenticated && isAdmin) {
       fetchIndividualProducts();
     }
