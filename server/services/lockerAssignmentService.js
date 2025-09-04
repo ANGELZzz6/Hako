@@ -8,6 +8,14 @@ class LockerAssignmentService {
     this.SLOT_SIZE = 15; // Cada slot mide 15cm x 15cm x 15cm
   }
 
+  createLocalDate(dateInput) {
+    if (typeof dateInput === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateInput)) {
+      const [year, month, day] = dateInput.split('-');
+      return new Date(Number(year), Number(month) - 1, Number(day), 0, 0, 0, 0);
+    }
+    return new Date(dateInput);
+  }
+
   // Función auxiliar para calcular dimensiones de productos
   calculateProductDimensions(item) {
     // PRIORIDAD 1: Usar dimensiones del backend si están disponibles
@@ -31,6 +39,12 @@ class LockerAssignmentService {
     }
 
     // PRIORIDAD 5: Procesar variantes para obtener dimensiones específicas
+    // Normalizar variantes de Map a objeto plano si es necesario
+    if (item.variants && typeof item.variants.forEach === 'function') {
+      const obj = {};
+      item.variants.forEach((v, k) => { obj[k] = v; });
+      item.variants = obj;
+    }
     const variantDimensions = this.getVariantDimensions(item);
     if (variantDimensions) {
       return variantDimensions;
@@ -56,51 +70,47 @@ class LockerAssignmentService {
     return { largo: 15, ancho: 15, alto: 15, peso: 0 };
   }
 
-  // Función auxiliar para obtener dimensiones de variantes
+  // Función auxiliar para obtener dimensiones de variantes (robusta y case-insensitive)
   getVariantDimensions(item) {
-    // Buscar variantes en diferentes estructuras
-    const variants = item.variants || 
-                    item.selectedVariants || 
-                    item.productVariants ||
-                    item.individualProduct?.variants ||
-                    item.originalProduct?.variants;
+    // Unificar variantes desde distintas fuentes
+    let variants = item.variants || item.selectedVariants || item.productVariants ||
+                   item.individualProduct?.variants || item.originalProduct?.variants || null;
+    // Map -> objeto plano
+    if (variants && typeof variants.forEach === 'function') {
+      const obj = {};
+      variants.forEach((v, k) => { obj[String(k)] = v; });
+      variants = obj;
+    }
+    if (!variants || Object.keys(variants).length === 0) return null;
 
-    if (!variants || Object.keys(variants).length === 0) {
-      return null;
+    const productWithVariants = item.product || item.individualProduct?.product || item.originalProduct;
+    const pv = productWithVariants?.variants;
+    if (!pv || !pv.enabled || !Array.isArray(pv.attributes)) return null;
+
+    const lowerKeyMap = {};
+    for (const [k, v] of Object.entries(variants)) {
+      lowerKeyMap[String(k).trim().toLowerCase()] = v;
     }
 
-    // Buscar el producto que tenga variantes habilitadas
-    const productWithVariants = item.product || 
-                               item.individualProduct?.product || 
-                               item.originalProduct;
+    const toLower = (s) => String(s || '').trim().toLowerCase();
 
-    if (!productWithVariants?.variants?.enabled || !productWithVariants.variants.attributes) {
-      return null;
-    }
-
-    // Buscar atributos que definen dimensiones
-    const dimensionAttributes = productWithVariants.variants.attributes.filter(
-      (a) => a.definesDimensions
-    );
-
-    if (dimensionAttributes.length === 0) {
-      return null;
-    }
-
-    // Procesar cada atributo que define dimensiones
+    const dimensionAttributes = pv.attributes.filter((a) => a.definesDimensions);
     for (const attr of dimensionAttributes) {
-      const selectedValue = variants[attr.name];
-      
-      if (selectedValue) {
-        const option = attr.options.find((opt) => opt.value === selectedValue);
-        
-        if (option && option.dimensiones && this.isValidDimensions(option.dimensiones)) {
-          console.log(`✅ Usando dimensiones de la variante ${attr.name}: ${selectedValue}`, option.dimensiones);
-          return option.dimensiones;
-        }
+      const attrKey = toLower(attr.name || attr.label);
+      const selectedValue = lowerKeyMap[attrKey];
+      if (!selectedValue) continue;
+
+      const sel = toLower(selectedValue);
+      const option = (attr.options || []).find((opt) => {
+        return [opt.value, opt.label, opt.id].filter((x) => x != null).map(toLower).includes(sel);
+      });
+      if (!option) continue;
+
+      const dims = option.dimensiones || option.dimensions || option.dimension || null;
+      if (dims && this.isValidDimensions(dims)) {
+        return dims;
       }
     }
-
     return null;
   }
 
@@ -132,17 +142,25 @@ class LockerAssignmentService {
 
     for (const item of appointment.itemsToPickup) {
       try {
-        // Calcular dimensiones
-        const dimensions = this.calculateProductDimensions(item);
+        // Calcular dimensiones y capturar también las dimensiones por variante si existen
+        const variantDims = this.getVariantDimensions(item);
+        const dimensions = variantDims || this.calculateProductDimensions(item);
         const calculatedSlots = this.calculateSlots(dimensions);
         const volume = this.calculateVolume(dimensions);
 
         // Obtener variantes si existen
-        const variants = item.variants || 
+        // Normalizar Map a objeto si existe
+        let variants = item.variants || 
                         item.selectedVariants || 
                         item.productVariants ||
                         item.individualProduct?.variants ||
                         item.originalProduct?.variants || {};
+
+        if (variants && typeof variants.forEach === 'function') {
+          const obj = {};
+          variants.forEach((v, k) => { obj[k] = v; });
+          variants = obj;
+        }
 
         // Obtener nombre del producto
         const productName = item.product?.nombre || 
@@ -164,8 +182,10 @@ class LockerAssignmentService {
           productName,
           individualProductId,
           originalProductId,
-          variants,
+          variants: variants || {},
+          // Guardar dimensiones originales y también las de la variante si existen
           dimensions,
+          variantDimensions: variantDims || undefined,
           calculatedSlots,
           quantity: item.quantity || 1,
           volume
@@ -187,6 +207,54 @@ class LockerAssignmentService {
     }
 
     return processedProducts;
+  }
+
+  // Divide productos en grupos que quepan en casilleros (<= 27 slots por grupo)
+  splitProductsIntoLockers(products) {
+    const MAX_SLOTS = 27;
+    const lockers = [];
+    let currentLocker = { products: [], usedSlots: 0 };
+
+    for (const product of products) {
+      const slotsPerUnit = product.calculatedSlots;
+      let remainingQuantity = product.quantity || 1;
+
+      // Si un solo unit supera la capacidad, igualmente asignar una unidad por casillero
+      if (slotsPerUnit > MAX_SLOTS) {
+        // Crear un clon con cantidad 1 por casillero hasta agotar
+        while (remainingQuantity > 0) {
+          lockers.push({ products: [{ ...product, quantity: 1 }], usedSlots: Math.min(slotsPerUnit, MAX_SLOTS) });
+          remainingQuantity -= 1;
+        }
+        continue;
+      }
+
+      // Empaquetar cantidades considerando la capacidad
+      while (remainingQuantity > 0) {
+        const availableSlots = MAX_SLOTS - currentLocker.usedSlots;
+        const maxUnitsFit = Math.floor(availableSlots / slotsPerUnit);
+
+        if (maxUnitsFit <= 0) {
+          // Abrir nuevo casillero
+          if (currentLocker.products.length > 0) {
+            lockers.push(currentLocker);
+          }
+          currentLocker = { products: [], usedSlots: 0 };
+          continue;
+        }
+
+        const unitsToPlace = Math.min(maxUnitsFit, remainingQuantity);
+        currentLocker.products.push({ ...product, quantity: unitsToPlace });
+        currentLocker.usedSlots += unitsToPlace * slotsPerUnit;
+        remainingQuantity -= unitsToPlace;
+      }
+    }
+
+    if (currentLocker.products.length > 0) {
+      lockers.push(currentLocker);
+    }
+
+    return lockers;
   }
 
   // Crear asignación de casillero
@@ -358,11 +426,23 @@ class LockerAssignmentService {
     try {
       console.log(`🔄 Iniciando sincronización de asignaciones para ${date}`);
 
-      // Obtener todas las citas para la fecha especificada
+      // Calcular rango de día [00:00, 23:59:59.999] para la fecha recibida (horario local)
+      const dayStart = this.createLocalDate(date);
+      dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = this.createLocalDate(date);
+      dayEnd.setHours(23, 59, 59, 999);
+
+      // Obtener todas las citas dentro del rango del día
       const appointments = await Appointment.find({
-        scheduledDate: date,
+        scheduledDate: { $gte: dayStart, $lte: dayEnd },
         status: { $in: ['scheduled', 'confirmed'] }
-      }).populate('user', 'nombre email');
+      })
+        .populate('user', 'nombre email')
+        .populate({
+          path: 'itemsToPickup.individualProduct',
+          populate: { path: 'product', select: 'nombre imagen_url dimensiones variants' }
+        })
+        .populate('itemsToPickup.originalProduct', 'nombre imagen_url dimensiones variants');
 
       console.log(`📅 Encontradas ${appointments.length} citas para sincronizar`);
 
@@ -377,7 +457,18 @@ class LockerAssignmentService {
           });
 
           if (existingAssignment) {
-            console.log(`⚠️ Ya existe asignación para la cita ${appointment._id}`);
+            // Asegurar que fecha/hora estén actualizadas tras cambios de la cita
+            const d = new Date(appointment.scheduledDate);
+            const yyyy = d.getFullYear();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            const formattedDate = `${yyyy}-${mm}-${dd}`;
+
+            await LockerAssignment.updateMany(
+              { appointmentId: appointment._id.toString() },
+              { $set: { scheduledDate: formattedDate, timeSlot: appointment.timeSlot } }
+            );
+            console.log(`♻️ Assignment existente sincronizada para cita ${appointment._id}`);
             continue;
           }
 
@@ -389,66 +480,51 @@ class LockerAssignmentService {
             continue;
           }
 
-          // Calcular total de slots
-          const totalSlotsUsed = processedProducts.reduce((total, product) => {
-            return total + (product.calculatedSlots * product.quantity);
-          }, 0);
+          // Empaquetar productos en uno o más casilleros (<=27 slots por casillero)
+          const lockerPacks = this.splitProductsIntoLockers(processedProducts);
 
-          // Verificar que quepa en un casillero
-          if (totalSlotsUsed > 27) {
-            console.log(`⚠️ Los productos de la cita ${appointment._id} requieren ${totalSlotsUsed} slots, excediendo la capacidad del casillero`);
-            errors.push({
-              appointmentId: appointment._id,
-              error: `Productos requieren ${totalSlotsUsed} slots, excediendo capacidad del casillero`
-            });
-            continue;
-          }
+          // Normalizar fecha de la cita a formato YYYY-MM-DD para locker assignments
+          const formattedDate = new Date(appointment.scheduledDate).toISOString().split('T')[0];
 
-          // Buscar un casillero disponible
-          let lockerNumber = 1;
-          let lockerFound = false;
-
-          while (lockerNumber <= 100 && !lockerFound) {
-            const isAvailable = await LockerAssignment.isLockerAvailable(
-              lockerNumber,
-              appointment.scheduledDate,
-              appointment.timeSlot
-            );
-
-            if (isAvailable) {
-              lockerFound = true;
-            } else {
-              lockerNumber++;
+          // Para cada pack, buscar casillero y crear assignment
+          for (const pack of lockerPacks) {
+            let lockerNumber = 1;
+            let lockerFound = false;
+            while (lockerNumber <= 100 && !lockerFound) {
+              const isAvailable = await LockerAssignment.isLockerAvailable(
+                lockerNumber,
+                formattedDate,
+                appointment.timeSlot
+              );
+              if (isAvailable) lockerFound = true; else lockerNumber++;
             }
-          }
 
-          if (!lockerFound) {
-            console.log(`⚠️ No hay casilleros disponibles para la cita ${appointment._id}`);
-            errors.push({
-              appointmentId: appointment._id,
-              error: 'No hay casilleros disponibles'
+            if (!lockerFound) {
+              console.log(`⚠️ No hay casilleros disponibles para la cita ${appointment._id}`);
+              errors.push({
+                appointmentId: appointment._id,
+                error: 'No hay casilleros disponibles'
+              });
+              break;
+            }
+
+            const totalSlotsUsed = pack.usedSlots;
+            const assignment = new LockerAssignment({
+              lockerNumber,
+              userId: appointment.user._id.toString(),
+              userName: appointment.user.nombre,
+              userEmail: appointment.user.email,
+              appointmentId: appointment._id.toString(),
+              scheduledDate: formattedDate,
+              timeSlot: appointment.timeSlot,
+              products: pack.products,
+              totalSlotsUsed,
+              status: 'reserved'
             });
-            continue;
+            await assignment.save();
+            createdAssignments.push(assignment);
+            console.log(`✅ Asignación creada para cita ${appointment._id} en casillero ${lockerNumber} (slots: ${totalSlotsUsed})`);
           }
-
-          // Crear la asignación
-          const assignment = new LockerAssignment({
-            lockerNumber,
-            userId: appointment.user._id.toString(),
-            userName: appointment.user.nombre,
-            userEmail: appointment.user.email,
-            appointmentId: appointment._id.toString(),
-            scheduledDate: appointment.scheduledDate,
-            timeSlot: appointment.timeSlot,
-            products: processedProducts,
-            totalSlotsUsed,
-            status: 'reserved'
-          });
-
-          await assignment.save();
-          createdAssignments.push(assignment);
-
-          console.log(`✅ Asignación creada para cita ${appointment._id} en casillero ${lockerNumber}`);
 
         } catch (error) {
           console.error(`Error procesando cita ${appointment._id}:`, error);

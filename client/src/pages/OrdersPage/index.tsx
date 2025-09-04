@@ -6,7 +6,6 @@ import appointmentService from '../../services/appointmentService';
 import AppointmentScheduler from '../../components/AppointmentScheduler';
 import PackingOptimizationTips from '../../components/PackingOptimizationTips';
 import gridPackingService from '../../services/gridPackingService';
-import Locker3DCanvas from '../../components/Locker3DCanvas';
 import type { CreateAppointmentData } from '../../services/appointmentService';
 import type { Appointment } from '../../services/appointmentService';
 import { getDimensiones, getVolumen, tieneDimensiones, hasLockerSpace } from './utils/productUtils';
@@ -77,6 +76,9 @@ const OrdersPage: React.FC = () => {
     canAddProductsToAppointment,
     forceVisualizationUpdate,
   } = useOrdersPage();
+
+  // Mostrar solo 5 completadas inicialmente
+  const [completedVisibleCount, setCompletedVisibleCount] = useState(5);
 
   // Verificar autenticación
   useEffect(() => {
@@ -1091,65 +1093,7 @@ const OrdersPage: React.FC = () => {
                   </div>
                 )}
 
-                {/* Visualización combinada de todos los casilleros */}
-                {(() => {
-                  const combinedPacking = generateCombinedPackingForAllAppointments();
-                  if (combinedPacking.length > 0) {
-                    return (
-                      <div className="mt-4">
-                        <h6 className="mb-3">
-                          <i className="bi bi-grid-3x3-gap me-2"></i>
-                          Visualización Combinada de Casilleros
-                        </h6>
-                        <div className="alert alert-info">
-                          <i className="bi bi-info-circle me-1"></i>
-                          <strong>Estado Real:</strong> Esta visualización muestra el estado actual de todos los casilleros considerando todas tus reservas activas.
-                        </div>
-                        <div className="row">
-                          {combinedPacking.map((locker) => (
-                            <div key={locker.id} className="col-md-6 mb-3">
-                              <div className="card border-primary">
-                                <div className="card-header bg-primary text-white">
-                                  <strong>Casillero {(locker as any).lockerNumber}</strong> &nbsp;|&nbsp; Slots usados: {locker.usedSlots}/27
-                                </div>
-                                <div className="card-body">
-                                  <Locker3DCanvas 
-                                    bin={locker}
-                                    selectedProductId={null}
-                                  />
-                                  
-                                  {/* Barra de progreso de ocupación del casillero */}
-                                  <div className="mt-3">
-                                    <div className="d-flex justify-content-between align-items-center mb-2">
-                                      <small className="text-muted">
-                                        <i className="bi bi-box me-1"></i>
-                                        Ocupación del casillero
-                                      </small>
-                                      <small className="text-muted">
-                                        {locker.usedSlots}/27 slots ({Math.round((locker.usedSlots / 27) * 100)}%)
-                                      </small>
-                                    </div>
-                                    <div className="progress">
-                                      <div 
-                                        className="progress-bar" 
-                                        role="progressbar" 
-                                        style={{ width: `${(locker.usedSlots / 27) * 100}%` }}
-                                        aria-valuenow={locker.usedSlots} 
-                                        aria-valuemin={0} 
-                                        aria-valuemax={27}
-                                      ></div>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  }
-                  return null;
-                })()}
+                {/* Visualización combinada eliminada para aligerar la página */}
               </div>
             </>
           ) : (
@@ -1162,12 +1106,16 @@ const OrdersPage: React.FC = () => {
             </div>
           )}
 
-          {/* Mis Reservas Completadas - Siempre visible */}
+          {/* Mis Reservas Completadas - Siempre visible (limitadas con "Cargar más") */}
           <div className="mb-5">
             <h4 className="mb-3">
               <i className="bi bi-check-circle me-2"></i>
               Mis Reservas Completadas
             </h4>
+            {(() => {
+              // Estado local para mostrar 5 y cargar más
+              // Nota: React no permite hooks condicionales; definimos fuera del render condicional
+            })()}
             
             {loadingAppointments ? (
               <div className="text-center py-3">
@@ -1176,10 +1124,12 @@ const OrdersPage: React.FC = () => {
                 </div>
               </div>
             ) : myAppointments.filter(appointment => appointment.status === 'completed').length > 0 ? (
-              <div className="row mb-4">
-                {myAppointments
-                  .filter(appointment => appointment.status === 'completed')
-                  .map(appointment => (
+              <>
+                <div className="row mb-4">
+                  {myAppointments
+                    .filter(appointment => appointment.status === 'completed')
+                    .slice(0, completedVisibleCount)
+                    .map(appointment => (
                     <div key={appointment._id} className="col-12 mb-3">
                       <div className="card border-success appointment-card">
                         <div className="card-header bg-success text-white">
@@ -1242,8 +1192,20 @@ const OrdersPage: React.FC = () => {
                         </div>
                       </div>
                     </div>
-                  ))}
-              </div>
+                    ))}
+                </div>
+                {myAppointments.filter(a => a.status === 'completed').length > completedVisibleCount && (
+                  <div className="text-center">
+                    <button
+                      className="btn btn-outline-primary btn-sm"
+                      onClick={() => setCompletedVisibleCount(c => c + 5)}
+                    >
+                      <i className="bi bi-plus-circle me-1"></i>
+                      Cargar más
+                    </button>
+                  </div>
+                )}
+              </>
             ) : (
               <div className="alert alert-info text-center">
                 <i className="bi bi-calendar-x me-2"></i>

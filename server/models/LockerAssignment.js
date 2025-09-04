@@ -22,6 +22,28 @@ const LockerProductSchema = new mongoose.Schema({
     of: String,
     default: {}
   },
+  variantDimensions: {
+    largo: {
+      type: Number,
+      required: false,
+      min: 0
+    },
+    ancho: {
+      type: Number,
+      required: false,
+      min: 0
+    },
+    alto: {
+      type: Number,
+      required: false,
+      min: 0
+    },
+    peso: {
+      type: Number,
+      required: false,
+      min: 0
+    }
+  },
   dimensions: {
     largo: {
       type: Number,

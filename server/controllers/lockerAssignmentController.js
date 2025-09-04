@@ -467,6 +467,15 @@ const getAllAssignments = async (req, res) => {
 };
 
 // Sincronizar asignaciones desde citas existentes
+// Helper: crear Date local desde 'YYYY-MM-DD'
+const createLocalDate = (dateInput) => {
+  if (typeof dateInput === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateInput)) {
+    const [year, month, day] = dateInput.split('-');
+    return new Date(Number(year), Number(month) - 1, Number(day), 0, 0, 0, 0);
+  }
+  return new Date(dateInput);
+};
+
 const syncFromAppointments = async (req, res) => {
   try {
     const { date } = req.body;
@@ -480,11 +489,23 @@ const syncFromAppointments = async (req, res) => {
 
     console.log(`🔄 Iniciando sincronización de asignaciones para ${date}`);
 
-    // Obtener todas las citas para la fecha especificada
+    // Calcular rango de día [00:00, 23:59:59.999] en horario local
+    const dayStart = createLocalDate(date);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = createLocalDate(date);
+    dayEnd.setHours(23, 59, 59, 999);
+
+    // Obtener todas las citas dentro del rango del día
     const appointments = await Appointment.find({
-      scheduledDate: date,
+      scheduledDate: { $gte: dayStart, $lte: dayEnd },
       status: { $in: ['scheduled', 'confirmed'] }
-    }).populate('user', 'nombre email');
+    })
+      .populate('user', 'nombre email')
+      .populate({
+        path: 'itemsToPickup.individualProduct',
+        populate: { path: 'product', select: 'nombre imagen_url dimensiones variants' }
+      })
+      .populate('itemsToPickup.originalProduct', 'nombre imagen_url dimensiones variants');
 
     console.log(`📅 Encontradas ${appointments.length} citas para sincronizar`);
 
@@ -526,6 +547,9 @@ const syncFromAppointments = async (req, res) => {
           continue;
         }
 
+        // Normalizar fecha de la cita a formato YYYY-MM-DD para locker assignments
+        const formattedDate = new Date(appointment.scheduledDate).toISOString().split('T')[0];
+
         // Buscar un casillero disponible
         let lockerNumber = 1;
         let lockerFound = false;
@@ -533,7 +557,7 @@ const syncFromAppointments = async (req, res) => {
         while (lockerNumber <= 100 && !lockerFound) {
           const isAvailable = await LockerAssignment.isLockerAvailable(
             lockerNumber,
-            appointment.scheduledDate,
+            formattedDate,
             appointment.timeSlot
           );
 
@@ -560,7 +584,7 @@ const syncFromAppointments = async (req, res) => {
           userName: appointment.user.nombre,
           userEmail: appointment.user.email,
           appointmentId: appointment._id.toString(),
-          scheduledDate: appointment.scheduledDate,
+          scheduledDate: formattedDate,
           timeSlot: appointment.timeSlot,
           products: processedProducts,
           totalSlotsUsed,

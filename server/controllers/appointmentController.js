@@ -1,6 +1,7 @@
 const Appointment = require('../models/Appointment');
 const Order = require('../models/Order');
 const IndividualProduct = require('../models/IndividualProduct');
+const LockerAssignment = require('../models/LockerAssignment');
 const lockerAssignmentService = require('../services/lockerAssignmentService');
 
 // Función utilitaria para crear fechas locales correctamente
@@ -865,6 +866,35 @@ exports.updateMyAppointment = async (req, res) => {
     
     // Guardar los cambios
     await appointment.save();
+
+    // Mantener sincronizadas las locker assignments cuando cambia fecha/hora/locker
+    try {
+      const d = new Date(appointment.scheduledDate);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      const formattedDate = `${yyyy}-${mm}-${dd}`;
+      const update = {
+        scheduledDate: formattedDate,
+        timeSlot: appointment.timeSlot
+      };
+      if (lockerNumber) {
+        update.lockerNumber = lockerNumber;
+      }
+
+      const result = await LockerAssignment.updateMany(
+        { appointmentId: appointment._id.toString() },
+        { $set: update }
+      );
+
+      // Si no existían assignments para esta cita, intentar crearlas por sincronización
+      if (!result || (result.matchedCount !== undefined && result.matchedCount === 0)) {
+        await lockerAssignmentService.syncFromAppointments(formattedDate);
+      }
+    } catch (syncErr) {
+      console.error('⚠️ Error sincronizando locker assignments tras actualizar cita:', syncErr);
+      // No bloquear la respuesta al usuario por esto
+    }
     
     // Poblar datos para la respuesta
     await appointment.populate('order', 'total_amount status');
@@ -989,6 +1019,16 @@ exports.cancelAppointment = async (req, res) => {
     appointment.cancellationReason = reason;
     
     await appointment.save();
+    
+    // Sincronizar estado de locker assignments -> cancelled
+    try {
+      await LockerAssignment.updateMany(
+        { appointmentId: appointment._id.toString() },
+        { $set: { status: 'cancelled' } }
+      );
+    } catch (syncErr) {
+      console.error('⚠️ Error sincronizando estado de assignments (cancelled):', syncErr);
+    }
     
     console.log(`✅ Reserva cancelada exitosamente. ${liberatedProducts.length} productos liberados.`);
     
@@ -1206,6 +1246,25 @@ exports.updateAppointmentStatus = async (req, res) => {
     }
     
     await appointment.save();
+    
+    // Mapear estado de cita -> estado de assignment
+    const mapStatus = (s) => {
+      switch (s) {
+        case 'scheduled': return 'reserved';
+        case 'confirmed': return 'active';
+        case 'completed': return 'completed';
+        case 'cancelled': return 'cancelled';
+        default: return 'reserved';
+      }
+    };
+    try {
+      await LockerAssignment.updateMany(
+        { appointmentId: appointment._id.toString() },
+        { $set: { status: mapStatus(status) } }
+      );
+    } catch (syncErr) {
+      console.error('⚠️ Error sincronizando estado de assignments (updateAppointmentStatus):', syncErr);
+    }
     
     // Sincronizar automáticamente con locker assignments
     try {
@@ -2007,6 +2066,16 @@ exports.markAppointmentAsCompleted = async (req, res) => {
     }
     
     await appointment.save();
+    
+    // Sincronizar estado de locker assignments -> completed
+    try {
+      await LockerAssignment.updateMany(
+        { appointmentId: appointment._id.toString() },
+        { $set: { status: 'completed' } }
+      );
+    } catch (syncErr) {
+      console.error('⚠️ Error sincronizando estado de assignments (completed):', syncErr);
+    }
     
     console.log(`✅ Cita ${appointmentId} marcada como completada exitosamente`);
     

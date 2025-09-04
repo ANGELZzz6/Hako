@@ -5,6 +5,7 @@ import appointmentService from '../services/appointmentService';
 import type { Appointment } from '../services/appointmentService';
 import Locker3DCanvas from '../components/Locker3DCanvas';
 import gridPackingService from '../services/gridPackingService';
+import productService, { getVariantOrProductDimensions } from '../services/productService';
 import lockerAssignmentService, { type LockerAssignment, type LockerProduct } from '../services/lockerAssignmentService';
 import DateUtils from '../utils/dateUtils';
 
@@ -283,7 +284,7 @@ const AdminLockersPage: React.FC = () => {
   };
 
   // Función para generar datos 3D para un casillero específico (NUEVA LÓGICA)
-  const generate3DDataForLocker = (lockerNumber: number) => {
+  const generate3DDataForLocker = async (lockerNumber: number) => {
     try {
       // Buscar la asignación del casillero específico
       const assignment = lockerAssignments.find(ass => ass.lockerNumber === lockerNumber);
@@ -296,30 +297,39 @@ const AdminLockersPage: React.FC = () => {
       console.log(`🔍 Generando datos 3D para casillero ${lockerNumber}:`, assignment);
 
       // Convertir productos al formato Product3D usando la nueva lógica
-      const products3D = assignment.products.map(product => {
+      const products3DPromises = assignment.products.map(async (product) => {
         console.log(`🔍 Procesando producto: ${product.productName}`, {
           dimensions: product.dimensions,
+          variantDimensions: (product as any).variantDimensions,
           calculatedSlots: product.calculatedSlots,
           volume: product.volume,
           variants: product.variants
         });
 
-        // Usar las dimensiones ya calculadas y guardadas
-        const { largo, ancho, alto } = product.dimensions;
-        
-        // Convertir a formato esperado por gridPackingService
+        // Priorizar dimensiones de variantes buscando en la colección de productos por ID
+        const productIdToFetch = product.originalProductId || product.productId;
+        let finalDims = product.dimensions;
+        try {
+          const fullProduct = await productService.getProductById(productIdToFetch);
+          const dimsFromVariants = getVariantOrProductDimensions(fullProduct as any, product.variants as any);
+          if (dimsFromVariants && dimsFromVariants.largo && dimsFromVariants.ancho && dimsFromVariants.alto) {
+            finalDims = dimsFromVariants as any;
+          }
+        } catch (fetchErr) {
+          console.warn('⚠️ No se pudo obtener el producto para dimensiones de variante:', fetchErr);
+        }
+
+        const { largo, ancho, alto } = finalDims;
         return {
           id: product.productId,
           name: product.productName,
-          dimensions: {
-            length: largo,
-            width: ancho,
-            height: alto
-          },
+          dimensions: { length: largo, width: ancho, height: alto },
           quantity: product.quantity,
-          volume: product.volume
+          volume: (finalDims.largo * finalDims.ancho * finalDims.alto)
         };
       });
+
+      const products3D = await Promise.all(products3DPromises);
 
       console.log('📦 Productos 3D generados:', products3D);
 
@@ -393,9 +403,9 @@ const AdminLockersPage: React.FC = () => {
     setSelectedTime(time);
   };
 
-  const handleShow3DView = (lockerNumber: number) => {
+  const handleShow3DView = async (lockerNumber: number) => {
     setSelectedLocker(lockerNumber);
-    const lockerData = generate3DDataForLocker(lockerNumber);
+    const lockerData = await generate3DDataForLocker(lockerNumber);
     setLocker3DData(lockerData);
     setShow3DView(true);
   };
