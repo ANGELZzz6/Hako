@@ -156,10 +156,20 @@ class LockerAssignmentService {
                         item.individualProduct?.variants ||
                         item.originalProduct?.variants || {};
 
+        console.log(`🔍 Procesando variantes para ${item.product?.nombre || 'producto'}:`, {
+          itemVariants: item.variants,
+          individualProductVariants: item.individualProduct?.variants,
+          originalProductVariants: item.originalProduct?.variants,
+          variantsType: typeof variants,
+          isMap: variants instanceof Map,
+          variantsKeys: Object.keys(variants || {})
+        });
+
         if (variants && typeof variants.forEach === 'function') {
           const obj = {};
           variants.forEach((v, k) => { obj[k] = v; });
           variants = obj;
+          console.log(`🔍 Variantes convertidas de Map a objeto:`, variants);
         }
 
         // Obtener nombre del producto
@@ -197,7 +207,10 @@ class LockerAssignmentService {
           dimensions: processedProduct.dimensions,
           calculatedSlots: processedProduct.calculatedSlots,
           volume: processedProduct.volume,
-          variants: processedProduct.variants
+          variants: processedProduct.variants,
+          variantDimensions: processedProduct.variantDimensions,
+          variantsType: typeof processedProduct.variants,
+          variantsKeys: Object.keys(processedProduct.variants || {})
         });
 
       } catch (error) {

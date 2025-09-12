@@ -44,6 +44,13 @@ const AdminLockersPage: React.FC = () => {
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState('');
   
+  // Estados para actualización automática
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  const [refreshInterval, setRefreshInterval] = useState<NodeJS.Timeout | null>(null);
+  const [hasChanges, setHasChanges] = useState(false);
+  const [selectingTime, setSelectingTime] = useState(false);
+  
   // Estados para visualización 3D
   const [show3DView, setShow3DView] = useState(false);
   const [selectedLocker, setSelectedLocker] = useState<number | null>(null);
@@ -114,6 +121,64 @@ const AdminLockersPage: React.FC = () => {
       error
     });
   }, [selectedDate, selectedTime, appointments, reservations, loading, error]);
+
+  // Efecto para actualización automática
+  useEffect(() => {
+    if (autoRefresh && selectedDate && selectedTime && !loading) {
+      console.log('🔄 Iniciando actualización automática cada 30 segundos');
+      
+      const interval = setInterval(async () => {
+        try {
+          console.log('🔄 Actualización automática ejecutándose...');
+          await loadReservationsForDateTime(selectedDate, selectedTime, true);
+          setLastUpdate(new Date());
+        } catch (error) {
+          console.error('Error en actualización automática:', error);
+        }
+      }, 30000); // 30 segundos
+
+      setRefreshInterval(interval);
+
+      return () => {
+        console.log('🔄 Limpiando intervalo de actualización automática');
+        clearInterval(interval);
+      };
+    } else if (refreshInterval) {
+      clearInterval(refreshInterval);
+      setRefreshInterval(null);
+    }
+  }, [autoRefresh, selectedDate, selectedTime, loading]);
+
+  // Limpiar intervalo al desmontar el componente
+  useEffect(() => {
+    return () => {
+      if (refreshInterval) {
+        clearInterval(refreshInterval);
+      }
+    };
+  }, [refreshInterval]);
+
+  // Actualizar modal de detalles cuando cambien las reservas
+  useEffect(() => {
+    if (showDetailModal && selectedReservation) {
+      const currentReservation = reservations.find(r => r.lockerNumber === selectedReservation.lockerNumber);
+      if (currentReservation && currentReservation !== selectedReservation) {
+        console.log('🔄 Actualizando modal de detalles con datos frescos');
+        setSelectedReservation(currentReservation);
+      }
+    }
+  }, [reservations, showDetailModal, selectedReservation]);
+
+  // Actualizar datos 3D cuando cambien las reservas y el modal 3D esté abierto
+  useEffect(() => {
+    if (show3DView && selectedLocker && hasChanges) {
+      console.log('🔄 Actualizando datos 3D automáticamente debido a cambios detectados');
+      generate3DDataForLocker(selectedLocker).then(freshData => {
+        setLocker3DData(freshData);
+        setHasChanges(false);
+      });
+    }
+  }, [reservations, show3DView, selectedLocker, hasChanges]);
 
   const loadAppointmentsForDate = async (date: string) => {
     try {
@@ -223,34 +288,69 @@ const AdminLockersPage: React.FC = () => {
     }
   };
 
-  const loadReservationsForDateTime = async (date: string, time: string) => {
+  const loadReservationsForDateTime = async (date: string, time: string, isAutoRefresh = false, forceSync = false) => {
     try {
-      setLoading(true);
+      if (!isAutoRefresh) {
+        setLoading(true);
+      }
       setError('');
       
       console.log('🔍 loadReservationsForDateTime - Fecha seleccionada:', date);
       console.log('🔍 loadReservationsForDateTime - Hora seleccionada:', time);
+      console.log('🔍 loadReservationsForDateTime - Es actualización automática:', isAutoRefresh);
+      console.log('🔍 loadReservationsForDateTime - Forzar sincronización:', forceSync);
       
       // Obtener asignaciones de casilleros para la fecha y hora específicas
       let assignments = await lockerAssignmentService.getAssignmentsByDateTime(date, time);
       console.log('🔍 Asignaciones de casilleros obtenidas:', assignments);
       
-      // Si no hay assignments, intentar sincronizar automáticamente
-      if (assignments.length === 0) {
-        console.log('⚠️ No se encontraron assignments, intentando sincronizar...');
-        setSyncing(true);
+      // Si no hay assignments o se fuerza la sincronización, intentar sincronizar automáticamente
+      if (assignments.length === 0 || forceSync) {
+        console.log('⚠️ No se encontraron assignments o se fuerza sincronización, intentando sincronizar...');
+        console.log('🔍 Estado antes de sincronización:', {
+          assignmentsCount: assignments.length,
+          forceSync,
+          date,
+          time
+        });
+        
+        if (!isAutoRefresh) {
+          setSyncing(true);
+        }
         try {
-          await lockerAssignmentService.syncFromAppointments(date);
-          console.log('✅ Sincronización completada, reintentando obtener assignments...');
+          console.log('🔄 Iniciando sincronización desde citas...');
+          const syncResult = await lockerAssignmentService.syncFromAppointments(date);
+          console.log('✅ Sincronización completada, resultado:', syncResult);
           
           // Reintentar obtener assignments después de la sincronización
+          console.log('🔄 Obteniendo assignments después de sincronización...');
           assignments = await lockerAssignmentService.getAssignmentsByDateTime(date, time);
           console.log('🔍 Asignaciones después de sincronización:', assignments);
+          console.log('🔍 Productos en assignments:', assignments.map(a => ({
+            lockerNumber: a.lockerNumber,
+            productsCount: a.products.length,
+            products: a.products.map(p => ({ name: p.productName, quantity: p.quantity }))
+          })));
+          
+          // Si se fuerza la sincronización, siempre actualizar las asignaciones
+          if (forceSync) {
+            console.log('⚠️ Forzando actualización completa de asignaciones...');
+            await forceUpdateLockerAssignments(date, time);
+            assignments = await lockerAssignmentService.getAssignmentsByDateTime(date, time);
+            console.log('🔍 Asignaciones después de actualización forzada:', assignments);
+            console.log('🔍 Productos después de actualización forzada:', assignments.map(a => ({
+              lockerNumber: a.lockerNumber,
+              productsCount: a.products.length,
+              products: a.products.map(p => ({ name: p.productName, quantity: p.quantity }))
+            })));
+          }
         } catch (syncError) {
           console.error('❌ Error en sincronización automática:', syncError);
           // Continuar sin assignments si la sincronización falla
         } finally {
-          setSyncing(false);
+          if (!isAutoRefresh) {
+            setSyncing(false);
+          }
         }
       }
       
@@ -267,6 +367,61 @@ const AdminLockersPage: React.FC = () => {
       }));
 
       console.log('🔍 Reservas generadas:', reservationsData.length);
+      console.log('🔍 Detalles de reservas:', reservationsData.map(r => ({
+        lockerNumber: r.lockerNumber,
+        userName: r.user.nombre,
+        itemsCount: r.items.length,
+        items: r.items.map(item => ({ name: item.productName, quantity: item.quantity }))
+      })));
+      
+      // Detectar cambios si es una actualización automática
+      if (isAutoRefresh) {
+        const previousReservationsCount = reservations.length;
+        const newReservationsCount = reservationsData.length;
+        
+        // Verificar si hay cambios en el número de reservas o productos
+        const hasReservationChanges = previousReservationsCount !== newReservationsCount;
+        const hasProductChanges = reservationsData.some(newReservation => {
+          const oldReservation = reservations.find(r => r.lockerNumber === newReservation.lockerNumber);
+          if (!oldReservation) return true; // Nueva reserva
+          
+          // Comparar productos
+          const oldProductCount = oldReservation.items.reduce((sum, item) => sum + item.quantity, 0);
+          const newProductCount = newReservation.items.reduce((sum, item) => sum + item.quantity, 0);
+          
+          return oldProductCount !== newProductCount || 
+                 oldReservation.items.length !== newReservation.items.length;
+        });
+        
+        if (hasReservationChanges || hasProductChanges) {
+          console.log('🔄 Cambios detectados en las reservas:', {
+            hasReservationChanges,
+            hasProductChanges,
+            previousCount: previousReservationsCount,
+            newCount: newReservationsCount
+          });
+          setHasChanges(true);
+          
+          // Limpiar datos obsoletos de visualización 3D y modal
+          if (show3DView || showDetailModal) {
+            console.log('🧹 Limpiando datos obsoletos de visualización 3D y modal');
+            setLocker3DData(null);
+            if (show3DView) {
+              setShow3DView(false);
+            }
+            if (showDetailModal) {
+              setShowDetailModal(false);
+            }
+          }
+          
+          // Mostrar notificación de cambios
+          if (hasProductChanges) {
+            console.log('📦 Nuevos productos detectados en las reservas');
+          }
+        }
+      }
+      
+      
       setReservations(reservationsData);
       setLockerAssignments(assignments);
       
@@ -279,80 +434,150 @@ const AdminLockersPage: React.FC = () => {
       setError('Error al cargar las reservas: ' + err.message);
       console.error('Error loading reservations:', err);
     } finally {
-      setLoading(false);
+      if (!isAutoRefresh) {
+        setLoading(false);
+      }
     }
   };
 
   // Función para generar datos 3D para un casillero específico (NUEVA LÓGICA)
   const generate3DDataForLocker = async (lockerNumber: number) => {
     try {
+      console.log(`🎯 Generando 3D para casillero ${lockerNumber}`);
+      
       // Buscar la asignación del casillero específico
       const assignment = lockerAssignments.find(ass => ass.lockerNumber === lockerNumber);
       
       if (!assignment) {
-        console.log(`🔍 No se encontró asignación para el casillero ${lockerNumber}`);
+        console.log(`❌ No se encontró asignación para el casillero ${lockerNumber}`);
         return null;
       }
 
-      console.log(`🔍 Generando datos 3D para casillero ${lockerNumber}:`, assignment);
+      console.log(`✅ Asignación encontrada: ${assignment.products.length} productos`);
 
       // Convertir productos al formato Product3D usando la nueva lógica
-      const products3DPromises = assignment.products.map(async (product) => {
-        console.log(`🔍 Procesando producto: ${product.productName}`, {
-          dimensions: product.dimensions,
-          variantDimensions: (product as any).variantDimensions,
-          calculatedSlots: product.calculatedSlots,
-          volume: product.volume,
-          variants: product.variants
-        });
+      const products3DPromises = assignment.products.map(async (product, productIndex) => {
+        console.log(`\n📦 Producto ${productIndex + 1}: ${product.productName}`);
+        console.log(`📦 Variantes:`, product.variants);
+        console.log(`📦 Dimensiones guardadas:`, product.dimensions);
 
-        // Priorizar dimensiones de variantes buscando en la colección de productos por ID
-        const productIdToFetch = product.originalProductId || product.productId;
-        let finalDims = product.dimensions;
-        try {
-          const fullProduct = await productService.getProductById(productIdToFetch);
-          const dimsFromVariants = getVariantOrProductDimensions(fullProduct as any, product.variants as any);
-          if (dimsFromVariants && dimsFromVariants.largo && dimsFromVariants.ancho && dimsFromVariants.alto) {
-            finalDims = dimsFromVariants as any;
+        // ESTRATEGIA ALTERNATIVA: Obtener dimensiones directamente desde IndividualProduct
+        let finalDims = product.dimensions; // Fallback por defecto
+        let foundCorrectDimensions = false;
+        
+        console.log(`🔍 Obteniendo dimensiones desde BD para: ${product.productName}`);
+        
+        // Intentar obtener dimensiones desde IndividualProduct (que tiene las variantes específicas)
+        if (product.individualProductId) {
+          try {
+            console.log(`🔍 Obteniendo IndividualProduct con ID: ${product.individualProductId}`);
+            const response = await fetch(`/api/products/individual/${product.individualProductId}`);
+            
+            if (response.ok) {
+              const individualProduct = await response.json();
+              
+              // Si el IndividualProduct tiene dimensiones calculadas, usarlas
+              if (individualProduct.dimensions && 
+                  individualProduct.dimensions.largo && 
+                  individualProduct.dimensions.ancho && 
+                  individualProduct.dimensions.alto) {
+                finalDims = individualProduct.dimensions;
+                foundCorrectDimensions = true;
+                console.log(`✅ USANDO DIMENSIONES DE INDIVIDUAL PRODUCT:`, finalDims);
+                console.log(`✅ Variantes del IndividualProduct:`, individualProduct.variants);
+              } else {
+                console.log(`⚠️ IndividualProduct no tiene dimensiones específicas`);
+              }
+            } else {
+              console.log(`⚠️ Error obteniendo IndividualProduct:`, response.status);
+            }
+          } catch (err) {
+            console.log(`⚠️ Error obteniendo IndividualProduct:`, err);
           }
-        } catch (fetchErr) {
-          console.warn('⚠️ No se pudo obtener el producto para dimensiones de variante:', fetchErr);
         }
-
+        
+        // Si no se encontraron dimensiones del IndividualProduct, intentar con variantes
+        if (!foundCorrectDimensions && product.variants && Object.keys(product.variants).length > 0) {
+          console.log(`🔍 Intentando con variantes de asignación:`, product.variants);
+          
+          const productIdsToTry = [
+            product.originalProductId,
+            product.productId
+          ].filter(id => id);
+          
+          for (const productId of productIdsToTry) {
+            if (productId) {
+              try {
+                const fullProduct = await productService.getProductById(productId);
+                
+                let variantsForCalculation = product.variants;
+                if (product.variants instanceof Map) {
+                  variantsForCalculation = Object.fromEntries(product.variants);
+                }
+                
+                const dimsFromVariants = getVariantOrProductDimensions(fullProduct as any, variantsForCalculation as any);
+                
+                const areVariantDimsValid = dimsFromVariants && 
+                  dimsFromVariants.largo && 
+                  dimsFromVariants.ancho && 
+                  dimsFromVariants.alto;
+                
+                if (areVariantDimsValid) {
+                  finalDims = dimsFromVariants as any;
+                  foundCorrectDimensions = true;
+                  console.log(`✅ USANDO DIMENSIONES DE VARIANTES:`, finalDims);
+                  break;
+                }
+              } catch (fetchErr) {
+                console.log(`⚠️ Error obteniendo producto con ID ${productId}:`, fetchErr);
+              }
+            }
+          }
+        }
+        
+        if (!foundCorrectDimensions) {
+          console.log(`⚠️ Usando dimensiones del producto base`);
+        }
+        
         const { largo, ancho, alto } = finalDims;
-        return {
+        const product3D = {
           id: product.productId,
           name: product.productName,
           dimensions: { length: largo, width: ancho, height: alto },
           quantity: product.quantity,
           volume: (finalDims.largo * finalDims.ancho * finalDims.alto)
         };
+        
+        // Calcular slots que debería ocupar
+        const slotsX = Math.ceil(largo / 15);
+        const slotsY = Math.ceil(ancho / 15);
+        const slotsZ = Math.ceil(alto / 15);
+        const expectedSlots = slotsX * slotsY * slotsZ;
+        
+        console.log(`📦 RESULTADO FINAL:`, {
+          name: product.productName,
+          dimensions: { length: largo, width: ancho, height: alto },
+          expectedSlots: expectedSlots,
+          volume: product3D.volume,
+          usingVariantDims: foundCorrectDimensions
+        });
+        
+        return product3D;
       });
 
       const products3D = await Promise.all(products3DPromises);
 
-      console.log('📦 Productos 3D generados:', products3D);
-
       // Realizar bin packing
       const result = gridPackingService.packProducts3D(products3D);
       
-      console.log('🎯 Resultado del bin packing:', {
-        lockers: result.lockers.length,
-        failedProducts: result.failedProducts.length,
-        rejectedProducts: result.rejectedProducts.length,
-        totalEfficiency: result.totalEfficiency
-      });
+      console.log(`🎯 Bin packing: ${result.lockers.length} casilleros, eficiencia: ${result.totalEfficiency}%`);
 
       if (result.lockers.length > 0) {
-        // Usar el primer locker (que debería ser el único)
         const locker = result.lockers[0];
-        console.log('📊 Casillero seleccionado:', {
-          id: locker.id,
-          usedSlots: locker.usedSlots,
-          totalSlots: 27,
-          products: locker.packedProducts.length,
-          isFull: locker.isFull,
-          productsList: locker.packedProducts.map(p => p.product.name)
+        
+        console.log(`🎯 Casillero final: ${locker.usedSlots}/27 slots usados`);
+        locker.packedProducts.forEach((packedItem, index) => {
+          console.log(`🎯 Producto ${index + 1}: ${packedItem.product.name} - ${packedItem.slotsUsed} slots`);
         });
 
         return {
@@ -404,14 +629,26 @@ const AdminLockersPage: React.FC = () => {
   };
 
   const handleShow3DView = async (lockerNumber: number) => {
+    console.log('🎯 Abriendo visualización 3D para casillero:', lockerNumber);
     setSelectedLocker(lockerNumber);
+    
+    // Siempre generar datos 3D frescos
     const lockerData = await generate3DDataForLocker(lockerNumber);
+    console.log('🎯 Datos 3D generados:', lockerData);
+    
     setLocker3DData(lockerData);
     setShow3DView(true);
   };
 
   const handleShowDetails = (reservation: LockerReservation) => {
-    setSelectedReservation(reservation);
+    console.log('👁️ Abriendo detalles de reserva:', reservation);
+    
+    // Buscar la reserva más reciente en el estado actual
+    const currentReservation = reservations.find(r => r.lockerNumber === reservation.lockerNumber);
+    const reservationToShow = currentReservation || reservation;
+    
+    console.log('👁️ Usando reserva actualizada:', reservationToShow);
+    setSelectedReservation(reservationToShow);
     setShowDetailModal(true);
   };
 
@@ -434,6 +671,160 @@ const AdminLockersPage: React.FC = () => {
       userSearch: '',
       lockerNumber: ''
     });
+  };
+
+  // Función para forzar actualización de asignaciones de casilleros
+  const forceUpdateLockerAssignments = async (date: string, time: string) => {
+    try {
+      console.log('🔄 Forzando actualización de asignaciones de casilleros...');
+      
+      // Obtener todas las citas para la fecha
+      const allAppointments = await appointmentService.getAllAppointments({ date });
+      console.log('🔍 Citas obtenidas para actualización:', allAppointments.length);
+      
+      // Filtrar citas por hora
+      const appointmentsForTime = allAppointments.filter(apt => apt.timeSlot === time);
+      console.log('🔍 Citas para la hora', time, ':', appointmentsForTime.length);
+      
+      // Para cada cita, actualizar o crear la asignación
+      for (let i = 0; i < appointmentsForTime.length; i++) {
+        const appointment = appointmentsForTime[i];
+        console.log(`🔄 Procesando cita ${i + 1}/${appointmentsForTime.length}:`, appointment._id);
+        
+        // Crear productos desde itemsToPickup
+        const products = appointment.itemsToPickup.map(item => {
+          const productName = item.product?.nombre || 
+                             (item.individualProduct as any)?.product?.nombre || 
+                             (item.originalProduct as any)?.nombre || 'Producto sin nombre';
+          
+          // Extraer variantes del item si existen
+          let variants = {};
+          if (item.individualProduct && (item.individualProduct as any).variants) {
+            // Si es un Map, convertir a objeto
+            if ((item.individualProduct as any).variants instanceof Map) {
+              variants = Object.fromEntries((item.individualProduct as any).variants);
+            } else {
+              variants = (item.individualProduct as any).variants;
+            }
+          } else if (item.originalProduct && (item.originalProduct as any).variants) {
+            // Si es un Map, convertir a objeto
+            if ((item.originalProduct as any).variants instanceof Map) {
+              variants = Object.fromEntries((item.originalProduct as any).variants);
+            } else {
+              variants = (item.originalProduct as any).variants;
+            }
+          } else if (item.product && (item.product as any).variants) {
+            // Si es un Map, convertir a objeto
+            if ((item.product as any).variants instanceof Map) {
+              variants = Object.fromEntries((item.product as any).variants);
+            } else {
+              variants = (item.product as any).variants;
+            }
+          }
+          
+          console.log(`🔍 Variantes extraídas para ${productName}:`, variants);
+          
+          return {
+            productId: item.product?._id || 
+                      (item.individualProduct as any)?._id || 
+                      (item.originalProduct as any)?._id || 'unknown',
+            productName: productName,
+            individualProductId: (item.individualProduct as any)?._id,
+            originalProductId: (item.originalProduct as any)?._id,
+            variants: variants,
+            dimensions: {
+              largo: item.dimensiones?.largo || 10,
+              ancho: item.dimensiones?.ancho || 10,
+              alto: item.dimensiones?.alto || 10,
+              peso: 1
+            },
+            calculatedSlots: 1,
+            quantity: item.quantity,
+            volume: item.volumen || (item.dimensiones?.largo || 10) * (item.dimensiones?.ancho || 10) * (item.dimensiones?.alto || 10)
+          };
+        });
+        
+        console.log(`🔍 Productos para cita ${appointment._id}:`, products.map(p => ({ name: p.productName, quantity: p.quantity })));
+        
+        // Buscar asignación existente
+        const existingAssignment = await lockerAssignmentService.getAssignmentByLocker(i + 1, date, time);
+        console.log(`🔍 Asignación existente para casillero ${i + 1}:`, existingAssignment ? 'SÍ' : 'NO');
+        
+        if (existingAssignment) {
+          // Actualizar asignación existente
+          console.log(`🔄 Actualizando asignación existente para casillero ${i + 1}`);
+          console.log(`🔍 Productos actuales en asignación:`, existingAssignment.products.map(p => ({ name: p.productName, quantity: p.quantity })));
+          console.log(`🔍 Productos nuevos a actualizar:`, products.map(p => ({ name: p.productName, quantity: p.quantity })));
+          
+          // Log detallado de los datos que se van a enviar
+          console.log(`🔍 DATOS DETALLADOS PARA ACTUALIZACIÓN:`, {
+            assignmentId: existingAssignment._id,
+            products: products.map(p => ({
+              productId: p.productId,
+              productName: p.productName,
+              individualProductId: p.individualProductId,
+              originalProductId: p.originalProductId,
+              variants: p.variants,
+              dimensions: p.dimensions,
+              calculatedSlots: p.calculatedSlots,
+              quantity: p.quantity,
+              volume: p.volume
+            })),
+            totalSlotsUsed: products.reduce((sum, p) => sum + p.calculatedSlots, 0)
+          });
+          
+          const updateResult = await lockerAssignmentService.updateAssignment(existingAssignment._id, {
+            products: products,
+            totalSlotsUsed: products.reduce((sum, p) => sum + p.calculatedSlots, 0)
+          });
+          console.log(`✅ Asignación actualizada para casillero ${i + 1}:`, updateResult);
+        } else {
+          // Crear nueva asignación
+          console.log(`🔄 Creando nueva asignación para casillero ${i + 1}`);
+          const createResult = await lockerAssignmentService.createAssignment({
+            lockerNumber: i + 1,
+            userId: appointment.user?._id || 'unknown',
+            userName: appointment.user?.nombre || 'Usuario desconocido',
+            userEmail: appointment.user?.email || 'email@desconocido.com',
+            appointmentId: appointment._id,
+            scheduledDate: appointment.scheduledDate,
+            timeSlot: appointment.timeSlot,
+            products: products
+          });
+          console.log(`✅ Asignación creada para casillero ${i + 1}:`, createResult);
+        }
+      }
+      
+      console.log('✅ Actualización forzada de asignaciones completada');
+    } catch (error) {
+      console.error('❌ Error en actualización forzada:', error);
+      throw error;
+    }
+  };
+
+
+  // Función para actualización manual
+  const handleManualRefresh = async () => {
+    if (selectedDate && selectedTime) {
+      try {
+        setLoading(true);
+        await loadReservationsForDateTime(selectedDate, selectedTime);
+        setLastUpdate(new Date());
+        setHasChanges(false);
+        console.log('✅ Actualización manual completada');
+      } catch (error) {
+        console.error('Error en actualización manual:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  // Función para toggle de auto-refresh
+  const toggleAutoRefresh = () => {
+    setAutoRefresh(!autoRefresh);
+    setHasChanges(false);
+    console.log('🔄 Auto-refresh:', !autoRefresh ? 'activado' : 'desactivado');
   };
 
   const exportToCSV = () => {
@@ -586,17 +977,29 @@ const AdminLockersPage: React.FC = () => {
                           Estado del Sistema
                         </h6>
                         <div className="row">
-                          <div className="col-md-3">
+                          <div className="col-md-2">
                             <small><strong>Fecha:</strong> {selectedDate || 'No seleccionada'}</small>
                           </div>
-                          <div className="col-md-3">
+                          <div className="col-md-2">
                             <small><strong>Hora:</strong> {selectedTime || 'No seleccionada'}</small>
                           </div>
-                          <div className="col-md-3">
+                          <div className="col-md-2">
                             <small><strong>Citas:</strong> {appointments.length}</small>
                           </div>
-                          <div className="col-md-3">
+                          <div className="col-md-2">
                             <small><strong>Reservas:</strong> {reservations.length}</small>
+                          </div>
+                          <div className="col-md-2">
+                            <small><strong>Auto-refresh:</strong> 
+                              <span className={`ms-1 badge ${autoRefresh ? 'bg-success' : 'bg-secondary'}`}>
+                                {autoRefresh ? 'ON' : 'OFF'}
+                              </span>
+                            </small>
+                          </div>
+                          <div className="col-md-2">
+                            <small><strong>Última actualización:</strong> 
+                              {lastUpdate ? lastUpdate.toLocaleTimeString() : 'Nunca'}
+                            </small>
                           </div>
                         </div>
                         {loading && (
@@ -625,7 +1028,7 @@ const AdminLockersPage: React.FC = () => {
                              Probar API
                            </button>
                            <button
-                             className="btn btn-outline-success btn-sm"
+                             className="btn btn-outline-success btn-sm me-2"
                              onClick={syncLockerAssignments}
                              title="Sincronizar asignaciones de casilleros"
                              disabled={!selectedDate}
@@ -633,6 +1036,55 @@ const AdminLockersPage: React.FC = () => {
                              <i className="bi bi-arrow-repeat me-1"></i>
                              Sincronizar
                            </button>
+                           <button
+                             className={`btn btn-sm me-2 ${autoRefresh ? 'btn-success' : 'btn-outline-success'}`}
+                             onClick={toggleAutoRefresh}
+                             title={autoRefresh ? 'Desactivar actualización automática' : 'Activar actualización automática'}
+                           >
+                             <i className={`bi ${autoRefresh ? 'bi-pause-circle' : 'bi-play-circle'} me-1`}></i>
+                             {autoRefresh ? 'Auto-refresh ON' : 'Auto-refresh OFF'}
+                           </button>
+                           <button
+                             className="btn btn-outline-primary btn-sm me-2"
+                             onClick={handleManualRefresh}
+                             title="Actualizar manualmente las reservas"
+                             disabled={!selectedDate || !selectedTime || loading}
+                           >
+                             <i className="bi bi-arrow-clockwise me-1"></i>
+                             Actualizar Ahora
+                           </button>
+                           <button
+                             className="btn btn-outline-warning btn-sm me-2"
+                             onClick={async () => {
+                               if (selectedDate && selectedTime) {
+                                 try {
+                                   setLoading(true);
+                                   console.log('🔄 Forzando actualización de asignaciones...');
+                                   await forceUpdateLockerAssignments(selectedDate, selectedTime);
+                                   await loadReservationsForDateTime(selectedDate, selectedTime);
+                                   setLastUpdate(new Date());
+                                   setHasChanges(false);
+                                   console.log('✅ Actualización forzada completada');
+                                 } catch (error) {
+                                   console.error('Error en actualización forzada:', error);
+                                   setError('Error al actualizar asignaciones: ' + error);
+                                 } finally {
+                                   setLoading(false);
+                                 }
+                               }
+                             }}
+                             title="Forzar actualización de asignaciones de casilleros con productos actualizados"
+                             disabled={!selectedDate || !selectedTime || loading}
+                           >
+                             <i className="bi bi-arrow-repeat me-1"></i>
+                             Forzar Actualización
+                           </button>
+                           {hasChanges && (
+                             <span className="badge bg-warning text-dark">
+                               <i className="bi bi-exclamation-triangle me-1"></i>
+                               Cambios detectados
+                             </span>
+                           )}
                          </div>
                       </div>
                     </div>
@@ -650,6 +1102,38 @@ const AdminLockersPage: React.FC = () => {
                   <i className="bi bi-info-circle me-2"></i>
                   <strong>Mostrando reservas para:</strong> {formatDate(selectedDate)} a las {selectedTime}
                   <span className="badge bg-primary ms-2">{filteredReservations.length} reservas</span>
+                  {hasChanges && (
+                    <span className="badge bg-warning text-dark ms-2">
+                      <i className="bi bi-exclamation-triangle me-1"></i>
+                      ¡Cambios detectados! Haz clic en "Actualizar Ahora"
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Notificación de cambios detectados */}
+          {hasChanges && selectedDate && selectedTime && (
+            <div className="row mb-4">
+              <div className="col-12">
+                <div className="alert alert-warning alert-dismissible fade show">
+                  <i className="bi bi-exclamation-triangle me-2"></i>
+                  <strong>¡Cambios detectados!</strong> Se han detectado modificaciones en las reservas. 
+                  <button
+                    type="button"
+                    className="btn btn-warning btn-sm ms-2"
+                    onClick={handleManualRefresh}
+                  >
+                    <i className="bi bi-arrow-clockwise me-1"></i>
+                    Actualizar Ahora
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-close"
+                    onClick={() => setHasChanges(false)}
+                    aria-label="Cerrar"
+                  ></button>
                 </div>
               </div>
             </div>
@@ -664,7 +1148,8 @@ const AdminLockersPage: React.FC = () => {
                   <strong>Citas disponibles para {formatDate(selectedDate)}:</strong> {appointments.length} citas encontradas
                   <br />
                   <small className="text-muted">
-                    Selecciona una hora específica para ver las reservas de casilleros
+                    Selecciona una hora específica para ver las reservas de casilleros. 
+                    <strong>Nota:</strong> Al seleccionar una hora, se sincronizarán automáticamente los datos más recientes.
                   </small>
                   <div className="mt-2">
                     <button
@@ -1041,14 +1526,35 @@ const AdminLockersPage: React.FC = () => {
                                 <button
                                   className="btn btn-outline-primary btn-sm"
                                   onClick={async () => {
+                                    setSelectingTime(true);
                                     setSelectedTime(appointment.timeSlot);
-                                    // Cargar reservas automáticamente al seleccionar hora
-                                    await loadReservationsForDateTime(selectedDate, appointment.timeSlot);
+                                    // Cargar reservas forzando sincronización para obtener datos actualizados
+                                    console.log('🔄 Seleccionando hora y forzando sincronización...');
+                                    try {
+                                      await loadReservationsForDateTime(selectedDate, appointment.timeSlot, false, true);
+                                      console.log('✅ Reservas cargadas con datos actualizados');
+                                    } catch (error) {
+                                      console.error('❌ Error al cargar reservas:', error);
+                                    } finally {
+                                      setSelectingTime(false);
+                                    }
                                   }}
-                                  title="Seleccionar esta hora"
+                                  disabled={selectingTime}
+                                  title="Seleccionar esta hora y sincronizar datos"
                                 >
-                                  <i className="bi bi-clock me-1"></i>
-                                  Seleccionar
+                                  {selectingTime ? (
+                                    <>
+                                      <div className="spinner-border spinner-border-sm me-1" role="status">
+                                        <span className="visually-hidden">Sincronizando...</span>
+                                      </div>
+                                      Sincronizando...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <i className="bi bi-clock me-1"></i>
+                                      Seleccionar
+                                    </>
+                                  )}
                                 </button>
                               </td>
                             </tr>
@@ -1073,6 +1579,12 @@ const AdminLockersPage: React.FC = () => {
                 <h5 className="modal-title">
                   <i className="bi bi-cube me-2"></i>
                   Visualización 3D - Casillero {selectedLocker}
+                  {hasChanges && (
+                    <span className="badge bg-warning text-dark ms-2">
+                      <i className="bi bi-exclamation-triangle me-1"></i>
+                      Actualizando...
+                    </span>
+                  )}
                 </h5>
                 <button type="button" className="btn-close" onClick={handleClose3DView}></button>
               </div>
@@ -1114,6 +1626,21 @@ const AdminLockersPage: React.FC = () => {
                 </div>
               </div>
               <div className="modal-footer">
+                <button 
+                  type="button" 
+                  className="btn btn-outline-primary me-2"
+                  onClick={async () => {
+                    if (selectedLocker) {
+                      console.log('🔄 Regenerando datos 3D...');
+                      const freshData = await generate3DDataForLocker(selectedLocker);
+                      setLocker3DData(freshData);
+                    }
+                  }}
+                  title="Regenerar visualización 3D con datos actualizados"
+                >
+                  <i className="bi bi-arrow-clockwise me-1"></i>
+                  Actualizar 3D
+                </button>
                 <button type="button" className="btn btn-secondary" onClick={handleClose3DView}>
                   Cerrar
                 </button>
@@ -1132,6 +1659,12 @@ const AdminLockersPage: React.FC = () => {
                 <h5 className="modal-title">
                   <i className="bi bi-info-circle me-2"></i>
                   Detalles de Reserva - Casillero {selectedReservation.lockerNumber}
+                  {hasChanges && (
+                    <span className="badge bg-warning text-dark ms-2">
+                      <i className="bi bi-exclamation-triangle me-1"></i>
+                      Datos actualizados
+                    </span>
+                  )}
                 </h5>
                 <button 
                   type="button" 
@@ -1249,7 +1782,23 @@ const AdminLockersPage: React.FC = () => {
               <div className="modal-footer">
                 <button 
                   type="button" 
-                  className="btn btn-primary"
+                  className="btn btn-outline-primary me-2"
+                  onClick={() => {
+                    // Actualizar los detalles con datos frescos
+                    const currentReservation = reservations.find(r => r.lockerNumber === selectedReservation.lockerNumber);
+                    if (currentReservation) {
+                      setSelectedReservation(currentReservation);
+                      setHasChanges(false);
+                    }
+                  }}
+                  title="Actualizar detalles con datos más recientes"
+                >
+                  <i className="bi bi-arrow-clockwise me-1"></i>
+                  Actualizar Detalles
+                </button>
+                <button 
+                  type="button" 
+                  className="btn btn-primary me-2"
                   onClick={() => {
                     setShowDetailModal(false);
                     handleShow3DView(selectedReservation.lockerNumber);

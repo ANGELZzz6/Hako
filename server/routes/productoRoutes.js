@@ -39,6 +39,9 @@ router.post('/admin/upload-image', productController.uploadProductImage);
 // Ruta de producto por ID (debe ir al final)
 router.get('/:id', productController.getProductById);
 
+// Obtener IndividualProduct con dimensiones calculadas
+router.get('/individual/:id', productController.getIndividualProductWithDimensions);
+
 // Limitar a 3 sugerencias cada 10 minutos por usuario
 const sugerenciaLimiter = rateLimit({
   windowMs: 10 * 60 * 1000, // 10 minutos

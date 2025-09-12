@@ -18,8 +18,7 @@ const LockerProductSchema = new mongoose.Schema({
     default: null
   },
   variants: {
-    type: Map,
-    of: String,
+    type: mongoose.Schema.Types.Mixed,
     default: {}
   },
   variantDimensions: {
