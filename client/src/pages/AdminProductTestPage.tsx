@@ -1,0 +1,648 @@
+import React, { useEffect, useState } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import productService, { getVariantOrProductDimensions } from '../services/productService';
+import Locker3DCanvas from '../components/Locker3DCanvas';
+import gridPackingService from '../services/gridPackingService';
+import type { Product } from '../services/productService';
+import './AdminProductTestPage.css';
+import './AdminModalImprovements.css';
+
+interface TestProduct {
+  id: string;
+  name: string;
+  dimensions: { length: number; width: number; height: number };
+  quantity: number;
+  volume: number;
+  variants?: any;
+  individualProductId?: string;
+  originalProductId?: string;
+}
+
+interface Product3D {
+  id: string;
+  name: string;
+  dimensions: { length: number; width: number; height: number };
+  quantity: number;
+  volume: number;
+}
+
+const AdminProductTestPage: React.FC = () => {
+  const { isAuthenticated, isAdmin, isLoading } = useAuth();
+  const navigate = useNavigate();
+  
+  // Estados principales
+  const [products, setProducts] = useState<Product[]>([]);
+  const [testProducts, setTestProducts] = useState<TestProduct[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  
+  // Estados para visualización 3D
+  const [locker3DData, setLocker3DData] = useState<any>(null);
+  
+  // Estados para filtros y búsqueda
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [sortBy, setSortBy] = useState('nombre');
+  
+  // Estados para límites
+  const [maxSlots, setMaxSlots] = useState(27); // Límite de slots del casillero
+  const [currentSlotsUsed, setCurrentSlotsUsed] = useState(0);
+
+  useEffect(() => {
+    if (!isLoading && (!isAuthenticated || !isAdmin)) {
+      navigate('/');
+    }
+  }, [isAuthenticated, isAdmin, isLoading, navigate]);
+
+  // Cargar productos al montar el componente
+  useEffect(() => {
+    loadProducts();
+  }, []);
+
+  // Actualizar slots usados y regenerar 3D cuando cambien los productos de prueba
+  useEffect(() => {
+    calculateSlotsUsed();
+    if (testProducts.length > 0) {
+      generate3DData();
+    } else {
+      setLocker3DData(null);
+    }
+  }, [testProducts]);
+
+  const loadProducts = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      
+      console.log('🔍 Cargando productos para pruebas...');
+      const productsData = await productService.getAllProducts();
+      
+      console.log('🔍 Productos cargados:', productsData.length);
+      setProducts(productsData);
+    } catch (err: any) {
+      setError('Error al cargar los productos: ' + err.message);
+      console.error('Error loading products:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const calculateSlotsUsed = () => {
+    let totalSlots = 0;
+    testProducts.forEach(product => {
+      const slotsX = Math.ceil(product.dimensions.length / 15);
+      const slotsY = Math.ceil(product.dimensions.width / 15);
+      const slotsZ = Math.ceil(product.dimensions.height / 15);
+      const productSlots = slotsX * slotsY * slotsZ;
+      totalSlots += productSlots * product.quantity;
+    });
+    setCurrentSlotsUsed(totalSlots);
+  };
+
+  const addProductToTest = async (product: Product) => {
+    try {
+      console.log('🔍 Agregando producto a prueba:', product.nombre);
+      
+      // Obtener dimensiones del producto
+      let dimensions = { length: 10, width: 10, height: 10 }; // Valores por defecto
+      
+      if (product.dimensiones) {
+        dimensions = {
+          length: product.dimensiones.largo || 10,
+          width: product.dimensiones.ancho || 10,
+          height: product.dimensiones.alto || 10
+        };
+      } else {
+        // Intentar obtener dimensiones desde variantes
+        try {
+          const variantDims = getVariantOrProductDimensions(product, {});
+          if (variantDims && variantDims.largo && variantDims.ancho && variantDims.alto) {
+            dimensions = {
+              length: variantDims.largo,
+              width: variantDims.ancho,
+              height: variantDims.alto
+            };
+          }
+        } catch (err) {
+          console.log('⚠️ No se pudieron obtener dimensiones de variantes, usando valores por defecto');
+        }
+      }
+
+      const testProduct: TestProduct = {
+        id: product._id,
+        name: product.nombre,
+        dimensions,
+        quantity: 1,
+        volume: dimensions.length * dimensions.width * dimensions.height,
+        variants: product.variants,
+        individualProductId: product._id,
+        originalProductId: product._id
+      };
+
+      // Calcular slots que ocuparía este producto
+      const slotsX = Math.ceil(dimensions.length / 15);
+      const slotsY = Math.ceil(dimensions.width / 15);
+      const slotsZ = Math.ceil(dimensions.height / 15);
+      const productSlots = slotsX * slotsY * slotsZ;
+
+      // Verificar si excede el límite
+      if (currentSlotsUsed + productSlots > maxSlots) {
+        alert(`No se puede agregar este producto. Excedería el límite de slots (${maxSlots}). Este producto ocupa ${productSlots} slots y actualmente se usan ${currentSlotsUsed} slots.`);
+        return;
+      }
+
+      setTestProducts(prev => [...prev, testProduct]);
+      console.log('✅ Producto agregado a prueba');
+    } catch (err) {
+      console.error('Error agregando producto:', err);
+      alert('Error al agregar el producto a la prueba');
+    }
+  };
+
+  const removeProductFromTest = (productId: string) => {
+    setTestProducts(prev => prev.filter(p => p.id !== productId));
+    console.log('🗑️ Producto removido de la prueba');
+  };
+
+  const updateProductQuantity = (productId: string, quantity: number) => {
+    if (quantity <= 0) {
+      removeProductFromTest(productId);
+      return;
+    }
+
+    setTestProducts(prev => {
+      const updated = prev.map(p => {
+        if (p.id === productId) {
+          const slotsX = Math.ceil(p.dimensions.length / 15);
+          const slotsY = Math.ceil(p.dimensions.width / 15);
+          const slotsZ = Math.ceil(p.dimensions.height / 15);
+          const productSlots = slotsX * slotsY * slotsZ;
+          const newTotalSlots = currentSlotsUsed - (p.quantity * productSlots) + (quantity * productSlots);
+          
+          if (newTotalSlots > maxSlots) {
+            alert(`No se puede establecer esta cantidad. Excedería el límite de slots (${maxSlots}).`);
+            return p;
+          }
+          
+          return { ...p, quantity, volume: p.dimensions.length * p.dimensions.width * p.dimensions.height * quantity };
+        }
+        return p;
+      });
+      return updated;
+    });
+  };
+
+  const clearTestProducts = () => {
+    setTestProducts([]);
+    console.log('🧹 Productos de prueba limpiados');
+  };
+
+  const generate3DData = async () => {
+    try {
+      console.log('🎯 Generando datos 3D para prueba...');
+      
+      if (testProducts.length === 0) {
+        setLocker3DData(null);
+        return;
+      }
+
+      // Convertir productos de prueba al formato Product3D
+      const products3D: Product3D[] = testProducts.map(product => ({
+        id: product.id,
+        name: product.name,
+        dimensions: product.dimensions,
+        quantity: product.quantity,
+        volume: product.volume
+      }));
+
+      console.log('🔍 Productos para 3D:', products3D);
+
+      // Realizar bin packing
+      const result = gridPackingService.packProducts3D(products3D);
+      
+      console.log(`🎯 Bin packing: ${result.lockers.length} casilleros, eficiencia: ${result.totalEfficiency}%`);
+
+      if (result.lockers.length > 0) {
+        const locker = result.lockers[0];
+        
+        console.log(`🎯 Casillero final: ${locker.usedSlots}/27 slots usados`);
+        locker.packedProducts.forEach((packedItem, index) => {
+          console.log(`🎯 Producto ${index + 1}: ${packedItem.product.name} - ${packedItem.slotsUsed} slots`);
+        });
+
+        const lockerData = {
+          ...locker,
+          id: 'test_locker',
+          lockerNumber: 1
+        };
+
+        setLocker3DData(lockerData);
+      } else {
+        console.log('No se pudo generar la visualización 3D. Verifica que los productos tengan dimensiones válidas.');
+        setLocker3DData(null);
+      }
+    } catch (error) {
+      console.error('Error generando datos 3D:', error);
+      setLocker3DData(null);
+    }
+  };
+
+  // Filtrar productos
+  const filteredProducts = products.filter(product => {
+    const matchesSearch = product.nombre.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = !selectedCategory || product.categoria === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
+
+  // Ordenar productos
+  const sortedProducts = [...filteredProducts].sort((a, b) => {
+    switch (sortBy) {
+      case 'nombre':
+        return a.nombre.localeCompare(b.nombre);
+      case 'precio':
+        return a.precio - b.precio;
+      case 'categoria':
+        return a.categoria.localeCompare(b.categoria);
+      default:
+        return 0;
+    }
+  });
+
+  // Obtener categorías únicas
+  const categories = [...new Set(products.map(p => p.categoria))];
+
+  if (!isAuthenticated || !isAdmin) {
+    return null;
+  }
+
+  return (
+    <div className="admin-dashboard admin-product-test-page" data-theme="light">
+      <header className="admin-header-bar">
+        <div className="header-content">
+          <div className="header-left">
+            <i className="bi bi-cube header-icon"></i>
+            <span className="header-title">Pruebas de Productos 3D</span>
+          </div>
+          <div className="header-center">
+            <span className="logo-japanese">箱</span><span className="brand-text">hako</span>
+          </div>
+          <div className="header-right">
+            <a href="/admin" className="back-link">
+              <i className="bi bi-arrow-left-circle header-icon"></i>
+            </a>
+          </div>
+        </div>
+      </header>
+
+      <main className="admin-main-content">
+        <div className="container-fluid">
+          {/* Panel de Control */}
+          <div className="row mb-4">
+            <div className="col-12">
+              <div className="card control-panel">
+                <div className="card-header">
+                  <h5 className="mb-0">
+                    <i className="bi bi-gear me-2"></i>
+                    Panel de Control
+                  </h5>
+                </div>
+                <div className="card-body">
+                  <div className="row">
+                    <div className="col-md-6">
+                      <div className="stats-info">
+                        <div className="stat-item">
+                          <span className="stat-label">Productos en Prueba:</span>
+                          <span className="stat-value">{testProducts.length}</span>
+                        </div>
+                        <div className="stat-item">
+                          <span className="stat-label">Slots Usados:</span>
+                          <span className="stat-value">{currentSlotsUsed}/{maxSlots}</span>
+                        </div>
+                        <div className="stat-item">
+                          <span className="stat-label">Eficiencia:</span>
+                          <span className="stat-value">{Math.round((currentSlotsUsed / maxSlots) * 100)}%</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="col-md-6">
+                      <div className="action-buttons">
+                        <button
+                          className="btn btn-outline-danger"
+                          onClick={clearTestProducts}
+                          disabled={testProducts.length === 0}
+                        >
+                          <i className="bi bi-trash me-1"></i>
+                          Limpiar Todo
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Visualización 3D */}
+          <div className="row mb-4">
+            <div className="col-12">
+              <div className="card visualization-card">
+                <div className="card-header">
+                  <h5 className="mb-0">
+                    <i className="bi bi-cube me-2"></i>
+                    Visualización 3D
+                    {locker3DData && (
+                      <span className="badge bg-success ms-2">
+                        {locker3DData.usedSlots}/27 slots usados
+                      </span>
+                    )}
+                  </h5>
+                </div>
+                <div className="card-body">
+                  {locker3DData ? (
+                    <div className="row">
+                      <div className="col-md-8">
+                        <div className="visualization-container">
+                          <Locker3DCanvas bin={locker3DData} />
+                        </div>
+                      </div>
+                      <div className="col-md-4">
+                        <div className="visualization-info">
+                          <h6>Información del Casillero</h6>
+                          <ul className="list-unstyled">
+                            <li><strong>Slots usados:</strong> {locker3DData.usedSlots}/27</li>
+                            <li><strong>Productos:</strong> {locker3DData.packedProducts.length}</li>
+                            <li><strong>Eficiencia:</strong> {Math.round((locker3DData.usedSlots / 27) * 100)}%</li>
+                          </ul>
+                          
+                          <h6 className="mt-3">Productos en el Casillero</h6>
+                          <ul className="list-unstyled">
+                            {locker3DData.packedProducts.map((item: any, index: number) => (
+                              <li key={index} className="mb-2">
+                                <div className="d-flex justify-content-between align-items-center">
+                                  <span><strong>{item.product.name}</strong> x{item.product.quantity}</span>
+                                  <span className="badge bg-info">{item.slotsUsed} slots</span>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center empty-visualization">
+                      <i className="bi bi-cube display-1 text-muted"></i>
+                      <p className="text-muted mt-3">
+                        {testProducts.length === 0 
+                          ? 'Agrega productos para ver la visualización 3D'
+                          : 'Generando visualización 3D...'
+                        }
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Productos de Prueba */}
+          {testProducts.length > 0 && (
+            <div className="row mb-4">
+              <div className="col-12">
+                <div className="card test-products-card">
+                  <div className="card-header">
+                    <h5 className="mb-0">
+                      <i className="bi bi-box-seam me-2"></i>
+                      Productos en Prueba ({testProducts.length})
+                    </h5>
+                  </div>
+                  <div className="card-body">
+                    <div className="row">
+                      {testProducts.map((product, index) => {
+                        const slotsX = Math.ceil(product.dimensions.length / 15);
+                        const slotsY = Math.ceil(product.dimensions.width / 15);
+                        const slotsZ = Math.ceil(product.dimensions.height / 15);
+                        const productSlots = slotsX * slotsY * slotsZ;
+                        
+                        return (
+                          <div key={index} className="col-md-6 col-lg-4 mb-3">
+                            <div className="card test-product-item">
+                              <div className="card-body">
+                                <div className="d-flex justify-content-between align-items-start mb-2">
+                                  <h6 className="card-title">{product.name}</h6>
+                                  <button
+                                    className="btn btn-sm btn-outline-danger"
+                                    onClick={() => removeProductFromTest(product.id)}
+                                  >
+                                    <i className="bi bi-x"></i>
+                                  </button>
+                                </div>
+                                <div className="product-details">
+                                  <p className="mb-1">
+                                    <small className="text-muted">Dimensiones:</small> {product.dimensions.length}×{product.dimensions.width}×{product.dimensions.height} cm
+                                  </p>
+                                  <p className="mb-1">
+                                    <small className="text-muted">Slots:</small> {productSlots} por unidad
+                                  </p>
+                                  <p className="mb-2">
+                                    <small className="text-muted">Volumen:</small> {product.volume.toFixed(0)} cm³
+                                  </p>
+                                </div>
+                                <div className="quantity-controls">
+                                  <label className="form-label small">Cantidad:</label>
+                                  <div className="quantity-input-group">
+                                    <button
+                                      className="btn btn-outline-danger quantity-btn"
+                                      onClick={() => updateProductQuantity(product.id, product.quantity - 1)}
+                                      title="Disminuir cantidad"
+                                    >
+                                      <i className="bi bi-dash-lg"></i>
+                                    </button>
+                                    <div className="quantity-display">
+                                      <span className="quantity-number">{product.quantity}</span>
+                                    </div>
+                                    <button
+                                      className="btn btn-outline-success quantity-btn"
+                                      onClick={() => updateProductQuantity(product.id, product.quantity + 1)}
+                                      title="Aumentar cantidad"
+                                    >
+                                      <i className="bi bi-plus-lg"></i>
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Filtros y Búsqueda */}
+          <div className="row mb-4">
+            <div className="col-12">
+              <div className="card filters-card">
+                <div className="card-header">
+                  <h5 className="mb-0">
+                    <i className="bi bi-funnel me-2"></i>
+                    Filtros y Búsqueda
+                  </h5>
+                </div>
+                <div className="card-body">
+                  <div className="row">
+                    <div className="col-md-4">
+                      <label className="form-label">Buscar Producto</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="Nombre del producto..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                      />
+                    </div>
+                    <div className="col-md-3">
+                      <label className="form-label">Categoría</label>
+                      <select
+                        className="form-select"
+                        value={selectedCategory}
+                        onChange={(e) => setSelectedCategory(e.target.value)}
+                      >
+                        <option value="">Todas las categorías</option>
+                        {categories.map(category => (
+                          <option key={category} value={category}>{category}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="col-md-3">
+                      <label className="form-label">Ordenar por</label>
+                      <select
+                        className="form-select"
+                        value={sortBy}
+                        onChange={(e) => setSortBy(e.target.value)}
+                      >
+                        <option value="nombre">Nombre</option>
+                        <option value="precio">Precio</option>
+                        <option value="categoria">Categoría</option>
+                      </select>
+                    </div>
+                    <div className="col-md-2">
+                      <label className="form-label">&nbsp;</label>
+                      <button
+                        className="btn btn-outline-secondary w-100"
+                        onClick={() => {
+                          setSearchTerm('');
+                          setSelectedCategory('');
+                          setSortBy('nombre');
+                        }}
+                      >
+                        <i className="bi bi-arrow-clockwise me-1"></i>
+                        Limpiar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Lista de Productos */}
+          <div className="row">
+            <div className="col-12">
+              <div className="card products-list-card">
+                <div className="card-header">
+                  <h5 className="mb-0">
+                    <i className="bi bi-list-ul me-2"></i>
+                    Productos Disponibles ({filteredProducts.length})
+                  </h5>
+                </div>
+                <div className="card-body">
+                  {loading ? (
+                    <div className="text-center">
+                      <div className="spinner-border" role="status">
+                        <span className="visually-hidden">Cargando...</span>
+                      </div>
+                    </div>
+                  ) : error ? (
+                    <div className="alert alert-danger text-center">{error}</div>
+                  ) : sortedProducts.length === 0 ? (
+                    <div className="text-center empty-state">
+                      <i className="bi bi-inbox display-1 text-muted"></i>
+                      <p className="text-muted mt-3">No se encontraron productos</p>
+                    </div>
+                  ) : (
+                    <div className="table-responsive">
+                      <table className="table table-hover">
+                        <thead className="table-dark">
+                          <tr>
+                            <th>Producto</th>
+                            <th>Categoría</th>
+                            <th>Precio</th>
+                            <th>Dimensiones</th>
+                            <th>Slots</th>
+                            <th>Acciones</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {sortedProducts.map((product) => {
+                            const dimensions = product.dimensiones || { largo: 10, ancho: 10, alto: 10 };
+                            const slotsX = Math.ceil(dimensions.largo / 15);
+                            const slotsY = Math.ceil(dimensions.ancho / 15);
+                            const slotsZ = Math.ceil(dimensions.alto / 15);
+                            const productSlots = slotsX * slotsY * slotsZ;
+                            
+                            return (
+                              <tr key={product._id}>
+                                <td>
+                                  <div className="product-info">
+                                    <div className="product-name">{product.nombre}</div>
+                                    <small className="text-muted">{product.descripcion}</small>
+                                  </div>
+                                </td>
+                                <td>
+                                  <span className="badge bg-secondary">{product.categoria}</span>
+                                </td>
+                                <td>
+                                  <span className="price">${product.precio.toLocaleString()}</span>
+                                </td>
+                                <td>
+                                  <span className="dimensions">
+                                    {dimensions.largo}×{dimensions.ancho}×{dimensions.alto} cm
+                                  </span>
+                                </td>
+                                <td>
+                                  <span className="badge bg-info">{productSlots} slots</span>
+                                </td>
+                                <td>
+                                  <button
+                                    className="btn btn-outline-primary btn-sm"
+                                    onClick={() => addProductToTest(product)}
+                                    disabled={currentSlotsUsed + productSlots > maxSlots}
+                                    title={currentSlotsUsed + productSlots > maxSlots ? 'Excedería el límite de slots' : 'Agregar a prueba'}
+                                  >
+                                    <i className="bi bi-plus-circle me-1"></i>
+                                    Agregar
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+    </div>
+  );
+};
+
+export default AdminProductTestPage;

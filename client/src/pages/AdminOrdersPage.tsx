@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import orderService from '../services/orderService';
 import type { Order } from '../types/order';
 import './AdminOrdersPage.css';
+import './AdminModalImprovements.css';
 
 // Tipos para filtros y estadísticas
 interface OrderFilters {
@@ -790,7 +791,7 @@ const AdminOrdersPage: React.FC = () => {
       {/* Modal de detalles del pedido */}
       {showOrderModal && selectedOrder && (
         <div className="modal fade show d-block order-details-modal" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
-          <div className="modal-dialog modal-lg">
+          <div className="modal-dialog modal-lg admin-dashboard">
             <div className="modal-content">
               <div className="modal-header">
                 <h5 className="modal-title">Detalles del Pedido #{selectedOrder._id.slice(-6)}</h5>

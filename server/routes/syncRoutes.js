@@ -1,11 +1,21 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const syncExistingAppointments = require('../sync-existing-appointments');
 
 // Endpoint para sincronizar todas las citas existentes
 router.post('/sync-all-appointments', async (req, res) => {
   try {
     console.log('🔄 Iniciando sincronización manual de todas las citas...');
+    
+    // Verificar conexión a MongoDB antes de proceder
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(500).json({
+        success: false,
+        message: 'No hay conexión activa a la base de datos',
+        error: 'MongoDB connection not available'
+      });
+    }
     
     // Ejecutar la sincronización
     await syncExistingAppointments();

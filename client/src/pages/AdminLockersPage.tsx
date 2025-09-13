@@ -10,6 +10,7 @@ import lockerAssignmentService, { type LockerAssignment, type LockerProduct } fr
 import DateUtils from '../utils/dateUtils';
 
 import './AdminLockersPage.css';
+import './AdminModalImprovements.css';
 
 interface LockerReservation {
   lockerNumber: number;
@@ -83,6 +84,10 @@ const AdminLockersPage: React.FC = () => {
     { value: 'no_show', label: 'No se presentó' }
   ];
 
+  // Estados para mostrar citas canceladas
+  const [showCancelledAppointments, setShowCancelledAppointments] = useState(false);
+  const [cancelledAppointments, setCancelledAppointments] = useState<Appointment[]>([]);
+
   useEffect(() => {
     if (!isLoading && (!isAuthenticated || !isAdmin)) {
       navigate('/');
@@ -99,6 +104,7 @@ const AdminLockersPage: React.FC = () => {
     if (selectedDate) {
       console.log('🔍 useEffect - Fecha seleccionada:', selectedDate);
       loadAppointmentsForDate(selectedDate);
+      loadCancelledAppointmentsForDate(selectedDate);
     }
   }, [selectedDate]);
 
@@ -209,6 +215,25 @@ const AdminLockersPage: React.FC = () => {
     }
   };
 
+  // Función para cargar citas canceladas
+  const loadCancelledAppointmentsForDate = async (date: string) => {
+    try {
+      console.log('🔍 loadCancelledAppointmentsForDate - Fecha solicitada:', date);
+      
+      // Cargar citas canceladas para la fecha
+      const cancelledData = await appointmentService.getAllAppointments({
+        date: date,
+        status: 'cancelled'
+      });
+      
+      console.log('🔍 loadCancelledAppointmentsForDate - Citas canceladas:', cancelledData.length);
+      setCancelledAppointments(cancelledData);
+    } catch (err: any) {
+      console.error('Error loading cancelled appointments:', err);
+      setCancelledAppointments([]);
+    }
+  };
+
   // Función de prueba para verificar la API
   const testAPI = async () => {
     try {
@@ -250,43 +275,6 @@ const AdminLockersPage: React.FC = () => {
     }
   };
 
-  // Función para sincronizar todas las citas existentes
-  const syncAllAppointments = async () => {
-    try {
-      setLoading(true);
-      setError('');
-      
-      console.log('🔍 Sincronizando todas las citas existentes...');
-      
-      const response = await fetch('/api/sync/sync-all-appointments', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      if (!response.ok) {
-        throw new Error('Error en la sincronización');
-      }
-      
-      const result = await response.json();
-      console.log('🔍 Resultado de sincronización:', result);
-      
-      // Recargar las citas y reservas
-      await loadAppointmentsForDate(selectedDate);
-      if (selectedTime) {
-        await loadReservationsForDateTime(selectedDate, selectedTime);
-      }
-      
-      alert('Sincronización completa de todas las citas exitosa.');
-      
-    } catch (err: any) {
-      setError('Error al sincronizar todas las citas: ' + err.message);
-      console.error('Error syncing all appointments:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const loadReservationsForDateTime = async (date: string, time: string, isAutoRefresh = false, forceSync = false) => {
     try {
@@ -889,6 +877,71 @@ const AdminLockersPage: React.FC = () => {
     return colorMap[status] || 'secondary';
   };
 
+  // Función para validar y actualizar estado de reserva
+  const validateAndUpdateReservationStatus = async (reservation: LockerReservation, newStatus: string) => {
+    try {
+      console.log(`🔄 Validando cambio de estado para reserva ${reservation.lockerNumber}: ${reservation.status} -> ${newStatus}`);
+      
+      // Validar transiciones de estado permitidas
+      const validTransitions: Record<string, string[]> = {
+        'scheduled': ['confirmed', 'cancelled'],
+        'confirmed': ['completed', 'cancelled', 'no_show'],
+        'completed': [], // No se puede cambiar desde completado
+        'cancelled': [], // No se puede cambiar desde cancelado
+        'no_show': ['completed', 'cancelled'] // Se puede marcar como completado o cancelado
+      };
+
+      const currentStatus = reservation.status;
+      const allowedTransitions = validTransitions[currentStatus] || [];
+
+      if (!allowedTransitions.includes(newStatus)) {
+        const errorMessage = `No se puede cambiar el estado de "${getStatusLabel(currentStatus)}" a "${getStatusLabel(newStatus)}". Transiciones permitidas: ${allowedTransitions.map(s => getStatusLabel(s)).join(', ')}`;
+        alert(errorMessage);
+        return false;
+      }
+
+      // Confirmar cambio de estado
+      const confirmMessage = `¿Está seguro de cambiar el estado de la reserva del casillero ${reservation.lockerNumber} de "${getStatusLabel(currentStatus)}" a "${getStatusLabel(newStatus)}"?`;
+      if (!window.confirm(confirmMessage)) {
+        return false;
+      }
+
+      // Actualizar estado en el backend
+      const response = await fetch(`/api/locker-assignments/${reservation.assignment._id}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: newStatus })
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al actualizar el estado de la reserva');
+      }
+
+      const updatedAssignment = await response.json();
+      console.log('✅ Estado actualizado exitosamente:', updatedAssignment);
+
+      // Actualizar el estado local
+      setReservations(prevReservations => 
+        prevReservations.map(r => 
+          r.lockerNumber === reservation.lockerNumber 
+            ? { ...r, status: newStatus, assignment: updatedAssignment }
+            : r
+        )
+      );
+
+      // Mostrar mensaje de éxito
+      alert(`Estado de la reserva actualizado exitosamente a "${getStatusLabel(newStatus)}"`);
+      
+      return true;
+    } catch (error) {
+      console.error('Error actualizando estado de reserva:', error);
+      alert('Error al actualizar el estado de la reserva: ' + error);
+      return false;
+    }
+  };
+
   if (!isAuthenticated || !isAdmin) {
     return null;
   }
@@ -1199,6 +1252,97 @@ const AdminLockersPage: React.FC = () => {
             </div>
           )}
 
+          {/* Sección de Citas Canceladas */}
+          {selectedDate && !selectedTime && cancelledAppointments.length > 0 && (
+            <div className="row mb-4">
+              <div className="col-12">
+                <div className="card cancelled-appointments-card">
+                  <div className="card-header d-flex justify-content-between align-items-center">
+                    <h5 className="mb-0">
+                      <i className="bi bi-x-circle text-danger me-2"></i>
+                      Citas Canceladas para {formatDate(selectedDate)}
+                      <span className="badge bg-danger ms-2">{cancelledAppointments.length}</span>
+                    </h5>
+                    <button
+                      className="btn btn-outline-secondary btn-sm"
+                      onClick={() => setShowCancelledAppointments(!showCancelledAppointments)}
+                    >
+                      <i className={`bi ${showCancelledAppointments ? 'bi-eye-slash' : 'bi-eye'} me-1`}></i>
+                      {showCancelledAppointments ? 'Ocultar' : 'Mostrar'} Canceladas
+                    </button>
+                  </div>
+                  {showCancelledAppointments && (
+                    <div className="card-body">
+                      <div className="table-responsive">
+                        <table className="table table-hover table-sm">
+                          <thead className="table-danger">
+                            <tr>
+                              <th>Hora</th>
+                              <th>Usuario</th>
+                              <th>Email</th>
+                              <th>Productos</th>
+                              <th>Motivo de Cancelación</th>
+                              <th>Fecha de Cancelación</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {cancelledAppointments.map((appointment, index) => (
+                              <tr key={index} className="table-light">
+                                <td>
+                                  <span className="badge bg-danger">
+                                    {appointment.timeSlot}
+                                  </span>
+                                </td>
+                                <td>
+                                  <div className="user-info">
+                                    <div className="user-name">{appointment.user?.nombre || 'N/A'}</div>
+                                  </div>
+                                </td>
+                                <td>
+                                  <div className="user-email">{appointment.user?.email || 'N/A'}</div>
+                                </td>
+                                <td>
+                                  <div className="items-list">
+                                    {appointment.itemsToPickup.map((item, idx) => (
+                                      <div key={idx} className="item-badge">
+                                        <div className="d-flex align-items-center">
+                                          <div className="bg-danger rounded me-2 d-flex align-items-center justify-content-center" 
+                                               style={{ width: 20, height: 20 }}>
+                                            <i className="bi bi-box text-white" style={{ fontSize: '10px' }}></i>
+                                          </div>
+                                          <span className="item-name">
+                                            {item.product?.nombre || 
+                                             (item.individualProduct as any)?.product?.nombre || 
+                                             (item.originalProduct as any)?.nombre || 'Producto sin nombre'}
+                                          </span>
+                                        </div>
+                                        <span className="item-quantity">x{item.quantity}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </td>
+                                <td>
+                                  <small className="text-muted">
+                                    {appointment.cancellationReason || 'No especificado'}
+                                  </small>
+                                </td>
+                                <td>
+                                  <small className="text-muted">
+                                    {appointment.updatedAt ? new Date(appointment.updatedAt).toLocaleDateString() : 'N/A'}
+                                  </small>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Filtros Avanzados */}
           {selectedDate && selectedTime && reservations.length > 0 && (
             <div className="row mb-4">
@@ -1234,25 +1378,6 @@ const AdminLockersPage: React.FC = () => {
                             <>
                               <i className="bi bi-arrow-clockwise me-1"></i>
                               Sincronizar Fecha
-                            </>
-                          )}
-                        </button>
-                        <button
-                          className="btn btn-outline-warning btn-sm me-2"
-                          onClick={syncAllAppointments}
-                          disabled={loading || syncing}
-                        >
-                          {syncing ? (
-                            <>
-                              <div className="spinner-border spinner-border-sm me-1" role="status">
-                                <span className="visually-hidden">Sincronizando...</span>
-                              </div>
-                              Sincronizando...
-                            </>
-                          ) : (
-                            <>
-                              <i className="bi bi-arrow-repeat me-1"></i>
-                              Sincronizar Todo
                             </>
                           )}
                         </button>
@@ -1426,6 +1551,73 @@ const AdminLockersPage: React.FC = () => {
                                       <i className="bi bi-eye"></i>
                                       <span>Ver</span>
                                     </button>
+                                    {/* Botones de cambio de estado */}
+                                    {reservation.status === 'confirmed' && (
+                                      <>
+                                        <button
+                                          className="btn btn-outline-success btn-sm"
+                                          onClick={() => validateAndUpdateReservationStatus(reservation, 'completed')}
+                                          title="Marcar como completada"
+                                        >
+                                          <i className="bi bi-check-circle"></i>
+                                        </button>
+                                        <button
+                                          className="btn btn-outline-danger btn-sm"
+                                          onClick={() => validateAndUpdateReservationStatus(reservation, 'cancelled')}
+                                          title="Cancelar reserva"
+                                        >
+                                          <i className="bi bi-x-circle"></i>
+                                        </button>
+                                        <button
+                                          className="btn btn-outline-warning btn-sm"
+                                          onClick={() => validateAndUpdateReservationStatus(reservation, 'no_show')}
+                                          title="Marcar como no se presentó"
+                                        >
+                                          <i className="bi bi-person-x"></i>
+                                        </button>
+                                      </>
+                                    )}
+                                    {reservation.status === 'scheduled' && (
+                                      <>
+                                        <button
+                                          className="btn btn-outline-primary btn-sm"
+                                          onClick={() => validateAndUpdateReservationStatus(reservation, 'confirmed')}
+                                          title="Confirmar reserva"
+                                        >
+                                          <i className="bi bi-check-circle"></i>
+                                        </button>
+                                        <button
+                                          className="btn btn-outline-danger btn-sm"
+                                          onClick={() => validateAndUpdateReservationStatus(reservation, 'cancelled')}
+                                          title="Cancelar reserva"
+                                        >
+                                          <i className="bi bi-x-circle"></i>
+                                        </button>
+                                      </>
+                                    )}
+                                    {reservation.status === 'no_show' && (
+                                      <>
+                                        <button
+                                          className="btn btn-outline-success btn-sm"
+                                          onClick={() => validateAndUpdateReservationStatus(reservation, 'completed')}
+                                          title="Marcar como completada"
+                                        >
+                                          <i className="bi bi-check-circle"></i>
+                                        </button>
+                                        <button
+                                          className="btn btn-outline-danger btn-sm"
+                                          onClick={() => validateAndUpdateReservationStatus(reservation, 'cancelled')}
+                                          title="Cancelar reserva"
+                                        >
+                                          <i className="bi bi-x-circle"></i>
+                                        </button>
+                                      </>
+                                    )}
+                                    {(reservation.status === 'completed' || reservation.status === 'cancelled') && (
+                                      <span className="text-muted small">
+                                        <i className="bi bi-lock"></i> Finalizado
+                                      </span>
+                                    )}
                                   </div>
                                 </td>
                               </tr>
@@ -1573,7 +1765,7 @@ const AdminLockersPage: React.FC = () => {
       {/* Modal de Visualización 3D */}
       {show3DView && selectedLocker && locker3DData && (
         <div className="modal fade show d-block visualization-modal" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
-          <div className="modal-dialog modal-xl">
+          <div className="modal-dialog modal-xl admin-dashboard">
             <div className="modal-content">
               <div className="modal-header">
                 <h5 className="modal-title">
@@ -1653,7 +1845,7 @@ const AdminLockersPage: React.FC = () => {
       {/* Modal de Detalles de Reserva */}
       {showDetailModal && selectedReservation && (
         <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
-          <div className="modal-dialog modal-lg">
+          <div className="modal-dialog modal-lg admin-dashboard">
             <div className="modal-content">
               <div className="modal-header">
                 <h5 className="modal-title">

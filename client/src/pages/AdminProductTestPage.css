@@ -1,0 +1,452 @@
+/* Estilos específicos para la página de Pruebas de Productos 3D */
+
+.admin-product-test-page {
+  background-color: #f8f9fa;
+  min-height: 100vh;
+}
+
+/* Panel de Control */
+.control-panel {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border-left: 4px solid #007bff;
+}
+
+.control-panel .card-header {
+  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+  color: white;
+  border-radius: 12px 12px 0 0;
+}
+
+.stats-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.stat-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.stat-item:last-child {
+  border-bottom: none;
+}
+
+.stat-label {
+  font-weight: 500;
+  color: #6c757d;
+}
+
+.stat-value {
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: #007bff;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  height: 100%;
+}
+
+/* Productos de Prueba */
+.test-products-card {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border-left: 4px solid #28a745;
+}
+
+.test-products-card .card-header {
+  background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
+  color: white;
+  border-radius: 12px 12px 0 0;
+}
+
+.test-product-item {
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.test-product-item:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+.test-product-item .card-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #495057;
+  margin-bottom: 0.5rem;
+}
+
+.product-details p {
+  margin-bottom: 0.25rem;
+  font-size: 0.85rem;
+}
+
+.quantity-controls {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e9ecef;
+}
+
+.quantity-controls .form-label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  margin-bottom: 0.25rem;
+}
+
+/* Controles de cantidad mejorados */
+.quantity-input-group {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.quantity-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  font-weight: bold;
+  transition: all 0.2s ease;
+  border: 2px solid;
+}
+
+.quantity-btn:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.quantity-btn:active {
+  transform: scale(0.95);
+}
+
+.quantity-display {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border: 2px solid #dee2e6;
+  border-radius: 12px;
+  padding: 0.5rem 1rem;
+  min-width: 60px;
+  text-align: center;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.quantity-number {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #495057;
+}
+
+/* Filtros */
+.filters-card {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border-left: 4px solid #ffc107;
+}
+
+.filters-card .card-header {
+  background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
+  color: #212529;
+  border-radius: 12px 12px 0 0;
+}
+
+/* Lista de Productos */
+.products-list-card {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border-left: 4px solid #6f42c1;
+}
+
+.products-list-card .card-header {
+  background: linear-gradient(135deg, #6f42c1 0%, #5a32a3 100%);
+  color: white;
+  border-radius: 12px 12px 0 0;
+}
+
+.products-list-card .table {
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.products-list-card .table-dark {
+  background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+}
+
+.products-list-card .table-hover tbody tr:hover {
+  background-color: #f8f9fa;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+}
+
+.product-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.product-name {
+  font-weight: 600;
+  color: #495057;
+  margin-bottom: 0.25rem;
+}
+
+.price {
+  font-weight: 600;
+  color: #28a745;
+  font-size: 1.1rem;
+}
+
+.dimensions {
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+  color: #6c757d;
+}
+
+/* Badges */
+.badge {
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.375rem 0.75rem;
+  border-radius: 12px;
+}
+
+.badge.bg-secondary {
+  background-color: #6c757d !important;
+}
+
+.badge.bg-info {
+  background-color: #17a2b8 !important;
+}
+
+/* Botones */
+.btn {
+  border-radius: 8px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.btn-outline-primary {
+  color: #007bff;
+  border-color: #007bff;
+}
+
+.btn-outline-primary:hover {
+  background-color: #007bff;
+  border-color: #007bff;
+}
+
+.btn-outline-danger {
+  color: #dc3545;
+  border-color: #dc3545;
+}
+
+.btn-outline-danger:hover {
+  background-color: #dc3545;
+  border-color: #dc3545;
+}
+
+.btn-outline-secondary {
+  color: #6c757d;
+  border-color: #6c757d;
+}
+
+.btn-outline-secondary:hover {
+  background-color: #6c757d;
+  border-color: #6c757d;
+}
+
+/* Estado vacío */
+.empty-state {
+  padding: 3rem 1rem;
+}
+
+.empty-state i {
+  color: #dee2e6;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .stats-info {
+    margin-bottom: 1rem;
+  }
+  
+  .action-buttons {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .action-buttons .btn {
+    width: 100%;
+  }
+  
+  .test-product-item {
+    margin-bottom: 1rem;
+  }
+  
+  .quantity-controls .input-group {
+    max-width: 100%;
+  }
+  
+  .products-list-card .table-responsive {
+    font-size: 0.85rem;
+  }
+  
+  .product-name {
+    font-size: 0.9rem;
+  }
+  
+  .price {
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 576px) {
+  .control-panel .card-body .row {
+    flex-direction: column;
+  }
+  
+  .stats-info {
+    margin-bottom: 1.5rem;
+  }
+  
+  .filters-card .card-body .row {
+    flex-direction: column;
+  }
+  
+  .filters-card .col-md-4,
+  .filters-card .col-md-3,
+  .filters-card .col-md-2 {
+    margin-bottom: 1rem;
+  }
+}
+
+/* Animaciones */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.test-product-item {
+  animation: fadeIn 0.3s ease;
+}
+
+/* Indicadores de límite */
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn:disabled:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+/* Visualización 3D en el centro de la página */
+.visualization-card {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border-left: 4px solid #17a2b8;
+}
+
+.visualization-card .card-header {
+  background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+  color: white;
+  border-radius: 12px 12px 0 0;
+}
+
+.visualization-container {
+  height: 500px;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  background: #f8f9fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.visualization-info {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 1.5rem;
+  height: 500px;
+  overflow-y: auto;
+}
+
+.visualization-info h6 {
+  color: #2c3e50;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #17a2b8;
+}
+
+.visualization-info .list-unstyled li {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.visualization-info .list-unstyled li:last-child {
+  border-bottom: none;
+}
+
+.empty-visualization {
+  height: 500px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.empty-visualization i {
+  color: #dee2e6;
+  margin-bottom: 1rem;
+}
+
+/* Responsive para visualización 3D */
+@media (max-width: 768px) {
+  .visualization-container {
+    height: 300px;
+    margin-bottom: 1rem;
+  }
+  
+  .visualization-info {
+    height: auto;
+    max-height: 300px;
+  }
+  
+  .empty-visualization {
+    height: 300px;
+  }
+}

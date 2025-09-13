@@ -10,12 +10,17 @@ async function syncExistingAppointments() {
   try {
     console.log('🔄 Iniciando sincronización de citas existentes...');
     
-    // Conectar a la base de datos
-    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/hako', {
-      useNewUrlParser: true,
-      useUnifiedTopology: true
-    });
-    console.log('✅ Conectado a MongoDB');
+    // Verificar si ya hay una conexión activa
+    if (mongoose.connection.readyState !== 1) {
+      console.log('⚠️ No hay conexión activa a MongoDB, conectando...');
+      await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/hako', {
+        useNewUrlParser: true,
+        useUnifiedTopology: true
+      });
+      console.log('✅ Conectado a MongoDB');
+    } else {
+      console.log('✅ Usando conexión existente a MongoDB');
+    }
 
     // Obtener todas las citas que no tienen asignaciones correspondientes
     const appointments = await Appointment.find({
@@ -74,9 +79,14 @@ async function syncExistingAppointments() {
 
   } catch (error) {
     console.error('❌ Error en sincronización:', error);
+    throw error; // Re-lanzar el error para que el endpoint pueda manejarlo
   } finally {
-    await mongoose.connection.close();
-    console.log('🔌 Conexión cerrada');
+    // Solo cerrar la conexión si la abrimos nosotros
+    if (mongoose.connection.readyState === 1) {
+      // Verificar si hay otros procesos usando la conexión
+      // En un entorno de servidor, no cerramos la conexión principal
+      console.log('🔌 Manteniendo conexión activa para el servidor');
+    }
   }
 }
 

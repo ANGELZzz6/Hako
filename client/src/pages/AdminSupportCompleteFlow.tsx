@@ -9,6 +9,7 @@ import type { Product } from '../services/productService';
 import userService from '../services/userService';
 import type { User } from '../services/userService';
 import './AdminOrdersPage.css';
+import './AdminModalImprovements.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 
 // Tipos para productos individuales
@@ -784,7 +785,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
       
       {/* Modal para agregar producto a usuario */}
       <div className={`modal fade ${showAddProductModal ? 'show' : ''}`} id="addProductModal" tabIndex={-1} aria-labelledby="addProductModalLabel" aria-hidden={!showAddProductModal} style={{display: showAddProductModal ? 'block' : 'none', backgroundColor: showAddProductModal ? 'rgba(0,0,0,0.5)' : 'transparent'}}>
-        <div className="modal-dialog modal-lg">
+        <div className="modal-dialog modal-lg admin-dashboard">
           <div className="modal-content">
             <div className="modal-header">
               <h5 className="modal-title" id="addProductModalLabel">Agregar Producto a Usuario</h5>
@@ -1328,7 +1329,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
       {/* Modal de detalles del producto */}
       {selectedProduct && (
         <div className="modal fade show d-block order-details-modal" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
-          <div className="modal-dialog modal-lg">
+          <div className="modal-dialog modal-lg admin-dashboard">
             <div className="modal-content">
               <div className="modal-header">
                 <h5 className="modal-title">Detalles del Producto Individual</h5>
@@ -1439,7 +1440,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
       {/* Modal para mostrar productos del usuario */}
       {showUserProductsModal && (
         <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
-          <div className="modal-dialog modal-lg">
+          <div className="modal-dialog modal-lg admin-dashboard">
             <div className="modal-content">
               <div className="modal-header">
                 <h5 className="modal-title">
@@ -1530,7 +1531,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
       {/* Modal para gestionar estado de reservas */}
       {showReservationStatusModal && (
         <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
-          <div className="modal-dialog modal-xl">
+          <div className="modal-dialog modal-xl admin-dashboard">
             <div className="modal-content">
               <div className="modal-header">
                 <h5 className="modal-title">
@@ -1658,7 +1659,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
       {/* Modal del Panel de Debugging */}
       {showDebugPanel && (
         <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
-          <div className="modal-dialog modal-xl">
+          <div className="modal-dialog modal-xl admin-dashboard">
             <div className="modal-content">
               <div className="modal-header">
                 <h5 className="modal-title">

@@ -801,3 +801,235 @@
     margin: 10px;
   }
 }
+
+/* Mejoras de responsividad para modales */
+.visualization-modal .modal-dialog {
+  max-width: 95vw;
+  width: 95vw;
+  height: 95vh;
+  margin: 2.5vh auto;
+}
+
+.visualization-modal .modal-content {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.visualization-modal .modal-body {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.visualization-modal .alert-info {
+  flex-shrink: 0;
+}
+
+/* Modal de detalles de reserva mejorado */
+.modal-dialog.modal-lg {
+  max-width: 90vw;
+  width: 90vw;
+  height: 90vh;
+  margin: 5vh auto;
+}
+
+.modal-content {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-body {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-body .card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-body .card-body {
+  flex: 1;
+  overflow: hidden;
+}
+
+.modal-body .row {
+  height: 100%;
+}
+
+.modal-body .col-md-6 {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Responsive para móviles */
+@media (max-width: 768px) {
+  .visualization-modal .modal-dialog,
+  .modal-dialog.modal-lg {
+    max-width: 98vw;
+    width: 98vw;
+    height: 98vh;
+    margin: 1vh auto;
+  }
+  
+  .visualization-modal .modal-body,
+  .modal-body {
+    padding: 1rem;
+  }
+  
+  .visualization-modal .modal-header,
+  .modal-header {
+    padding: 0.75rem 1rem;
+  }
+  
+  .visualization-modal .modal-title,
+  .modal-title {
+    font-size: 1.1rem;
+  }
+}
+
+/* Eliminar barras de scroll en formularios */
+.modal-body::-webkit-scrollbar {
+  display: none;
+}
+
+.modal-body {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Mejorar scroll en contenido de modales */
+.modal-body .table-responsive {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.modal-body .table-responsive::-webkit-scrollbar {
+  width: 6px;
+}
+
+.modal-body .table-responsive::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.modal-body .table-responsive::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.modal-body .table-responsive::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Estilos para citas canceladas */
+.cancelled-appointments-card {
+  border-left: 4px solid #dc3545;
+  box-shadow: 0 4px 6px rgba(220, 53, 69, 0.1);
+}
+
+.cancelled-appointments-card .card-header {
+  background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+  border-bottom: 1px solid #f1aeb5;
+}
+
+.cancelled-appointments-card .table-danger {
+  background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+}
+
+.cancelled-appointments-card .table-light {
+  background-color: #fefefe;
+}
+
+.cancelled-appointments-card .table-light:hover {
+  background-color: #f8f9fa;
+}
+
+.cancelled-appointments-card .item-badge {
+  background: #f8d7da;
+  border: 1px solid #f1aeb5;
+}
+
+.cancelled-appointments-card .item-name {
+  color: #721c24;
+  font-weight: 500;
+}
+
+.cancelled-appointments-card .item-quantity {
+  color: #721c24;
+  font-weight: 600;
+}
+
+/* Estilos para botones de cambio de estado */
+.action-buttons .btn-sm {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  margin: 0 1px;
+}
+
+.action-buttons .btn-outline-success {
+  color: #198754;
+  border-color: #198754;
+}
+
+.action-buttons .btn-outline-success:hover {
+  background-color: #198754;
+  border-color: #198754;
+}
+
+.action-buttons .btn-outline-danger {
+  color: #dc3545;
+  border-color: #dc3545;
+}
+
+.action-buttons .btn-outline-danger:hover {
+  background-color: #dc3545;
+  border-color: #dc3545;
+}
+
+.action-buttons .btn-outline-warning {
+  color: #ffc107;
+  border-color: #ffc107;
+}
+
+.action-buttons .btn-outline-warning:hover {
+  background-color: #ffc107;
+  border-color: #ffc107;
+  color: #000;
+}
+
+.action-buttons .btn-outline-primary {
+  color: #0d6efd;
+  border-color: #0d6efd;
+}
+
+.action-buttons .btn-outline-primary:hover {
+  background-color: #0d6efd;
+  border-color: #0d6efd;
+}
+
+/* Responsive para botones de acción */
+@media (max-width: 768px) {
+  .action-buttons {
+    flex-direction: column;
+    gap: 2px;
+  }
+  
+  .action-buttons .btn {
+    width: 100%;
+    margin: 1px 0;
+  }
+}
+
+/* 
+ * NOTA: Los estilos de modales responsivos se manejan globalmente en AdminModalImprovements.css
+ * para mantener consistencia en todas las páginas de admin.
+ * Los estilos específicos de modales de esta página se mantienen para compatibilidad.
+ */

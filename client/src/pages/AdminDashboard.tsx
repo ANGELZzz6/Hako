@@ -74,6 +74,12 @@ const AdminDashboard: React.FC = () => {
               <p>Casilleros</p>
             </Link>
             
+            {/* Botón de Pruebas de Productos 3D */}
+            <Link to="/admin/product-test" className="dashboard-card" style={{ textDecoration: 'none' }}>
+              <i className="bi bi-cube icon"></i>
+              <p>Pruebas 3D</p>
+            </Link>
+            
             {/* Botón de FLUJO COMPLETO SOPORTE TOTAL */}
             <Link to="/admin/support-complete" className="dashboard-card" style={{ textDecoration: 'none' }}>
               <i className="bi bi-tools icon"></i>
