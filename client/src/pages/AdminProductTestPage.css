@@ -450,3 +450,96 @@
     height: 300px;
   }
 }
+
+/* Estilos para el modal de variantes */
+.modal.show {
+  display: block !important;
+}
+
+.modal-backdrop.show {
+  opacity: 0.5;
+}
+
+.variants-container {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.variant-details {
+  text-align: right;
+  min-width: 120px;
+}
+
+.form-check-input:checked {
+  background-color: #28a745;
+  border-color: #28a745;
+}
+
+.form-check-label {
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.form-check-label:hover {
+  background-color: #f8f9fa;
+}
+
+.form-check-input:checked + .form-check-label {
+  background-color: #d4edda;
+  border: 1px solid #c3e6cb;
+}
+
+.btn-group .btn {
+  margin-right: 0.25rem;
+}
+
+.btn-group .btn:last-child {
+  margin-right: 0;
+}
+
+/* Estilos para badges de variantes */
+.badge.bg-warning {
+  background-color: #ffc107 !important;
+  color: #212529 !important;
+}
+
+/* Mejoras para la tabla */
+.table td {
+  vertical-align: middle;
+}
+
+.btn-group {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.btn-group .btn {
+  flex: 1;
+  min-width: auto;
+}
+
+/* Responsive para el modal */
+@media (max-width: 768px) {
+  .modal-dialog {
+    margin: 0.5rem;
+  }
+  
+  .variants-container {
+    max-height: 300px;
+  }
+  
+  .variant-details {
+    min-width: 100px;
+    font-size: 0.8rem;
+  }
+  
+  .btn-group {
+    flex-direction: column;
+  }
+  
+  .btn-group .btn {
+    margin-bottom: 0.25rem;
+  }
+}

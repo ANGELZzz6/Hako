@@ -17,6 +17,7 @@ interface TestProduct {
   variants?: any;
   individualProductId?: string;
   originalProductId?: string;
+  selectedVariants?: Record<string, string>;
 }
 
 interface Product3D {
@@ -48,6 +49,10 @@ const AdminProductTestPage: React.FC = () => {
   // Estados para límites
   const [maxSlots, setMaxSlots] = useState(27); // Límite de slots del casillero
   const [currentSlotsUsed, setCurrentSlotsUsed] = useState(0);
+  
+  // Estados para selección de variantes
+  const [selectedProductForVariants, setSelectedProductForVariants] = useState<Product | null>(null);
+  const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!isLoading && (!isAuthenticated || !isAdmin)) {
@@ -100,32 +105,52 @@ const AdminProductTestPage: React.FC = () => {
     setCurrentSlotsUsed(totalSlots);
   };
 
-  const addProductToTest = async (product: Product) => {
+  const addProductToTest = async (product: Product, variants?: Record<string, string>) => {
     try {
       console.log('🔍 Agregando producto a prueba:', product.nombre);
       
       // Obtener dimensiones del producto
       let dimensions = { length: 10, width: 10, height: 10 }; // Valores por defecto
       
-      if (product.dimensiones) {
-        dimensions = {
-          length: product.dimensiones.largo || 10,
-          width: product.dimensiones.ancho || 10,
-          height: product.dimensiones.alto || 10
-        };
-      } else {
-        // Intentar obtener dimensiones desde variantes
+      // Si hay variantes seleccionadas, usar esas dimensiones
+      if (variants && Object.keys(variants).length > 0) {
         try {
-          const variantDims = getVariantOrProductDimensions(product, {});
+          const variantDims = getVariantOrProductDimensions(product, variants);
           if (variantDims && variantDims.largo && variantDims.ancho && variantDims.alto) {
             dimensions = {
               length: variantDims.largo,
               width: variantDims.ancho,
               height: variantDims.alto
             };
+            console.log('✅ Usando dimensiones de variante:', dimensions);
           }
         } catch (err) {
-          console.log('⚠️ No se pudieron obtener dimensiones de variantes, usando valores por defecto');
+          console.log('⚠️ No se pudieron obtener dimensiones de variantes seleccionadas');
+        }
+      }
+      
+      // Si no hay variantes o no se pudieron obtener dimensiones, usar las del producto base
+      if (dimensions.length === 10 && dimensions.width === 10 && dimensions.height === 10) {
+        if (product.dimensiones) {
+          dimensions = {
+            length: product.dimensiones.largo || 10,
+            width: product.dimensiones.ancho || 10,
+            height: product.dimensiones.alto || 10
+          };
+        } else {
+          // Intentar obtener dimensiones desde variantes por defecto
+          try {
+            const variantDims = getVariantOrProductDimensions(product, {});
+            if (variantDims && variantDims.largo && variantDims.ancho && variantDims.alto) {
+              dimensions = {
+                length: variantDims.largo,
+                width: variantDims.ancho,
+                height: variantDims.alto
+              };
+            }
+          } catch (err) {
+            console.log('⚠️ No se pudieron obtener dimensiones de variantes, usando valores por defecto');
+          }
         }
       }
 
@@ -137,7 +162,8 @@ const AdminProductTestPage: React.FC = () => {
         volume: dimensions.length * dimensions.width * dimensions.height,
         variants: product.variants,
         individualProductId: product._id,
-        originalProductId: product._id
+        originalProductId: product._id,
+        selectedVariants: variants || {}
       };
 
       // Calcular slots que ocuparía este producto
@@ -154,6 +180,10 @@ const AdminProductTestPage: React.FC = () => {
 
       setTestProducts(prev => [...prev, testProduct]);
       console.log('✅ Producto agregado a prueba');
+      
+      // Limpiar selección de variantes
+      setSelectedProductForVariants(null);
+      setSelectedVariants({});
     } catch (err) {
       console.error('Error agregando producto:', err);
       alert('Error al agregar el producto a la prueba');
@@ -198,6 +228,29 @@ const AdminProductTestPage: React.FC = () => {
     console.log('🧹 Productos de prueba limpiados');
   };
 
+  const openVariantSelector = (product: Product) => {
+    setSelectedProductForVariants(product);
+    setSelectedVariants({});
+  };
+
+  const handleVariantChange = (attributeName: string, value: string) => {
+    setSelectedVariants(prev => ({
+      ...prev,
+      [attributeName]: value
+    }));
+  };
+
+  const confirmVariantSelection = () => {
+    if (selectedProductForVariants) {
+      addProductToTest(selectedProductForVariants, selectedVariants);
+    }
+  };
+
+  const cancelVariantSelection = () => {
+    setSelectedProductForVariants(null);
+    setSelectedVariants({});
+  };
+
   const generate3DData = async () => {
     try {
       console.log('🎯 Generando datos 3D para prueba...');
@@ -208,13 +261,37 @@ const AdminProductTestPage: React.FC = () => {
       }
 
       // Convertir productos de prueba al formato Product3D
-      const products3D: Product3D[] = testProducts.map(product => ({
-        id: product.id,
-        name: product.name,
-        dimensions: product.dimensions,
-        quantity: product.quantity,
-        volume: product.volume
-      }));
+      const products3D: Product3D[] = testProducts.map(product => {
+        // Si el producto tiene variantes seleccionadas, recalcular dimensiones
+        let finalDimensions = product.dimensions;
+        
+        if (product.selectedVariants && Object.keys(product.selectedVariants).length > 0) {
+          try {
+            const variantDims = getVariantOrProductDimensions(
+              products.find(p => p._id === product.originalProductId) || {} as Product, 
+              product.selectedVariants
+            );
+            if (variantDims && variantDims.largo && variantDims.ancho && variantDims.alto) {
+              finalDimensions = {
+                length: variantDims.largo,
+                width: variantDims.ancho,
+                height: variantDims.alto
+              };
+              console.log(`✅ Usando dimensiones de variante para ${product.name}:`, finalDimensions);
+            }
+          } catch (err) {
+            console.log(`⚠️ No se pudieron obtener dimensiones de variante para ${product.name}, usando dimensiones guardadas`);
+          }
+        }
+        
+        return {
+          id: product.id,
+          name: product.name,
+          dimensions: finalDimensions,
+          quantity: product.quantity,
+          volume: finalDimensions.length * finalDimensions.width * finalDimensions.height * product.quantity
+        };
+      });
 
       console.log('🔍 Productos para 3D:', products3D);
 
@@ -282,6 +359,7 @@ const AdminProductTestPage: React.FC = () => {
         <div className="header-content">
           <div className="header-left">
             <i className="bi bi-cube header-icon"></i>
+            <i className="bi bi-tags header-icon ms-2"></i>
             <span className="header-title">Pruebas de Productos 3D</span>
           </div>
           <div className="header-center">
@@ -583,6 +661,7 @@ const AdminProductTestPage: React.FC = () => {
                             <th>Precio</th>
                             <th>Dimensiones</th>
                             <th>Slots</th>
+                            <th>Variantes</th>
                             <th>Acciones</th>
                           </tr>
                         </thead>
@@ -593,6 +672,7 @@ const AdminProductTestPage: React.FC = () => {
                             const slotsY = Math.ceil(dimensions.ancho / 15);
                             const slotsZ = Math.ceil(dimensions.alto / 15);
                             const productSlots = slotsX * slotsY * slotsZ;
+                            const hasVariants = product.variants && product.variants.enabled && product.variants.attributes.length > 0;
                             
                             return (
                               <tr key={product._id}>
@@ -617,15 +697,37 @@ const AdminProductTestPage: React.FC = () => {
                                   <span className="badge bg-info">{productSlots} slots</span>
                                 </td>
                                 <td>
-                                  <button
-                                    className="btn btn-outline-primary btn-sm"
-                                    onClick={() => addProductToTest(product)}
-                                    disabled={currentSlotsUsed + productSlots > maxSlots}
-                                    title={currentSlotsUsed + productSlots > maxSlots ? 'Excedería el límite de slots' : 'Agregar a prueba'}
-                                  >
-                                    <i className="bi bi-plus-circle me-1"></i>
-                                    Agregar
-                                  </button>
+                                  {hasVariants ? (
+                                    <span className="badge bg-warning">
+                                      <i className="bi bi-tags me-1"></i>
+                                      {product.variants.attributes.length} variante{product.variants.attributes.length > 1 ? 's' : ''}
+                                    </span>
+                                  ) : (
+                                    <span className="text-muted">Sin variantes</span>
+                                  )}
+                                </td>
+                                <td>
+                                  <div className="btn-group" role="group">
+                                    <button
+                                      className="btn btn-outline-primary btn-sm"
+                                      onClick={() => addProductToTest(product)}
+                                      disabled={currentSlotsUsed + productSlots > maxSlots}
+                                      title={currentSlotsUsed + productSlots > maxSlots ? 'Excedería el límite de slots' : 'Agregar a prueba'}
+                                    >
+                                      <i className="bi bi-plus-circle me-1"></i>
+                                      Agregar
+                                    </button>
+                                    {hasVariants && (
+                                      <button
+                                        className="btn btn-outline-success btn-sm"
+                                        onClick={() => openVariantSelector(product)}
+                                        title="Seleccionar variante"
+                                      >
+                                        <i className="bi bi-tags me-1"></i>
+                                        Variantes
+                                      </button>
+                                    )}
+                                  </div>
                                 </td>
                               </tr>
                             );
@@ -638,6 +740,97 @@ const AdminProductTestPage: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {/* Modal de Selección de Variantes */}
+          {selectedProductForVariants && (
+            <div className="modal fade show" style={{ display: 'block' }} tabIndex={-1}>
+              <div className="modal-dialog modal-lg">
+                <div className="modal-content">
+                  <div className="modal-header">
+                    <h5 className="modal-title">
+                      <i className="bi bi-tags me-2"></i>
+                      Seleccionar Variante - {selectedProductForVariants.nombre}
+                    </h5>
+                    <button
+                      type="button"
+                      className="btn-close"
+                      onClick={cancelVariantSelection}
+                    ></button>
+                  </div>
+                  <div className="modal-body">
+                    {selectedProductForVariants.variants && selectedProductForVariants.variants.enabled && (
+                      <div className="variants-container">
+                        {selectedProductForVariants.variants.attributes.map((attribute, index) => (
+                          <div key={index} className="mb-4">
+                            <label className="form-label fw-bold">
+                              {attribute.name}
+                              {attribute.required && <span className="text-danger ms-1">*</span>}
+                            </label>
+                            <div className="row">
+                              {attribute.options.map((option, optionIndex) => (
+                                <div key={optionIndex} className="col-md-6 mb-2">
+                                  <div className="form-check">
+                                    <input
+                                      className="form-check-input"
+                                      type="radio"
+                                      name={`variant-${attribute.name}`}
+                                      id={`variant-${index}-${optionIndex}`}
+                                      value={option.value}
+                                      checked={selectedVariants[attribute.name] === option.value}
+                                      onChange={() => handleVariantChange(attribute.name, option.value)}
+                                    />
+                                    <label
+                                      className="form-check-label d-flex justify-content-between align-items-center w-100"
+                                      htmlFor={`variant-${index}-${optionIndex}`}
+                                    >
+                                      <span>{option.value}</span>
+                                      <div className="variant-details">
+                                        {option.dimensiones && (
+                                          <small className="text-muted d-block">
+                                            {option.dimensiones.largo}×{option.dimensiones.ancho}×{option.dimensiones.alto} cm
+                                          </small>
+                                        )}
+                                        <small className="text-success fw-bold">
+                                          ${option.price.toLocaleString()}
+                                        </small>
+                                      </div>
+                                    </label>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="modal-footer">
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={cancelVariantSelection}
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={confirmVariantSelection}
+                      disabled={Object.keys(selectedVariants).length === 0}
+                    >
+                      <i className="bi bi-check-circle me-1"></i>
+                      Agregar con Variante
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Overlay del modal */}
+          {selectedProductForVariants && (
+            <div className="modal-backdrop fade show"></div>
+          )}
         </div>
       </main>
 

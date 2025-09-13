@@ -85,11 +85,21 @@ export class DateUtils {
   }
 
   /**
-   * Obtener la fecha máxima permitida (7 días en el futuro)
+   * Obtener la fecha máxima permitida (sin límite)
    */
   static getMaxAllowedDate(): string {
-    const maxDate = dayjs().tz(COLOMBIA_TIMEZONE).add(7, 'days');
+    // Permitir fechas hasta 10 años en el futuro
+    const maxDate = dayjs().tz(COLOMBIA_TIMEZONE).add(10, 'years');
     return maxDate.format('YYYY-MM-DD');
+  }
+
+  /**
+   * Obtener la fecha mínima permitida (sin límite)
+   */
+  static getMinAllowedDate(): string {
+    // Permitir fechas hasta 10 años en el pasado
+    const minDate = dayjs().tz(COLOMBIA_TIMEZONE).subtract(10, 'years');
+    return minDate.format('YYYY-MM-DD');
   }
 
   /**
@@ -107,10 +117,10 @@ export class DateUtils {
    * Validar si una fecha está dentro del rango permitido
    */
   static isDateInAllowedRange(dateString: string): boolean {
-    const today = dayjs().tz(COLOMBIA_TIMEZONE).format('YYYY-MM-DD');
+    const minDate = this.getMinAllowedDate();
     const maxDate = this.getMaxAllowedDate();
     
-    return dayjs(dateString).isAfter(dayjs(today).subtract(1, 'day')) && 
+    return dayjs(dateString).isAfter(dayjs(minDate).subtract(1, 'day')) && 
            dayjs(dateString).isBefore(dayjs(maxDate).add(1, 'day'));
   }
 

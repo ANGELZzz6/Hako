@@ -16,6 +16,7 @@ import LockerVisualization from './components/LockerVisualization';
 import AppointmentCard from './components/AppointmentCard';
 import EditAppointmentModal from './components/EditAppointmentModal';
 import LoadingOverlay from './components/LoadingOverlay';
+import './OrdersPage.css';
 
 const OrdersPage: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
@@ -1182,10 +1183,220 @@ const OrdersPage: React.FC = () => {
                               </p>
                             </div>
                             <div className="col-md-6">
-                              <div className="alert alert-success mb-0">
+                              <div className="alert alert-success mb-3">
                                 <i className="bi bi-info-circle me-2"></i>
                                 <strong>Reserva Finalizada:</strong> Esta reserva fue completada exitosamente. 
                                 Los productos han sido recogidos y los casilleros liberados.
+                              </div>
+                              
+                              {/* Productos de la reserva completada */}
+                              <div className="mt-3">
+                                <h6 className="mb-2">
+                                  <i className="bi bi-box-seam me-2"></i>
+                                  Productos Recogidos:
+                                  <small className="text-muted ms-2">
+                                    <i className="bi bi-cursor me-1"></i>
+                                    Haz clic en cualquier producto para verlo
+                                  </small>
+                                  <button 
+                                    className="btn btn-outline-info btn-sm ms-2"
+                                    onClick={() => {
+                                      console.log('🔍 === DEBUG COMPLETO DE RESERVA ===');
+                                      console.log('📅 Reserva:', appointment._id);
+                                      console.log('📦 Items en la reserva:', appointment.itemsToPickup);
+                                      console.log('🛒 Productos comprados disponibles:', purchasedProducts);
+                                      console.log('🔍 Estructura de un item:', appointment.itemsToPickup[0]);
+                                    }}
+                                    title="Debug de información de productos"
+                                  >
+                                    <i className="bi bi-bug me-1"></i>
+                                    Debug
+                                  </button>
+                                </h6>
+                                <div className="row">
+                                  {appointment.itemsToPickup.map((item: any, itemIndex: number) => (
+                                    <div key={itemIndex} className="col-md-6 mb-2">
+                                      <div 
+                                        className="card border-success product-item-card"
+                                        style={{ cursor: 'pointer' }}
+                                        onClick={() => {
+                                          // Debug: Mostrar información completa del item
+                                          console.log('🔍 Item completo para navegación:', item);
+                                          console.log('🔍 Productos comprados disponibles:', purchasedProducts.length);
+                                          
+                                          // Navegar a la página del producto con diferentes estrategias
+                                          let productId = null;
+                                          let productName = '';
+                                          
+                                          // Estrategia 1: Producto directo
+                                          if (item.product && item.product._id) {
+                                            productId = item.product._id;
+                                            productName = item.product.nombre;
+                                            console.log('✅ Estrategia 1 - Producto directo:', productId, productName);
+                                          }
+                                          // Estrategia 2: IndividualProduct
+                                          else if (item.individualProduct && item.individualProduct._id) {
+                                            productId = item.individualProduct._id;
+                                            productName = (item.individualProduct as any)?.product?.nombre || 'Producto Individual';
+                                            console.log('✅ Estrategia 2 - IndividualProduct:', productId, productName);
+                                          }
+                                          // Estrategia 3: OriginalProduct
+                                          else if (item.originalProduct && item.originalProduct._id) {
+                                            productId = item.originalProduct._id;
+                                            productName = (item.originalProduct as any)?.nombre || 'Producto Original';
+                                            console.log('✅ Estrategia 3 - OriginalProduct:', productId, productName);
+                                          }
+                                          // Estrategia 4: Buscar en productos comprados por nombre
+                                          else {
+                                            const searchName = item.product?.nombre || 
+                                                             (item.individualProduct as any)?.product?.nombre || 
+                                                             (item.originalProduct as any)?.nombre;
+                                            console.log('🔍 Buscando por nombre:', searchName);
+                                            
+                                            if (searchName) {
+                                              const foundProduct = purchasedProducts.find(p => 
+                                                p.product?.nombre === searchName
+                                              );
+                                              console.log('🔍 Producto encontrado:', foundProduct);
+                                              
+                                              if (foundProduct && foundProduct.product?._id) {
+                                                productId = foundProduct.product._id;
+                                                productName = foundProduct.product.nombre;
+                                                console.log('✅ Estrategia 4 - Encontrado por nombre:', productId, productName);
+                                              }
+                                            }
+                                          }
+                                          
+                                          if (productId) {
+                                            console.log('🚀 Navegando al producto:', productId, 'Nombre:', productName);
+                                            // Usar navigate de React Router con la ruta correcta /productos
+                                            try {
+                                              navigate(`/productos/${productId}`, { replace: false });
+                                            } catch (navError) {
+                                              console.error('Error con navigate, usando window.location:', navError);
+                                              // Fallback a window.location si navigate falla
+                                              window.location.href = `/productos/${productId}`;
+                                            }
+                                          } else {
+                                            console.warn('⚠️ No se pudo encontrar el ID del producto para navegar');
+                                            console.log('🔍 Información disponible del item:', {
+                                              hasProduct: !!item.product,
+                                              hasIndividualProduct: !!item.individualProduct,
+                                              hasOriginalProduct: !!item.originalProduct,
+                                              productName: item.product?.nombre,
+                                              individualProductName: (item.individualProduct as any)?.product?.nombre,
+                                              originalProductName: (item.originalProduct as any)?.nombre
+                                            });
+                                            alert('No se pudo encontrar la información del producto para navegar. Revisa la consola para más detalles.');
+                                          }
+                                        }}
+                                        title="Haz clic para ver el producto"
+                                      >
+                                        <div className="card-body p-2">
+                                          <div className="d-flex align-items-center">
+                                            {/* Imagen del producto */}
+                                            <div className="product-image-container me-3">
+                                              {(() => {
+                                                // Buscar la imagen del producto
+                                                let productImage = null;
+                                                let productName = '';
+                                                
+                                                // Estrategia 1: Imagen del producto directo
+                                                if (item.product?.imagenes && item.product.imagenes.length > 0) {
+                                                  productImage = item.product.imagenes[0];
+                                                  productName = item.product.nombre;
+                                                }
+                                                // Estrategia 2: Imagen del IndividualProduct
+                                                else if ((item.individualProduct as any)?.product?.imagenes && 
+                                                        (item.individualProduct as any).product.imagenes.length > 0) {
+                                                  productImage = (item.individualProduct as any).product.imagenes[0];
+                                                  productName = (item.individualProduct as any).product.nombre;
+                                                }
+                                                // Estrategia 3: Imagen del OriginalProduct
+                                                else if ((item.originalProduct as any)?.imagenes && 
+                                                        (item.originalProduct as any).imagenes.length > 0) {
+                                                  productImage = (item.originalProduct as any).imagenes[0];
+                                                  productName = (item.originalProduct as any).nombre;
+                                                }
+                                                // Estrategia 4: Buscar en productos comprados
+                                                else {
+                                                  const searchName = item.product?.nombre || 
+                                                                   (item.individualProduct as any)?.product?.nombre || 
+                                                                   (item.originalProduct as any)?.nombre;
+                                                  if (searchName) {
+                                                    const foundProduct = purchasedProducts.find(p => 
+                                                      p.product?.nombre === searchName
+                                                    );
+                                                    if (foundProduct?.product?.imagenes && foundProduct.product.imagenes.length > 0) {
+                                                      productImage = foundProduct.product.imagenes[0];
+                                                      productName = foundProduct.product.nombre;
+                                                    }
+                                                  }
+                                                }
+                                                
+                                                if (productImage) {
+                                                  return (
+                                                    <>
+                                                      <img 
+                                                        src={productImage} 
+                                                        alt={productName}
+                                                        className="product-thumbnail"
+                                                        style={{
+                                                          width: '50px',
+                                                          height: '50px',
+                                                          objectFit: 'cover',
+                                                          borderRadius: '8px',
+                                                          border: '2px solid #28a745'
+                                                        }}
+                                                        onError={(e) => {
+                                                          // Fallback si la imagen no carga
+                                                          console.warn('⚠️ Error cargando imagen del producto:', productImage);
+                                                          e.currentTarget.style.display = 'none';
+                                                          // Mostrar placeholder
+                                                          const placeholder = e.currentTarget.nextElementSibling as HTMLElement;
+                                                          if (placeholder) {
+                                                            placeholder.style.display = 'flex';
+                                                          }
+                                                        }}
+                                                      />
+                                                      <div className="bg-success rounded d-flex align-items-center justify-content-center product-placeholder" 
+                                                           style={{ width: '50px', height: '50px', display: 'none' }}
+                                                           title="Imagen no disponible">
+                                                        <i className="bi bi-box text-white" style={{ fontSize: '20px' }}></i>
+                                                      </div>
+                                                    </>
+                                                  );
+                                                } else {
+                                                  return (
+                                                    <div className="bg-success rounded d-flex align-items-center justify-content-center product-placeholder" 
+                                                         style={{ width: '50px', height: '50px' }}
+                                                         title="Imagen no disponible">
+                                                      <i className="bi bi-box text-white" style={{ fontSize: '20px' }}></i>
+                                                    </div>
+                                                  );
+                                                }
+                                              })()}
+                                            </div>
+                                            
+                                            <div className="flex-grow-1">
+                                              <h6 className="mb-0 text-success">
+                                                {item.product?.nombre || 
+                                                 (item.individualProduct as any)?.product?.nombre || 
+                                                 (item.originalProduct as any)?.nombre || 'Producto sin nombre'}
+                                              </h6>
+                                              <small className="text-muted">
+                                                Cantidad: {item.quantity} | Casillero: {item.lockerNumber}
+                                              </small>
+                                            </div>
+                                            <div className="text-end">
+                                              <i className="bi bi-arrow-right-circle text-success"></i>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
                               </div>
                             </div>
                           </div>

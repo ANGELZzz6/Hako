@@ -989,7 +989,7 @@ const AdminLockersPage: React.FC = () => {
                         className="form-control"
                         value={selectedDate}
                         onChange={(e) => handleDateChange(e.target.value)}
-                        min={DateUtils.getCurrentDate()}
+                        min={DateUtils.getMinAllowedDate()}
                         max={DateUtils.getMaxAllowedDate()}
                         style={{ 
                           position: 'relative',
@@ -997,9 +997,31 @@ const AdminLockersPage: React.FC = () => {
                         }}
                       />
                       {selectedDate && (
-                        <small className="text-muted">
-                          {formatDate(selectedDate)}
-                        </small>
+                        <div className="mt-1">
+                          <small className="text-muted">
+                            {formatDate(selectedDate)}
+                          </small>
+                          <div className="mt-1">
+                            {DateUtils.isPast(selectedDate) && (
+                              <span className="badge bg-secondary">
+                                <i className="bi bi-clock-history me-1"></i>
+                                Fecha Pasada
+                              </span>
+                            )}
+                            {DateUtils.isToday(selectedDate) && (
+                              <span className="badge bg-primary">
+                                <i className="bi bi-calendar-check me-1"></i>
+                                Hoy
+                              </span>
+                            )}
+                            {DateUtils.isFuture(selectedDate) && (
+                              <span className="badge bg-success">
+                                <i className="bi bi-calendar-plus me-1"></i>
+                                Fecha Futura
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       )}
                     </div>
                     <div className="col-md-6">
@@ -1052,6 +1074,36 @@ const AdminLockersPage: React.FC = () => {
                           <div className="col-md-2">
                             <small><strong>Última actualización:</strong> 
                               {lastUpdate ? lastUpdate.toLocaleTimeString() : 'Nunca'}
+                            </small>
+                          </div>
+                        </div>
+                        <div className="row mt-2">
+                          <div className="col-md-4">
+                            <small><strong>Rango de fechas:</strong> 
+                              <span className="badge bg-info ms-1">
+                                <i className="bi bi-infinity me-1"></i>
+                                Infinito (10 años)
+                              </span>
+                            </small>
+                          </div>
+                          <div className="col-md-4">
+                            <small><strong>Tipo de fecha:</strong> 
+                              {selectedDate && DateUtils.isPast(selectedDate) && (
+                                <span className="badge bg-secondary ms-1">Pasada</span>
+                              )}
+                              {selectedDate && DateUtils.isToday(selectedDate) && (
+                                <span className="badge bg-primary ms-1">Hoy</span>
+                              )}
+                              {selectedDate && DateUtils.isFuture(selectedDate) && (
+                                <span className="badge bg-success ms-1">Futura</span>
+                              )}
+                            </small>
+                          </div>
+                          <div className="col-md-4">
+                            <small><strong>Estado:</strong> 
+                              {loading && <span className="badge bg-warning ms-1">Cargando</span>}
+                              {error && <span className="badge bg-danger ms-1">Error</span>}
+                              {!loading && !error && <span className="badge bg-success ms-1">Listo</span>}
                             </small>
                           </div>
                         </div>
@@ -1151,10 +1203,24 @@ const AdminLockersPage: React.FC = () => {
           {selectedDate && selectedTime && (
             <div className="row mb-4">
               <div className="col-12">
-                <div className="alert alert-info selection-info">
-                  <i className="bi bi-info-circle me-2"></i>
+                <div className={`alert selection-info ${
+                  DateUtils.isPast(selectedDate) ? 'alert-warning' : 
+                  DateUtils.isToday(selectedDate) ? 'alert-info' : 
+                  'alert-success'
+                }`}>
+                  <i className={`bi me-2 ${
+                    DateUtils.isPast(selectedDate) ? 'bi-clock-history' : 
+                    DateUtils.isToday(selectedDate) ? 'bi-info-circle' : 
+                    'bi-calendar-check'
+                  }`}></i>
                   <strong>Mostrando reservas para:</strong> {formatDate(selectedDate)} a las {selectedTime}
                   <span className="badge bg-primary ms-2">{filteredReservations.length} reservas</span>
+                  {DateUtils.isPast(selectedDate) && (
+                    <span className="badge bg-warning text-dark ms-2">
+                      <i className="bi bi-clock-history me-1"></i>
+                      Reservas Pasadas
+                    </span>
+                  )}
                   {hasChanges && (
                     <span className="badge bg-warning text-dark ms-2">
                       <i className="bi bi-exclamation-triangle me-1"></i>
@@ -1643,6 +1709,12 @@ const AdminLockersPage: React.FC = () => {
                     <p className="text-muted">
                       Elige una fecha y hora específica para ver las reservas de casilleros
                     </p>
+                    <div className="mt-3">
+                      <span className="badge bg-info">
+                        <i className="bi bi-infinity me-1"></i>
+                        Rango infinito: Puedes ver reservas desde hace 10 años hasta 10 años en el futuro
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>

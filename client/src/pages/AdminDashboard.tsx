@@ -77,6 +77,7 @@ const AdminDashboard: React.FC = () => {
             {/* Botón de Pruebas de Productos 3D */}
             <Link to="/admin/product-test" className="dashboard-card" style={{ textDecoration: 'none' }}>
               <i className="bi bi-cube icon"></i>
+              <i className="bi bi-tags icon ms-1"></i>
               <p>Pruebas 3D</p>
             </Link>
             
