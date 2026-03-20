@@ -88,15 +88,23 @@ exports.addProductToUser = async (req, res) => {
       items: [{
         product: productId,
         quantity: quantity,
+<<<<<<< HEAD
         price: product.precio,
+=======
+>>>>>>> usb/main
         unit_price: product.precio,
         total_price: product.precio * quantity,
         variants: variants || {}
       }],
+<<<<<<< HEAD
       total: product.precio * quantity,
       total_amount: product.precio * quantity,
       status: 'paid',
       source: 'admin_assignment',
+=======
+      total_amount: product.precio * quantity,
+      status: 'paid',
+>>>>>>> usb/main
       external_reference: `admin_assignment_${Date.now()}_${userId}`,
       notes: `Producto asignado manualmente por administrador`
     });
@@ -107,13 +115,34 @@ exports.addProductToUser = async (req, res) => {
     const createdProducts = [];
     
     for (let i = 0; i < quantity; i++) {
+<<<<<<< HEAD
+=======
+      // Calcular precio total incluyendo variantes
+      let totalPrice = product.precio;
+      if (variants && product.variants && product.variants.enabled) {
+        for (const [attrName, attrValue] of Object.entries(variants)) {
+          const attribute = product.variants.attributes.find(attr => attr.name === attrName);
+          if (attribute) {
+            const option = attribute.options.find(opt => opt.value === attrValue);
+            if (option && option.price) {
+              totalPrice += option.price;
+            }
+          }
+        }
+      }
+
+>>>>>>> usb/main
       const individualProduct = new IndividualProduct({
         user: userId,
         order: order._id,
         product: productId,
         individualIndex: i + 1,
         status: 'available',
+<<<<<<< HEAD
         unitPrice: product.precio,
+=======
+        unitPrice: totalPrice,
+>>>>>>> usb/main
         variants: variants ? new Map(Object.entries(variants)) : undefined,
         dimensiones: product.dimensiones
       });

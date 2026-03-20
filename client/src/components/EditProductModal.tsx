@@ -263,8 +263,15 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ product, isOpen, is
   };
 
   // Calcular stock total de variantes si están activas, considerando un único atributo como driver
-  const getTotalVariantStock = () => {
-    if (!variants.enabled || !variants.attributes.length) return 0;
+  const [variantStock, setVariantStock] = useState(0);
+
+  useEffect(() => {
+    if (!variants.enabled || !variants.attributes.length) {
+      setVariantStock(0);
+      setVariantStockDetails({ driverName: undefined, totalsByAttribute: [] });
+      setVariantStockError('');
+      return;
+    }
 
     const totalsByAttribute = variants.attributes.map(attr => {
       const totalForAttr = (attr.options || []).reduce((acc, opt) => {
@@ -285,13 +292,12 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ product, isOpen, is
 
     if (drivers.length > 1) {
       setVariantStockError('Hay más de un atributo con stock definido. Solo un atributo debe concentrar el stock (por ejemplo, Talla). Ajusta los valores para continuar.');
-      return 0;
+      setVariantStock(0);
+    } else {
+      setVariantStockError('');
+      setVariantStock(drivers.length === 1 ? drivers[0].total : 0);
     }
-
-    setVariantStockError('');
-    return drivers.length === 1 ? drivers[0].total : 0;
-  };
-  const variantStock = getTotalVariantStock();
+  }, [variants]);
 
   if (!isOpen) return null;
 
@@ -316,7 +322,7 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ product, isOpen, is
           <div className="form-row">
             <div className="form-group">
               <label htmlFor="precio">Precio ($)</label>
-              <input type="number" id="precio" name="precio" value={formData.precio} onChange={handleChange} required className="form-control" min="0" step="0.01" />
+              <input type="number" id="precio" name="precio" value={formData.precio || ''} onChange={handleChange} required className="form-control" min="0" step="0.01" />
             </div>
             <div className="form-group">
               <label htmlFor="stock">Stock</label>
@@ -324,7 +330,7 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ product, isOpen, is
                 type="number"
                 id="stock"
                 name="stock"
-                value={variants.enabled && variants.attributes.length > 0 ? variantStock : formData.stock}
+                value={variants.enabled && variants.attributes.length > 0 ? variantStock : (formData.stock || '')}
                 onChange={handleChange}
                 required
                 className="form-control"
@@ -358,7 +364,7 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ product, isOpen, is
                 type="number" 
                 id="dimensiones_largo" 
                 name="dimensiones.largo" 
-                value={formData.dimensiones?.largo || 0} 
+                value={formData.dimensiones?.largo || ''} 
                 onChange={(e) => setFormData(prev => ({
                   ...prev,
                   dimensiones: {
@@ -377,7 +383,7 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ product, isOpen, is
                 type="number" 
                 id="dimensiones_ancho" 
                 name="dimensiones.ancho" 
-                value={formData.dimensiones?.ancho || 0} 
+                value={formData.dimensiones?.ancho || ''} 
                 onChange={(e) => setFormData(prev => ({
                   ...prev,
                   dimensiones: {
@@ -399,7 +405,7 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ product, isOpen, is
                 type="number" 
                 id="dimensiones_alto" 
                 name="dimensiones.alto" 
-                value={formData.dimensiones?.alto || 0} 
+                value={formData.dimensiones?.alto || ''} 
                 onChange={(e) => setFormData(prev => ({
                   ...prev,
                   dimensiones: {
@@ -418,7 +424,7 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ product, isOpen, is
                 type="number" 
                 id="dimensiones_peso" 
                 name="dimensiones.peso" 
-                value={formData.dimensiones?.peso || 0} 
+                value={formData.dimensiones?.peso || ''} 
                 onChange={(e) => setFormData(prev => ({
                   ...prev,
                   dimensiones: {

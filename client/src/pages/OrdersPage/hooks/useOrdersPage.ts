@@ -152,13 +152,15 @@ export const useOrdersPage = () => {
           const expiredPenalties: string[] = [];
           
           user.reservationPenalties.forEach((penalty: any) => {
-            const penaltyDate = penalty.date.slice(0, 10);
+            // CORRECCIÓN: Usar la fecha de la reserva vencida, no la fecha de creación de la penalización
+            const penaltyDate = penalty.expiredAppointmentDate || penalty.date || penalty.appointmentDate;
             const penaltyTime = new Date(penalty.createdAt);
             const hoursSincePenalty = (now.getTime() - penaltyTime.getTime()) / (1000 * 60 * 60);
             
             if (hoursSincePenalty < 24) {
               activePenalties.push(penaltyDate);
               console.log(`🔍 Penalización activa para ${penaltyDate} (${hoursSincePenalty.toFixed(2)}h transcurridas)`);
+              console.log(`📋 Contexto: Reserva vencida del ${penaltyDate}, penalización creada el ${penalty.createdAt}`);
             } else {
               expiredPenalties.push(penaltyDate);
               console.log(`✅ Penalización expirada para ${penaltyDate} (${hoursSincePenalty.toFixed(2)}h transcurridas)`);

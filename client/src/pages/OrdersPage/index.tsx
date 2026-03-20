@@ -6,17 +6,17 @@ import appointmentService from '../../services/appointmentService';
 import AppointmentScheduler from '../../components/AppointmentScheduler';
 import PackingOptimizationTips from '../../components/PackingOptimizationTips';
 import gridPackingService from '../../services/gridPackingService';
-import Locker3DCanvas from '../../components/Locker3DCanvas';
 import type { CreateAppointmentData } from '../../services/appointmentService';
 import type { Appointment } from '../../services/appointmentService';
 import { getDimensiones, getVolumen, tieneDimensiones, hasLockerSpace } from './utils/productUtils';
-import { createLocalDate } from './utils/dateUtils';
+import { createLocalDate, hasExpiredAppointments } from './utils/dateUtils';
 import { useOrdersPage } from './hooks/useOrdersPage';
 import ProductCard from './components/ProductCard';
 import LockerVisualization from './components/LockerVisualization';
 import AppointmentCard from './components/AppointmentCard';
 import EditAppointmentModal from './components/EditAppointmentModal';
 import LoadingOverlay from './components/LoadingOverlay';
+import './OrdersPage.css';
 
 const OrdersPage: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
@@ -77,6 +77,9 @@ const OrdersPage: React.FC = () => {
     canAddProductsToAppointment,
     forceVisualizationUpdate,
   } = useOrdersPage();
+
+  // Mostrar solo 5 completadas inicialmente
+  const [completedVisibleCount, setCompletedVisibleCount] = useState(5);
 
   // Verificar autenticación
   useEffect(() => {
@@ -441,8 +444,52 @@ const OrdersPage: React.FC = () => {
             individualProductId: item.individualProductId
           });
           
-          // Usar directamente las dimensiones del backend si están disponibles
-          if (item.dimensiones) {
+          // Resolver dimensiones como en la previsualización: construir fuente con
+          // - product: el más completo (para tener attributes/definesDimensions)
+          // - variants: selección real del item (o alternativas)
+          const candidateFromPurchased = purchasedProducts.find(p => p._id === (item as any).individualProduct)
+            || purchasedProducts.find(p => p._id === (item as any).individualProductId)
+            || purchasedProducts.find(p => p.product?._id === (item as any).originalProduct)
+            || purchasedProducts.find(p => p._id === item.product._id)
+            || purchasedProducts.find(p => p.product?.nombre === item.product.nombre)
+            || purchasedProducts.find(p => p.product?._id === item.product._id);
+          const rawSelectedVariants = (item as any).variants || (item as any).variantSelections || candidateFromPurchased?.variants || (candidateFromPurchased as any)?.variantSelections || {};
+          // Prefiere el producto con estructura completa de variantes
+          const fullProduct = candidateFromPurchased?.product && candidateFromPurchased.product.variants ? candidateFromPurchased.product : item.product;
+          // Normalizar claves de variantes a los nombres de atributos del producto (case-insensitive)
+          const normalizeVariants = (product: any, selection: Record<string, string>) => {
+            try {
+              const result: Record<string, string> = {};
+              const selEntries = Object.entries(selection || {}).map(([k, v]) => [String(k).toLowerCase(), v]) as [string, string][];
+              const attrs = product?.variants?.attributes || [];
+              attrs.forEach((attr: any) => {
+                const keyLc = String(attr?.name || '').toLowerCase();
+                const match = selEntries.find(([k]) => k === keyLc);
+                if (match) result[attr.name] = match[1];
+              });
+              return Object.keys(result).length > 0 ? result : (selection || {});
+            } catch {
+              return selection || {};
+            }
+          };
+          const selectedVariants = normalizeVariants(fullProduct, rawSelectedVariants);
+          const sourceForDims = {
+            ...(candidateFromPurchased || {}),
+            product: fullProduct,
+            variants: selectedVariants,
+            dimensiones: item.dimensiones || candidateFromPurchased?.dimensiones,
+          } as any;
+          const dimsFromHelper = getDimensiones(sourceForDims);
+          if (dimsFromHelper && dimsFromHelper.largo && dimsFromHelper.ancho && dimsFromHelper.alto) {
+            dimensions = {
+              length: dimsFromHelper.largo,
+              width: dimsFromHelper.ancho,
+              height: dimsFromHelper.alto
+            };
+            volume = item.volumen || getVolumen(sourceForDims) || (dimensions.length * dimensions.width * dimensions.height);
+            console.log(`✅ Usando dimensiones vía helper para ${item.product.nombre}:`, dimensions);
+          } else if (item.dimensiones) {
+            // Fallback directo a backend si por alguna razón el helper no devuelve
             dimensions = {
               length: item.dimensiones.largo,
               width: item.dimensiones.ancho,
@@ -450,49 +497,6 @@ const OrdersPage: React.FC = () => {
             };
             volume = item.volumen || (item.dimensiones.largo * item.dimensiones.ancho * item.dimensiones.alto);
             console.log(`✅ Usando dimensiones del backend para ${item.product.nombre}:`, dimensions);
-          } else {
-            // Fallback: buscar en el producto individual correspondiente
-            console.log(`⚠️ No hay dimensiones del backend para ${item.product.nombre}, buscando en producto individual`);
-            
-            // Buscar el producto individual correspondiente
-            let individualProduct = purchasedProducts.find(p => 
-              p._id === item.product._id
-            );
-            
-            if (!individualProduct) {
-              individualProduct = purchasedProducts.find(p => 
-                p.product?.nombre === item.product.nombre
-              );
-            }
-            
-            if (!individualProduct) {
-              individualProduct = purchasedProducts.find(p => 
-                p.product?._id === item.product._id
-              );
-            }
-            
-            if (individualProduct && individualProduct.dimensiones) {
-              dimensions = {
-                length: individualProduct.dimensiones.largo,
-                width: individualProduct.dimensiones.ancho,
-                height: individualProduct.dimensiones.alto
-              };
-              volume = individualProduct.product?.volumen || (individualProduct.dimensiones.largo * individualProduct.dimensiones.ancho * individualProduct.dimensiones.alto);
-              console.log(`✅ Usando dimensiones del producto individual para ${item.product.nombre}:`, dimensions);
-            } else {
-              // Último fallback: usar la misma lógica que la visualización previa a la reserva
-              console.log(`⚠️ No hay dimensiones del producto individual para ${item.product.nombre}, usando fallback`);
-              const dimensiones = getDimensiones(item);
-              if (dimensiones) {
-                dimensions = {
-                  length: dimensiones.largo,
-                  width: dimensiones.ancho,
-                  height: dimensiones.alto
-                };
-                volume = getVolumen(item);
-                console.log(`📏 Usando dimensiones del fallback para ${item.product.nombre}:`, dimensions);
-              }
-            }
           }
           
           // Asegurar que el volumen se calcule correctamente solo si no se calculó antes
@@ -725,9 +729,20 @@ const OrdersPage: React.FC = () => {
 
   // Función para agendar cita
   const handleScheduleAppointment = async (appointmentsData: CreateAppointmentData[]) => {
-    const penalized = appointmentsData.some(app => penalizedDates.includes(app.scheduledDate));
-    if (penalized) {
-      setPenaltyWarning('No puedes reservar para un día en el que tuviste una reserva vencida. Elige otro día.');
+    // MEJORADA: Validación más específica de penalizaciones
+    const penalizedAppointments = appointmentsData.filter(app => penalizedDates.includes(app.scheduledDate));
+    
+    if (penalizedAppointments.length > 0) {
+      const penalizedDatesList = penalizedAppointments.map(app => 
+        new Date(app.scheduledDate).toLocaleDateString('es-CO', { 
+          weekday: 'long', 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        })
+      ).join(', ');
+      
+      setPenaltyWarning(`No puedes reservar para las siguientes fechas debido a reservas vencidas: ${penalizedDatesList}. Las penalizaciones expiran en 24 horas.`);
       return;
     }
     setPenaltyWarning('');
@@ -884,14 +899,32 @@ const OrdersPage: React.FC = () => {
             </button>
             <div className="d-flex gap-2 align-items-center">
               {validPurchasedProducts.length > 0 && selectedProducts.size === 0 && (
-                <button 
-                  className="btn btn-outline-primary"
-                  onClick={selectAllAvailableProducts}
-                  disabled={loading}
-                >
-                  <i className="bi bi-check-all me-1"></i>
-                  Seleccionar Todos los Productos
-                </button>
+                <>
+                  {(() => {
+                    // Verificar si hay reservas vencidas usando la función utilitaria
+                    const hasExpired = hasExpiredAppointments(myAppointments);
+
+                    if (hasExpired) {
+                      return (
+                        <div className="text-danger fw-bold">
+                          <i className="bi bi-exclamation-triangle me-2"></i>
+                          Primero actualiza tus reservas vencidas
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <button 
+                        className="btn btn-outline-primary"
+                        onClick={selectAllAvailableProducts}
+                        disabled={loading}
+                      >
+                        <i className="bi bi-check-all me-1"></i>
+                        Seleccionar Todos los Productos
+                      </button>
+                    );
+                  })()}
+                </>
               )}
               {selectedProducts.size > 0 && (
                 <>
@@ -1050,6 +1083,7 @@ const OrdersPage: React.FC = () => {
                           onCancel={handleCancelAppointment}
                           cancellingAppointment={cancellingAppointment}
                           updatingAppointment={updatingAppointment}
+                          purchasedProducts={purchasedProducts}
                         />
                       ))}
                   </div>
@@ -1060,65 +1094,7 @@ const OrdersPage: React.FC = () => {
                   </div>
                 )}
 
-                {/* Visualización combinada de todos los casilleros */}
-                {(() => {
-                  const combinedPacking = generateCombinedPackingForAllAppointments();
-                  if (combinedPacking.length > 0) {
-                    return (
-                      <div className="mt-4">
-                        <h6 className="mb-3">
-                          <i className="bi bi-grid-3x3-gap me-2"></i>
-                          Visualización Combinada de Casilleros
-                        </h6>
-                        <div className="alert alert-info">
-                          <i className="bi bi-info-circle me-1"></i>
-                          <strong>Estado Real:</strong> Esta visualización muestra el estado actual de todos los casilleros considerando todas tus reservas activas.
-                        </div>
-                        <div className="row">
-                          {combinedPacking.map((locker) => (
-                            <div key={locker.id} className="col-md-6 mb-3">
-                              <div className="card border-primary">
-                                <div className="card-header bg-primary text-white">
-                                  <strong>Casillero {(locker as any).lockerNumber}</strong> &nbsp;|&nbsp; Slots usados: {locker.usedSlots}/27
-                                </div>
-                                <div className="card-body">
-                                  <Locker3DCanvas 
-                                    bin={locker}
-                                    selectedProductId={null}
-                                  />
-                                  
-                                  {/* Barra de progreso de ocupación del casillero */}
-                                  <div className="mt-3">
-                                    <div className="d-flex justify-content-between align-items-center mb-2">
-                                      <small className="text-muted">
-                                        <i className="bi bi-box me-1"></i>
-                                        Ocupación del casillero
-                                      </small>
-                                      <small className="text-muted">
-                                        {locker.usedSlots}/27 slots ({Math.round((locker.usedSlots / 27) * 100)}%)
-                                      </small>
-                                    </div>
-                                    <div className="progress">
-                                      <div 
-                                        className="progress-bar" 
-                                        role="progressbar" 
-                                        style={{ width: `${(locker.usedSlots / 27) * 100}%` }}
-                                        aria-valuenow={locker.usedSlots} 
-                                        aria-valuemin={0} 
-                                        aria-valuemax={27}
-                                      ></div>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  }
-                  return null;
-                })()}
+                {/* Visualización combinada eliminada para aligerar la página */}
               </div>
             </>
           ) : (
@@ -1130,6 +1106,325 @@ const OrdersPage: React.FC = () => {
               </button>
             </div>
           )}
+
+          {/* Mis Reservas Completadas - Siempre visible (limitadas con "Cargar más") */}
+          <div className="mb-5">
+            <h4 className="mb-3">
+              <i className="bi bi-check-circle me-2"></i>
+              Mis Reservas Completadas
+            </h4>
+            {(() => {
+              // Estado local para mostrar 5 y cargar más
+              // Nota: React no permite hooks condicionales; definimos fuera del render condicional
+              return null;
+            })()}
+            
+            {loadingAppointments ? (
+              <div className="text-center py-3">
+                <div className="spinner-border spinner-border-sm" role="status">
+                  <span className="visually-hidden">Cargando reservas completadas...</span>
+                </div>
+              </div>
+            ) : myAppointments.filter(appointment => appointment.status === 'completed').length > 0 ? (
+              <>
+                <div className="row mb-4">
+                  {myAppointments
+                    .filter(appointment => appointment.status === 'completed')
+                    .slice(0, completedVisibleCount)
+                    .map(appointment => (
+                    <div key={appointment._id} className="col-12 mb-3">
+                      <div className="card border-success appointment-card">
+                        <div className="card-header bg-success text-white">
+                          <div className="d-flex justify-content-between align-items-center">
+                            <h6 className="mb-0">
+                              <i className="bi bi-calendar-check me-2"></i>
+                              Reserva #{appointment._id.slice(-6)} - Completada
+                            </h6>
+                            <span className="badge bg-success">
+                              <i className="bi bi-check-circle me-1"></i>
+                              Completada
+                            </span>
+                          </div>
+                        </div>
+                        <div className="card-body">
+                          <div className="row">
+                            <div className="col-md-3">
+                              <p className="mb-1">
+                                <strong>Fecha:</strong><br />
+                                {new Date(appointment.scheduledDate).toLocaleDateString('es-CO', {
+                                  weekday: 'long',
+                                  year: 'numeric',
+                                  month: 'long',
+                                  day: 'numeric'
+                                })}
+                              </p>
+                              <p className="mb-1">
+                                <strong>Hora:</strong><br />
+                                {appointment.timeSlot}
+                              </p>
+                              <p className="mb-1">
+                                <strong>Completada el:</strong><br />
+                                {appointment.completedAt ? new Date(appointment.completedAt).toLocaleDateString('es-CO', {
+                                  year: 'numeric',
+                                  month: 'long',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                }) : 'N/A'}
+                              </p>
+                            </div>
+                            <div className="col-md-3">
+                              <p className="mb-1">
+                                <strong>Casilleros utilizados:</strong><br />
+                                {appointment.itemsToPickup.map((item: any) => item.lockerNumber).join(', ')}
+                              </p>
+                              <p className="mb-1">
+                                <strong>Productos recogidos:</strong><br />
+                                {appointment.itemsToPickup.length} producto{appointment.itemsToPickup.length > 1 ? 's' : ''}
+                              </p>
+                            </div>
+                            <div className="col-md-6">
+                              <div className="alert alert-success mb-3">
+                                <i className="bi bi-info-circle me-2"></i>
+                                <strong>Reserva Finalizada:</strong> Esta reserva fue completada exitosamente. 
+                                Los productos han sido recogidos y los casilleros liberados.
+                              </div>
+                              
+                              {/* Productos de la reserva completada */}
+                              <div className="mt-3">
+                                <h6 className="mb-2">
+                                  <i className="bi bi-box-seam me-2"></i>
+                                  Productos Recogidos:
+                                  <small className="text-muted ms-2">
+                                    <i className="bi bi-cursor me-1"></i>
+                                    Haz clic en cualquier producto para verlo
+                                  </small>
+                                  <button 
+                                    className="btn btn-outline-info btn-sm ms-2"
+                                    onClick={() => {
+                                      console.log('🔍 === DEBUG COMPLETO DE RESERVA ===');
+                                      console.log('📅 Reserva:', appointment._id);
+                                      console.log('📦 Items en la reserva:', appointment.itemsToPickup);
+                                      console.log('🛒 Productos comprados disponibles:', purchasedProducts);
+                                      console.log('🔍 Estructura de un item:', appointment.itemsToPickup[0]);
+                                    }}
+                                    title="Debug de información de productos"
+                                  >
+                                    <i className="bi bi-bug me-1"></i>
+                                    Debug
+                                  </button>
+                                </h6>
+                                <div className="row">
+                                  {appointment.itemsToPickup.map((item: any, itemIndex: number) => (
+                                    <div key={itemIndex} className="col-md-6 mb-2">
+                                      <div 
+                                        className="card border-success product-item-card"
+                                        style={{ cursor: 'pointer' }}
+                                        onClick={() => {
+                                          // Debug: Mostrar información completa del item
+                                          console.log('🔍 Item completo para navegación:', item);
+                                          console.log('🔍 Productos comprados disponibles:', purchasedProducts.length);
+                                          
+                                          // Navegar a la página del producto con diferentes estrategias
+                                          let productId = null;
+                                          let productName = '';
+                                          
+                                          // Estrategia 1: Producto directo
+                                          if (item.product && item.product._id) {
+                                            productId = item.product._id;
+                                            productName = item.product.nombre;
+                                            console.log('✅ Estrategia 1 - Producto directo:', productId, productName);
+                                          }
+                                          // Estrategia 2: IndividualProduct
+                                          else if (item.individualProduct && item.individualProduct._id) {
+                                            productId = item.individualProduct._id;
+                                            productName = (item.individualProduct as any)?.product?.nombre || 'Producto Individual';
+                                            console.log('✅ Estrategia 2 - IndividualProduct:', productId, productName);
+                                          }
+                                          // Estrategia 3: OriginalProduct
+                                          else if (item.originalProduct && item.originalProduct._id) {
+                                            productId = item.originalProduct._id;
+                                            productName = (item.originalProduct as any)?.nombre || 'Producto Original';
+                                            console.log('✅ Estrategia 3 - OriginalProduct:', productId, productName);
+                                          }
+                                          // Estrategia 4: Buscar en productos comprados por nombre
+                                          else {
+                                            const searchName = item.product?.nombre || 
+                                                             (item.individualProduct as any)?.product?.nombre || 
+                                                             (item.originalProduct as any)?.nombre;
+                                            console.log('🔍 Buscando por nombre:', searchName);
+                                            
+                                            if (searchName) {
+                                              const foundProduct = purchasedProducts.find(p => 
+                                                p.product?.nombre === searchName
+                                              );
+                                              console.log('🔍 Producto encontrado:', foundProduct);
+                                              
+                                              if (foundProduct && foundProduct.product?._id) {
+                                                productId = foundProduct.product._id;
+                                                productName = foundProduct.product.nombre;
+                                                console.log('✅ Estrategia 4 - Encontrado por nombre:', productId, productName);
+                                              }
+                                            }
+                                          }
+                                          
+                                          if (productId) {
+                                            console.log('🚀 Navegando al producto:', productId, 'Nombre:', productName);
+                                            // Usar navigate de React Router con la ruta correcta /productos
+                                            try {
+                                              navigate(`/productos/${productId}`, { replace: false });
+                                            } catch (navError) {
+                                              console.error('Error con navigate, usando window.location:', navError);
+                                              // Fallback a window.location si navigate falla
+                                              window.location.href = `/productos/${productId}`;
+                                            }
+                                          } else {
+                                            console.warn('⚠️ No se pudo encontrar el ID del producto para navegar');
+                                            console.log('🔍 Información disponible del item:', {
+                                              hasProduct: !!item.product,
+                                              hasIndividualProduct: !!item.individualProduct,
+                                              hasOriginalProduct: !!item.originalProduct,
+                                              productName: item.product?.nombre,
+                                              individualProductName: (item.individualProduct as any)?.product?.nombre,
+                                              originalProductName: (item.originalProduct as any)?.nombre
+                                            });
+                                            alert('No se pudo encontrar la información del producto para navegar. Revisa la consola para más detalles.');
+                                          }
+                                        }}
+                                        title="Haz clic para ver el producto"
+                                      >
+                                        <div className="card-body p-2">
+                                          <div className="d-flex align-items-center">
+                                            {/* Imagen del producto */}
+                                            <div className="product-image-container me-3">
+                                              {(() => {
+                                                // Buscar la imagen del producto
+                                                let productImage = null;
+                                                let productName = '';
+                                                
+                                                // Estrategia 1: Imagen del producto directo
+                                                if ((item.product as any)?.imagenes && (item.product as any).imagenes.length > 0) {
+                                                  productImage = (item.product as any).imagenes[0];
+                                                  productName = item.product.nombre;
+                                                }
+                                                // Estrategia 2: Imagen del IndividualProduct
+                                                else if ((item.individualProduct as any)?.product?.imagenes && 
+                                                        (item.individualProduct as any).product.imagenes.length > 0) {
+                                                  productImage = (item.individualProduct as any).product.imagenes[0];
+                                                  productName = (item.individualProduct as any).product.nombre;
+                                                }
+                                                // Estrategia 3: Imagen del OriginalProduct
+                                                else if ((item.originalProduct as any)?.imagenes && 
+                                                        (item.originalProduct as any).imagenes.length > 0) {
+                                                  productImage = (item.originalProduct as any).imagenes[0];
+                                                  productName = (item.originalProduct as any).nombre;
+                                                }
+                                                // Estrategia 4: Buscar en productos comprados
+                                                else {
+                                                  const searchName = item.product?.nombre || 
+                                                                   (item.individualProduct as any)?.product?.nombre || 
+                                                                   (item.originalProduct as any)?.nombre;
+                                                  if (searchName) {
+                                                    const foundProduct = purchasedProducts.find(p => 
+                                                      p.product?.nombre === searchName
+                                                    );
+                                                    if (foundProduct?.product?.imagenes && foundProduct.product.imagenes.length > 0) {
+                                                      productImage = foundProduct.product.imagenes[0];
+                                                      productName = foundProduct.product.nombre;
+                                                    }
+                                                  }
+                                                }
+                                                
+                                                if (productImage) {
+                                                  return (
+                                                    <>
+                                                      <img 
+                                                        src={productImage} 
+                                                        alt={productName}
+                                                        className="product-thumbnail"
+                                                        style={{
+                                                          width: '50px',
+                                                          height: '50px',
+                                                          objectFit: 'cover',
+                                                          borderRadius: '8px',
+                                                          border: '2px solid #28a745'
+                                                        }}
+                                                        onError={(e) => {
+                                                          // Fallback si la imagen no carga
+                                                          console.warn('⚠️ Error cargando imagen del producto:', productImage);
+                                                          e.currentTarget.style.display = 'none';
+                                                          // Mostrar placeholder
+                                                          const placeholder = e.currentTarget.nextElementSibling as HTMLElement;
+                                                          if (placeholder) {
+                                                            placeholder.style.display = 'flex';
+                                                          }
+                                                        }}
+                                                      />
+                                                      <div className="bg-success rounded d-flex align-items-center justify-content-center product-placeholder" 
+                                                           style={{ width: '50px', height: '50px', display: 'none' }}
+                                                           title="Imagen no disponible">
+                                                        <i className="bi bi-box text-white" style={{ fontSize: '20px' }}></i>
+                                                      </div>
+                                                    </>
+                                                  );
+                                                } else {
+                                                  return (
+                                                    <div className="bg-success rounded d-flex align-items-center justify-content-center product-placeholder" 
+                                                         style={{ width: '50px', height: '50px' }}
+                                                         title="Imagen no disponible">
+                                                      <i className="bi bi-box text-white" style={{ fontSize: '20px' }}></i>
+                                                    </div>
+                                                  );
+                                                }
+                                              })()}
+                                            </div>
+                                            
+                                            <div className="flex-grow-1">
+                                              <h6 className="mb-0 text-success">
+                                                {item.product?.nombre || 
+                                                 (item.individualProduct as any)?.product?.nombre || 
+                                                 (item.originalProduct as any)?.nombre || 'Producto sin nombre'}
+                                              </h6>
+                                              <small className="text-muted">
+                                                Cantidad: {item.quantity} | Casillero: {item.lockerNumber}
+                                              </small>
+                                            </div>
+                                            <div className="text-end">
+                                              <i className="bi bi-arrow-right-circle text-success"></i>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    ))}
+                </div>
+                {myAppointments.filter(a => a.status === 'completed').length > completedVisibleCount && (
+                  <div className="text-center">
+                    <button
+                      className="btn btn-outline-primary btn-sm"
+                      onClick={() => setCompletedVisibleCount(c => c + 5)}
+                    >
+                      <i className="bi bi-plus-circle me-1"></i>
+                      Cargar más
+                    </button>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="alert alert-info text-center">
+                <i className="bi bi-calendar-x me-2"></i>
+                No tienes reservas completadas
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

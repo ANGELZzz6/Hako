@@ -127,18 +127,39 @@ export function getVariantOrProductDimensions(product: Product, selectedVariants
     
     // Si hay múltiples atributos que definen dimensiones, usar el primero que tenga dimensiones válidas
     for (const attr of dimensionAttributes) {
-      const selectedValue = selectedVariants[attr.name];
+      // Buscar la variante seleccionada usando comparación case-insensitive y sin espacios
+      const normalizedAttrName = attr.name.toLowerCase().trim();
+      let selectedValue = null;
+      
+      // Buscar en las variantes seleccionadas con comparación flexible
+      for (const [key, value] of Object.entries(selectedVariants)) {
+        const normalizedKey = key.toLowerCase().trim();
+        if (normalizedKey === normalizedAttrName) {
+          selectedValue = value;
+          break;
+        }
+      }
+      
       if (selectedValue) {
-        const option = attr.options.find(opt => opt.value === selectedValue);
+        // Normalizar el valor seleccionado para comparación
+        const normalizedSelectedValue = selectedValue.toLowerCase().trim();
+        
+        // Buscar la opción con comparación case-insensitive
+        const option = attr.options.find(opt => 
+          opt.value.toLowerCase().trim() === normalizedSelectedValue
+        );
+        
         if (option && option.dimensiones && 
             option.dimensiones.largo && 
             option.dimensiones.ancho && 
             option.dimensiones.alto) {
+          console.log(`✅ Dimensiones de variante encontradas para ${product.nombre}:`, option.dimensiones);
           return option.dimensiones;
         }
       }
     }
   }
+  
   return product.dimensiones;
 }
 

@@ -4,6 +4,7 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css'; // Para los íconos como el del carrito
 import { Carousel } from 'react-bootstrap';
 import BoxAnimation from './components/BoxAnimation';
+import appointmentService from './services/appointmentService';
 import FallingLines from './components/FallingLines';
 import Productos from './pages/Productos';
 import LoginPage from './pages/LoginPage';
@@ -46,6 +47,7 @@ import AdminOrdersPage from './pages/AdminOrdersPage';
 import AdminLockersPage from './pages/AdminLockersPage';
 import AdminAppointmentsPage from './pages/AdminAppointmentsPage';
 import AdminSupportCompleteFlow from './pages/AdminSupportCompleteFlow';
+import AdminProductTestPage from './pages/AdminProductTestPage';
 import orderService from './services/orderService';
 
 // Importar fuente Montserrat
@@ -77,6 +79,7 @@ const AppContent = () => {
 
   const [showSplash, setShowSplash] = useState(!isAuthenticated);
   const [showReservationAlert, setShowReservationAlert] = useState(false);
+  const [myActiveReservations, setMyActiveReservations] = useState<Array<{ locker: number; date: string; time: string }>>([]);
 
   // Efecto para cargar productos
   useEffect(() => {
@@ -157,11 +160,23 @@ const AppContent = () => {
           const items = await orderService.getMyPurchasedProducts();
           const hasUnreserved = items.some(item => !item.isReserved);
           setShowReservationAlert(hasUnreserved);
+          // Cargar reservas activas del usuario para colorear casilleros
+          const myApps = await appointmentService.getMyAppointments();
+          const active = myApps
+            .filter((a: any) => a.status !== 'cancelled' && a.status !== 'completed')
+            .flatMap((a: any) => (a.itemsToPickup || []).map((it: any) => ({
+              locker: it.lockerNumber,
+              date: new Date(a.scheduledDate).toISOString().split('T')[0],
+              time: a.timeSlot
+            })));
+          setMyActiveReservations(active);
         } catch (err) {
           setShowReservationAlert(false);
+          setMyActiveReservations([]);
         }
       } else {
         setShowReservationAlert(false);
+        setMyActiveReservations([]);
       }
     };
     checkUnreservedProducts();
@@ -381,7 +396,7 @@ const AppContent = () => {
               </div>
               {/* Columna del Texto */}
               <div className="col-md-6 text-center text-md-start">
-                <BoxAnimation highlightRandomCell={showReservationAlert} />
+                <BoxAnimation highlightRandomCell={showReservationAlert} reservations={myActiveReservations} />
                 <h1 className="display-4 fade-in">Bienvenido a Hako</h1>
                 <p className="lead fade-in">Descubre nuestros productos exclusivos con los mejores precios</p>
                 <div className="d-flex gap-3 justify-content-center justify-content-md-start mt-4">
@@ -674,6 +689,7 @@ const AppContent = () => {
         <Route path="/admin/lockers" element={<ProtectedRoute requireAdmin><AdminLockersPage /></ProtectedRoute>} />
         <Route path="/admin/appointments" element={<ProtectedRoute requireAdmin><AdminAppointmentsPage /></ProtectedRoute>} />
         <Route path="/admin/support-complete" element={<ProtectedRoute requireAdmin><AdminSupportCompleteFlow /></ProtectedRoute>} />
+        <Route path="/admin/product-test" element={<ProtectedRoute requireAdmin><AdminProductTestPage /></ProtectedRoute>} />
         <Route path="/soporte" element={<SupportPage />} />
         <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
         <Route path="/cart-management" element={<ProtectedRoute><CartManagement /></ProtectedRoute>} />

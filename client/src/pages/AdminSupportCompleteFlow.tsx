@@ -9,6 +9,7 @@ import type { Product } from '../services/productService';
 import userService from '../services/userService';
 import type { User } from '../services/userService';
 import './AdminOrdersPage.css';
+import './AdminModalImprovements.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 
 // Tipos para productos individuales
@@ -171,43 +172,44 @@ const AdminSupportCompleteFlow: React.FC = () => {
     }
   }, [isAuthenticated, isAdmin]);
   
+  // Función para cargar productos individuales
+  const fetchIndividualProducts = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      
+      // Obtener productos comprados por usuarios (que incluyen productos individuales)
+      const purchasedProducts = await orderService.getMyPurchasedProducts();
+      
+      // Transformar los datos al formato esperado
+      const transformedProducts: IndividualProduct[] = purchasedProducts.map((item: any) => ({
+        _id: item._id || item.originalItemId,
+        product: item.product,
+        dimensiones: item.dimensiones,
+        status: item.isClaimed ? 'claimed' : item.isReserved ? 'reserved' : 'available',
+        assigned_locker: item.assigned_locker,
+        unit_price: item.unit_price || item.product.precio,
+        reservedAt: item.reservedAt,
+        claimedAt: item.claimedAt,
+        pickedUpAt: item.pickedUpAt,
+        orderId: item.orderId,
+        orderCreatedAt: item.orderCreatedAt,
+        individualIndex: item.individualIndex,
+        variants: item.variants,
+        user: item.user, // Añadir usuario propietario
+      }));
+      
+      setIndividualProducts(transformedProducts);
+    } catch (err: any) {
+      setError('Error al cargar los productos individuales: ' + (err.message || err.toString()));
+      logDebugError('Error al cargar productos', err, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Cargar productos individuales
   useEffect(() => {
-    const fetchIndividualProducts = async () => {
-      try {
-        setLoading(true);
-        setError('');
-        
-        // Obtener productos comprados por usuarios (que incluyen productos individuales)
-        const purchasedProducts = await orderService.getMyPurchasedProducts();
-        
-        // Transformar los datos al formato esperado
-        const transformedProducts: IndividualProduct[] = purchasedProducts.map((item: any) => ({
-          _id: item._id || item.originalItemId,
-          product: item.product,
-          dimensiones: item.dimensiones,
-          status: item.isClaimed ? 'claimed' : item.isReserved ? 'reserved' : 'available',
-          assigned_locker: item.assigned_locker,
-          unit_price: item.unit_price || item.product.precio,
-          reservedAt: item.reservedAt,
-          claimedAt: item.claimedAt,
-          pickedUpAt: item.pickedUpAt,
-          orderId: item.orderId,
-          orderCreatedAt: item.orderCreatedAt,
-          individualIndex: item.individualIndex,
-          variants: item.variants,
-          user: item.user, // Añadir usuario propietario
-        }));
-        
-        setIndividualProducts(transformedProducts);
-      } catch (err: any) {
-        setError('Error al cargar los productos individuales: ' + (err.message || err.toString()));
-        logDebugError('Error al cargar productos', err, 'error');
-      } finally {
-        setLoading(false);
-      }
-    };
-    
     if (isAuthenticated && isAdmin) {
       fetchIndividualProducts();
     }
@@ -424,10 +426,12 @@ const AdminSupportCompleteFlow: React.FC = () => {
             throw new Error(`La opción seleccionada para ${attr.name} no es válida`);
           }
           
-          // Validar stock de la variante específica
-          const selectedOption = attr.options.find(opt => opt.value === selectedVariants[attr.name]);
-          if (selectedOption && selectedOption.stock < quantity) {
-            throw new Error(`Stock insuficiente para la variante ${attr.name}: ${selectedOption.value}. Disponible: ${selectedOption.stock}`);
+          // Solo validar stock de la variante específica si el producto no tiene stock general suficiente
+          if (selectedProductToAdd.stock < quantity) {
+            const selectedOption = attr.options.find(opt => opt.value === selectedVariants[attr.name]);
+            if (selectedOption && selectedOption.stock < quantity) {
+              throw new Error(`Stock insuficiente para la variante ${attr.name}: ${selectedOption.value}. Disponible: ${selectedOption.stock}`);
+            }
           }
         }
         
@@ -447,27 +451,72 @@ const AdminSupportCompleteFlow: React.FC = () => {
       
       logDebugError('Producto asignado manualmente', response, 'info');
       
-      // Actualizar la lista de productos individuales
-      setIndividualProducts(prev => [
-        ...response.products.map((p: any) => ({
-          _id: p._id,
-          product: p.product,
-          status: p.status,
-          unit_price: p.unitPrice,
-          orderCreatedAt: p.createdAt,
-          variants: p.variants ? Object.fromEntries(p.variants) : undefined,
-          user: p.user
-        })) as IndividualProduct[],
-        ...prev
-      ]);
+      // Log del precio calculado
+      console.log('💰 Precio del producto asignado:', {
+        precioBase: selectedProductToAdd.precio,
+        variantesSeleccionadas: selectedVariants,
+        precioTotal: response.products?.[0]?.unitPrice || 'No disponible'
+      });
       
-      // Limpiar selecciones
+      // Log de la estructura de la respuesta para debugging
+      console.log('🔍 Estructura de la respuesta del servidor:', {
+        responseKeys: Object.keys(response),
+        hasProducts: !!response.products,
+        productsType: typeof response.products,
+        productsLength: response.products?.length,
+        firstProduct: response.products?.[0],
+        firstProductVariants: response.products?.[0]?.variants,
+        variantsType: typeof response.products?.[0]?.variants
+      });
+      
+      // Actualizar la lista de productos individuales solo si hay productos en la respuesta
+      if (response.products && Array.isArray(response.products)) {
+        setIndividualProducts(prev => [
+          ...response.products.map((p: any) => {
+            // Validar y convertir variants de forma segura
+            let variants = undefined;
+            if (p.variants) {
+              try {
+                if (p.variants instanceof Map) {
+                  variants = Object.fromEntries(p.variants);
+                } else if (Array.isArray(p.variants)) {
+                  variants = Object.fromEntries(p.variants);
+                } else if (typeof p.variants === 'object') {
+                  variants = p.variants;
+                }
+              } catch (error) {
+                console.warn('Error al convertir variants:', error, p.variants);
+                variants = undefined;
+              }
+            }
+
+            return {
+              _id: p._id,
+              product: p.product,
+              status: p.status,
+              unit_price: p.unitPrice,
+              orderCreatedAt: p.createdAt,
+              variants,
+              user: p.user
+            };
+          }) as IndividualProduct[],
+          ...prev
+        ]);
+      } else {
+        console.warn('⚠️ La respuesta no contiene productos válidos:', response);
+      }
+      
+      // Limpiar selecciones del modal pero mantener el usuario seleccionado
       setSelectedProductToAdd(null);
       setSelectedVariants({});
       setQuantity(1);
       setShowAddProductModal(false);
       
+      // Mostrar mensaje de éxito
       alert(response.message || `Producto asignado a ${selectedUser.nombre} correctamente`);
+      
+      // Recargar la lista de productos individuales para mostrar el nuevo producto
+      await fetchIndividualProducts();
     } catch (err: any) {
       const errorMessage = err.message || err.toString();
       setAddProductError(errorMessage);
@@ -735,7 +784,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
       
       {/* Modal para agregar producto a usuario */}
       <div className={`modal fade ${showAddProductModal ? 'show' : ''}`} id="addProductModal" tabIndex={-1} aria-labelledby="addProductModalLabel" aria-hidden={!showAddProductModal} style={{display: showAddProductModal ? 'block' : 'none', backgroundColor: showAddProductModal ? 'rgba(0,0,0,0.5)' : 'transparent'}}>
-        <div className="modal-dialog modal-lg">
+        <div className="modal-dialog modal-lg admin-dashboard">
           <div className="modal-content">
             <div className="modal-header">
               <h5 className="modal-title" id="addProductModalLabel">Agregar Producto a Usuario</h5>
@@ -760,7 +809,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
                 ) : (
                   <select 
                     className="form-select" 
-                    value={selectedUser?._id || ''}
+                    value={''}
                     onChange={(e) => {
                       const userId = e.target.value;
                       const user = users.find(u => u._id === userId) || null;
@@ -783,7 +832,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
                 <label className="form-label">Seleccionar Producto</label>
                 <select 
                   className="form-select" 
-                  value={selectedProductToAdd?._id || ''}
+                  value={''}
                   onChange={(e) => {
                     const productId = e.target.value;
                     const product = products.find(p => p._id === productId) || null;
@@ -1279,7 +1328,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
       {/* Modal de detalles del producto */}
       {selectedProduct && (
         <div className="modal fade show d-block order-details-modal" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
-          <div className="modal-dialog modal-lg">
+          <div className="modal-dialog modal-lg admin-dashboard">
             <div className="modal-content">
               <div className="modal-header">
                 <h5 className="modal-title">Detalles del Producto Individual</h5>
@@ -1390,7 +1439,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
       {/* Modal para mostrar productos del usuario */}
       {showUserProductsModal && (
         <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
-          <div className="modal-dialog modal-lg">
+          <div className="modal-dialog modal-lg admin-dashboard">
             <div className="modal-content">
               <div className="modal-header">
                 <h5 className="modal-title">
@@ -1481,7 +1530,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
       {/* Modal para gestionar estado de reservas */}
       {showReservationStatusModal && (
         <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
-          <div className="modal-dialog modal-xl">
+          <div className="modal-dialog modal-xl admin-dashboard">
             <div className="modal-content">
               <div className="modal-header">
                 <h5 className="modal-title">
@@ -1609,7 +1658,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
       {/* Modal del Panel de Debugging */}
       {showDebugPanel && (
         <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
-          <div className="modal-dialog modal-xl">
+          <div className="modal-dialog modal-xl admin-dashboard">
             <div className="modal-content">
               <div className="modal-header">
                 <h5 className="modal-title">

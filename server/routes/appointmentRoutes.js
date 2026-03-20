@@ -27,6 +27,9 @@ router.put('/my-appointments/:appointmentId', auth, appointmentController.update
 // Cancelar una cita del usuario
 router.post('/my-appointments/:appointmentId/cancel', auth, appointmentController.cancelAppointment);
 
+// Marcar una cita como completada (recogida)
+router.put('/:appointmentId/complete', auth, appointmentController.markAppointmentAsCompleted);
+
 // Agregar productos a una reserva existente
 router.post('/my-appointments/:appointmentId/add-products', auth, appointmentController.addProductsToAppointment);
 

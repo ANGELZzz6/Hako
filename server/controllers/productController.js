@@ -1,4 +1,5 @@
 const Product = require('../models/Product');
+const IndividualProduct = require('../models/IndividualProduct');
 const validator = require('validator');
 const cloudinary = require('../config/cloudinary');
 const multer = require('multer');
@@ -793,6 +794,35 @@ exports.deleteSuggestion = async (req, res) => {
     res.json({ message: 'Sugerencia eliminada' });
   } catch (error) {
     console.error('Error eliminando sugerencia:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
+// Obtener IndividualProduct con dimensiones calculadas
+exports.getIndividualProductWithDimensions = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const individualProduct = await IndividualProduct.findById(id)
+      .populate('product', 'nombre imagen_url dimensiones variants');
+    
+    if (!individualProduct) {
+      return res.status(404).json({ error: 'IndividualProduct no encontrado' });
+    }
+    
+    // Calcular dimensiones considerando variantes
+    const calculatedDimensions = individualProduct.getVariantOrProductDimensions();
+    
+    res.json({
+      _id: individualProduct._id,
+      product: individualProduct.product,
+      variants: individualProduct.variants ? Object.fromEntries(individualProduct.variants) : {},
+      dimensions: calculatedDimensions,
+      unitPrice: individualProduct.unitPrice,
+      status: individualProduct.status
+    });
+  } catch (error) {
+    console.error('Error obteniendo IndividualProduct:', error);
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 }; 

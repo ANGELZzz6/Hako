@@ -10,9 +10,10 @@ interface FallingLogoItem {
 
 interface BoxAnimationProps {
   highlightRandomCell?: boolean;
+  reservations?: Array<{ locker: number; date: string; time: string }>;
 }
 
-const BoxAnimation: React.FC<BoxAnimationProps> = ({ highlightRandomCell }) => {
+const BoxAnimation: React.FC<BoxAnimationProps> = ({ highlightRandomCell, reservations = [] }) => {
   const shelfRef = useRef<HTMLDivElement>(null);
   const [fallingLogos, setFallingLogos] = useState<FallingLogoItem[]>([]);
 
@@ -78,6 +79,8 @@ const BoxAnimation: React.FC<BoxAnimationProps> = ({ highlightRandomCell }) => {
             <div key={`row-${rowIndex}`} className="shelf-row">
               {row.map((shelf, colIndex) => {
                 const flatIndex = rowIndex * 3 + colIndex;
+                // Mapear lockerNumber (1-12) -> flatIndex (0-11)
+                const matchingReservations = reservations.filter(r => (r.locker - 1) === flatIndex);
                 return (
                   <div
                     key={shelf.id}
@@ -88,7 +91,21 @@ const BoxAnimation: React.FC<BoxAnimationProps> = ({ highlightRandomCell }) => {
                     {highlightRandomCell && highlightedIndex === flatIndex && (
                       <div className="shelf-bubble">¡Resérvame!</div>
                     )}
-                    <i className="bi bi-box2-heart shelf-icon"></i>
+                    {matchingReservations.length > 0 ? (
+                      <div 
+                        className="shelf-reservation"
+                        title={matchingReservations.map(r => `${r.date} ${r.time}`).join(' | ')}
+                      >
+                        <div className="res-icon"><i className="bi bi-calendar2-check"></i></div>
+                        <div className="res-date">{matchingReservations[0].date}</div>
+                        <div className="res-time">{matchingReservations[0].time}</div>
+                        {matchingReservations.length > 1 && (
+                          <div className="res-chip">+{matchingReservations.length - 1}</div>
+                        )}
+                      </div>
+                    ) : (
+                      <i className="bi bi-box2-heart shelf-icon"></i>
+                    )}
                   </div>
                 );
               })}

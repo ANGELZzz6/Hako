@@ -1,0 +1,265 @@
+/* Mejoras globales de responsividad para modales de admin */
+
+/* Configuración base para todos los modales de admin */
+.admin-dashboard .modal-dialog {
+  max-width: 90vw;
+  width: 90vw;
+  height: 90vh;
+  margin: 5vh auto;
+}
+
+.admin-dashboard .modal-dialog.modal-lg {
+  max-width: 90vw;
+  width: 90vw;
+  height: 90vh;
+  margin: 5vh auto;
+}
+
+.admin-dashboard .modal-dialog.modal-xl {
+  max-width: 95vw;
+  width: 95vw;
+  height: 95vh;
+  margin: 2.5vh auto;
+}
+
+.admin-dashboard .modal-dialog.modal-sm {
+  max-width: 80vw;
+  width: 80vw;
+  height: 80vh;
+  margin: 10vh auto;
+}
+
+/* Estructura flexbox para modales */
+.admin-dashboard .modal-content {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.admin-dashboard .modal-header {
+  flex-shrink: 0;
+  border-radius: 12px 12px 0 0;
+  padding: 1rem 1.5rem;
+}
+
+.admin-dashboard .modal-body {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem;
+}
+
+.admin-dashboard .modal-footer {
+  flex-shrink: 0;
+  border-radius: 0 0 12px 12px;
+  padding: 1rem 1.5rem;
+}
+
+/* Eliminar barras de scroll innecesarias */
+.admin-dashboard .modal-body::-webkit-scrollbar {
+  display: none;
+}
+
+.admin-dashboard .modal-body {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Mejorar scroll en contenido de modales */
+.admin-dashboard .modal-body .table-responsive {
+  max-height: 60vh;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.admin-dashboard .modal-body .table-responsive::-webkit-scrollbar {
+  width: 6px;
+}
+
+.admin-dashboard .modal-body .table-responsive::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.admin-dashboard .modal-body .table-responsive::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.admin-dashboard .modal-body .table-responsive::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Mejorar distribución de contenido en modales */
+.admin-dashboard .modal-body .card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-dashboard .modal-body .card-body {
+  flex: 1;
+  overflow: hidden;
+}
+
+.admin-dashboard .modal-body .row {
+  height: 100%;
+}
+
+.admin-dashboard .modal-body .col-md-6,
+.admin-dashboard .modal-body .col-md-4,
+.admin-dashboard .modal-body .col-md-8,
+.admin-dashboard .modal-body .col-md-12 {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Responsive para móviles */
+@media (max-width: 768px) {
+  .admin-dashboard .modal-dialog,
+  .admin-dashboard .modal-dialog.modal-lg,
+  .admin-dashboard .modal-dialog.modal-xl,
+  .admin-dashboard .modal-dialog.modal-sm {
+    max-width: 98vw;
+    width: 98vw;
+    height: 98vh;
+    margin: 1vh auto;
+  }
+  
+  .admin-dashboard .modal-body {
+    padding: 1rem;
+  }
+  
+  .admin-dashboard .modal-header {
+    padding: 0.75rem 1rem;
+  }
+  
+  .admin-dashboard .modal-title {
+    font-size: 1.1rem;
+  }
+  
+  .admin-dashboard .modal-footer {
+    padding: 0.75rem 1rem;
+  }
+}
+
+/* Responsive para tablets */
+@media (max-width: 1024px) and (min-width: 769px) {
+  .admin-dashboard .modal-dialog {
+    max-width: 95vw;
+    width: 95vw;
+    height: 95vh;
+    margin: 2.5vh auto;
+  }
+  
+  .admin-dashboard .modal-dialog.modal-lg {
+    max-width: 95vw;
+    width: 95vw;
+    height: 95vh;
+    margin: 2.5vh auto;
+  }
+  
+  .admin-dashboard .modal-dialog.modal-xl {
+    max-width: 98vw;
+    width: 98vw;
+    height: 98vh;
+    margin: 1vh auto;
+  }
+}
+
+/* Mejoras específicas para formularios en modales */
+.admin-dashboard .modal-body .form-control,
+.admin-dashboard .modal-body .form-select {
+  margin-bottom: 1rem;
+}
+
+.admin-dashboard .modal-body .form-label {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+/* Mejoras para tablas en modales */
+.admin-dashboard .modal-body .table {
+  margin-bottom: 0;
+}
+
+.admin-dashboard .modal-body .table th {
+  background-color: #f8f9fa;
+  border-top: none;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+/* Mejoras para botones en modales */
+.admin-dashboard .modal-footer .btn {
+  margin: 0 0.25rem;
+}
+
+@media (max-width: 768px) {
+  .admin-dashboard .modal-footer .btn {
+    margin: 0.25rem 0;
+    width: 100%;
+  }
+}
+
+/* Mejoras para alertas en modales */
+.admin-dashboard .modal-body .alert {
+  flex-shrink: 0;
+  margin-bottom: 1rem;
+}
+
+/* Mejoras para listas en modales */
+.admin-dashboard .modal-body .list-group {
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
+.admin-dashboard .modal-body .list-group::-webkit-scrollbar {
+  width: 4px;
+}
+
+.admin-dashboard .modal-body .list-group::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 2px;
+}
+
+.admin-dashboard .modal-body .list-group::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 2px;
+}
+
+/* Mejoras para modales de debugging */
+.admin-dashboard .debug-modal .modal-dialog {
+  max-width: 98vw;
+  width: 98vw;
+  height: 98vh;
+  margin: 1vh auto;
+}
+
+.admin-dashboard .debug-modal .modal-body {
+  font-family: 'Courier New', monospace;
+  font-size: 0.85rem;
+  background-color: #f8f9fa;
+}
+
+/* Mejoras para modales de detalles de productos */
+.admin-dashboard .product-details-modal .modal-body .row {
+  height: auto;
+}
+
+.admin-dashboard .product-details-modal .modal-body .col-md-6 {
+  height: auto;
+}
+
+/* Mejoras para modales de gestión de estado */
+.admin-dashboard .status-management-modal .modal-body {
+  padding: 1rem;
+}
+
+.admin-dashboard .status-management-modal .table-responsive {
+  max-height: 50vh;
+}

@@ -32,6 +32,10 @@ const qrRoutes = require('./routes/qrRoutes');
 console.log('Antes de require qrRoutes');
 const healthRoutes = require('./routes/healthRoutes');
 console.log('Antes de require healthRoutes');
+const lockerAssignmentRoutes = require('./routes/lockerAssignmentRoutes');
+console.log('Antes de require lockerAssignmentRoutes');
+const syncRoutes = require('./routes/syncRoutes');
+console.log('Antes de require syncRoutes');
 const app = express();
 
 // Configuración de CORS más permisiva para Google OAuth
@@ -104,5 +108,9 @@ console.log('Rutas de QR montadas en /api/qr');
 app.use('/api/qr', qrRoutes);
 console.log('Rutas de health montadas en /api/health');
 app.use('/api/health', healthRoutes);
+console.log('Rutas de locker assignments montadas en /api/locker-assignments');
+app.use('/api/locker-assignments', lockerAssignmentRoutes);
+console.log('Rutas de sincronización montadas en /api/sync');
+app.use('/api/sync', syncRoutes);
 
 module.exports = app;
