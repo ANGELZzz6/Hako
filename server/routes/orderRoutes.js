@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const orderController = require('../controllers/orderController');
 const { auth } = require('../middleware/auth');
+const adminAuth = require('../middleware/adminAuth');
 
 // Obtener todos los pedidos (solo admin) - DEBE IR PRIMERO
 router.get('/', auth, orderController.getAllOrders);
@@ -32,6 +33,9 @@ router.get('/history', auth, orderController.getMyOrderHistory);
 
 // Obtener productos comprados por el usuario
 router.get('/purchased-products', auth, orderController.getMyPurchasedProducts);
+
+// Obtener productos de un usuario específico (solo admin)
+router.get('/admin/user/:userId/products', auth, adminAuth, orderController.getUserProducts);
 
 // Reclamar productos desde inventario
 router.post('/claim-from-inventory', auth, orderController.claimProductsFromInventory);

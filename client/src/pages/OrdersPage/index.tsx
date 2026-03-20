@@ -1071,7 +1071,7 @@ const OrdersPage: React.FC = () => {
                           Visualización Combinada de Casilleros
                         </h6>
                         <div className="alert alert-info">
-                          <i className="bi bi-info-circle me-2"></i>
+                          <i className="bi bi-info-circle me-1"></i>
                           <strong>Estado Real:</strong> Esta visualización muestra el estado actual de todos los casilleros considerando todas tus reservas activas.
                         </div>
                         <div className="row">
@@ -1098,9 +1098,9 @@ const OrdersPage: React.FC = () => {
                                         {locker.usedSlots}/27 slots ({Math.round((locker.usedSlots / 27) * 100)}%)
                                       </small>
                                     </div>
-                                    <div className="progress" style={{ height: '8px' }}>
+                                    <div className="progress">
                                       <div 
-                                        className={`progress-bar ${locker.usedSlots / 27 >= 0.8 ? 'bg-danger' : locker.usedSlots / 27 >= 0.6 ? 'bg-warning' : 'bg-success'}`}
+                                        className="progress-bar" 
                                         role="progressbar" 
                                         style={{ width: `${(locker.usedSlots / 27) * 100}%` }}
                                         aria-valuenow={locker.usedSlots} 
@@ -1109,23 +1109,6 @@ const OrdersPage: React.FC = () => {
                                       ></div>
                                     </div>
                                   </div>
-
-                                  {/* Mostrar productos en este casillero */}
-                                  {(locker as any).products && (
-                                    <div className="mt-3">
-                                      <small className="text-muted">
-                                        <i className="bi bi-box-seam me-1"></i>
-                                        Productos en este casillero:
-                                      </small>
-                                      <div className="mt-1">
-                                        {(locker as any).products.map((product: any, idx: number) => (
-                                          <span key={idx} className="badge bg-light text-dark me-1 mb-1">
-                                            {product.name} (Reserva #{product.appointmentId.slice(-6)})
-                                          </span>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  )}
                                 </div>
                               </div>
                             </div>

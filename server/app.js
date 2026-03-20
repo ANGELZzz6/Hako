@@ -26,6 +26,10 @@ const orderRoutes = require('./routes/orderRoutes');
 console.log('Antes de require orderRoutes');
 const appointmentRoutes = require('./routes/appointmentRoutes');
 console.log('Antes de require appointmentRoutes');
+const debugRoutes = require('./routes/debugRoutes');
+console.log('Antes de require debugRoutes');
+const qrRoutes = require('./routes/qrRoutes');
+console.log('Antes de require qrRoutes');
 const app = express();
 
 // Configuración de CORS más permisiva para Google OAuth
@@ -92,5 +96,9 @@ console.log('Rutas de pedidos montadas en /api/orders');
 app.use('/api/orders', orderRoutes);
 console.log('Rutas de citas montadas en /api/appointments');
 app.use('/api/appointments', appointmentRoutes);
+console.log('Rutas de debug montadas en /api/debug');
+app.use('/api/debug', debugRoutes);
+console.log('Rutas de QR montadas en /api/qr');
+app.use('/api/qr', qrRoutes);
 
 module.exports = app;

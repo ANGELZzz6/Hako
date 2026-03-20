@@ -20,6 +20,7 @@ interface VariantAttribute {
   required: boolean;
   options: VariantOption[];
   definesDimensions?: boolean; // Added for new functionality
+  definesStock?: boolean; // New: which attribute controls stock
 }
 
 interface ProductVariants {
@@ -104,14 +105,26 @@ const ProductVariantManager: React.FC<ProductVariantManagerProps> = ({
     });
   };
 
+  const handleSetDefinesStock = (attributeIndex: number) => {
+    const newAttributes = variants.attributes.map((attr, idx) => ({
+      ...attr,
+      definesStock: idx === attributeIndex
+    }));
+    onChange({
+      ...variants,
+      attributes: newAttributes
+    });
+  };
+
   const addOption = (attributeIndex: number) => {
     if (!newOptionValue.trim()) return;
 
     const newAttribute = variants.attributes[attributeIndex];
+    const hasStockDriver = variants.attributes.some(a => a.definesStock);
     const newOption: VariantOption = {
       value: newOptionValue.trim(),
       price: newOptionPrice,
-      stock: newOptionStock,
+      stock: hasStockDriver && !newAttribute.definesStock ? 0 : newOptionStock,
       isActive: true,
       dimensiones: newAttribute.definesDimensions ? {
         largo: newOptionLargo || 0,
@@ -293,6 +306,15 @@ const ProductVariantManager: React.FC<ProductVariantManagerProps> = ({
                         name="definesDimensionsGroup"
                         className="mb-2"
                       />
+                      <Form.Check
+                        type="radio"
+                        id={`defines-stock-${index}`}
+                        label="Este atributo controla el stock"
+                        checked={attribute.definesStock || false}
+                        onChange={() => handleSetDefinesStock(index)}
+                        name="definesStockGroup"
+                        className="mb-2"
+                      />
                       <Button
                         variant="outline-secondary"
                         size="sm"
@@ -347,7 +369,11 @@ const ProductVariantManager: React.FC<ProductVariantManagerProps> = ({
                             placeholder="0"
                             value={newOptionStock}
                             onChange={(e) => setNewOptionStock(Number(e.target.value))}
+                            disabled={variants.attributes.some(a => a.definesStock) && !attribute.definesStock}
                           />
+                          {variants.attributes.some(a => a.definesStock) && !attribute.definesStock && (
+                            <Form.Text muted>El stock solo se edita en el atributo marcado como controlador de stock.</Form.Text>
+                          )}
                         </Form.Group>
                       </Col>
                       {/* Inputs para dimensiones en el formulario de nueva opción */}
@@ -433,8 +459,12 @@ const ProductVariantManager: React.FC<ProductVariantManagerProps> = ({
                                     type="number"
                                     value={option.stock}
                                     onChange={(e) => updateOptionStock(index, optionIndex, Number(e.target.value))}
+                                    disabled={variants.attributes.some(a => a.definesStock) && !attribute.definesStock}
                                     size="sm"
                                   />
+                                  {variants.attributes.some(a => a.definesStock) && !attribute.definesStock && (
+                                    <Form.Text muted>El stock se gestiona en el atributo marcado.</Form.Text>
+                                  )}
                                 </td>
                                 <td>
                                   <Badge bg={option.isActive ? 'success' : 'secondary'}>

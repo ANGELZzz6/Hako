@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import * as supportService from '../services/supportService';
 import orderService from '../services/orderService';
 import productService from '../services/productService';
+import debugService from '../services/debugService';
 import type { Product } from '../services/productService';
 import userService from '../services/userService';
 import type { User } from '../services/userService';
@@ -42,6 +43,12 @@ interface IndividualProduct {
   orderCreatedAt?: string;
   individualIndex?: number;
   variants?: Record<string, string>;
+  user?: {
+    _id: string;
+    nombre: string;
+    apellido: string;
+    email: string;
+  };
 }
 
 // Tipos para errores de depuración
@@ -58,7 +65,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
   const navigate = useNavigate();
   
   // Estados principales
-  const [individualProducts, setIndividualProducts] = useState<IndividualProduct[]>([]);
+  const [individualProducts, setIndividualProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   
@@ -103,6 +110,28 @@ const AdminSupportCompleteFlow: React.FC = () => {
   const [manualActionLoading, setManualActionLoading] = useState(false);
   const [manualActionProduct, setManualActionProduct] = useState<string | null>(null);
   
+  // Estados para mostrar productos del usuario
+  const [selectedUserForProducts, setSelectedUserForProducts] = useState<User | null>(null);
+  const [userProducts, setUserProducts] = useState<any[]>([]);
+  const [showUserProductsModal, setShowUserProductsModal] = useState(false);
+  const [userProductsLoading, setUserProductsLoading] = useState(false);
+  
+  // Estados para manejo de reservas y debugging
+  const [showReservationStatusModal, setShowReservationStatusModal] = useState(false);
+  const [selectedUserForReservations, setSelectedUserForReservations] = useState<User | null>(null);
+  const [reservationStatusLoading, setReservationStatusLoading] = useState(false);
+  const [reservationActions, setReservationActions] = useState<Array<{
+    productId: string;
+    productName: string;
+    currentStatus: string;
+    newStatus: string;
+    action: string;
+  }>>([]);
+  
+  // Estados para debugging automático
+  const [debugMode, setDebugMode] = useState(false);
+  const [autoDebugEnabled, setAutoDebugEnabled] = useState(true);
+  
   // Verificar autenticación y permisos
   useEffect(() => {
     if (!isLoading && (!isAuthenticated || !isAdmin)) {
@@ -110,43 +139,35 @@ const AdminSupportCompleteFlow: React.FC = () => {
     }
   }, [isAuthenticated, isAdmin, isLoading, navigate]);
   
-  // Cargar usuarios
+  // Cargar usuarios y productos
   useEffect(() => {
-    const fetchUsers = async () => {
+    const fetchData = async () => {
       try {
         setUsersLoading(true);
-        const response = await userService.getAllUsers();
-        setUsers(response);
-        logDebugError('Usuarios cargados correctamente', { count: response.length }, 'info');
+        setProductsLoading(true);
+        
+        const [usersResponse, productsResponse] = await Promise.all([
+          userService.getAllUsers(),
+          productService.getAllProducts()
+        ]);
+        
+        setUsers(usersResponse);
+        setProducts(productsResponse);
+        
+        logDebugError('Datos cargados correctamente', { 
+          usersCount: usersResponse.length, 
+          productsCount: productsResponse.length 
+        }, 'info');
       } catch (err: any) {
-        logDebugError('Error al cargar usuarios', err, 'error');
+        logDebugError('Error al cargar datos', err, 'error');
       } finally {
         setUsersLoading(false);
-      }
-    };
-    
-    if (isAuthenticated && isAdmin) {
-      fetchUsers();
-    }
-  }, [isAuthenticated, isAdmin]);
-  
-  // Cargar productos
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        setProductsLoading(true);
-        const response = await productService.getAllProducts();
-        setProducts(response);
-        logDebugError('Productos cargados correctamente', { count: response.length }, 'info');
-      } catch (err: any) {
-        logDebugError('Error al cargar productos', err, 'error');
-      } finally {
         setProductsLoading(false);
       }
     };
     
     if (isAuthenticated && isAdmin) {
-      fetchProducts();
+      fetchData();
     }
   }, [isAuthenticated, isAdmin]);
   
@@ -192,43 +213,47 @@ const AdminSupportCompleteFlow: React.FC = () => {
     }
   }, [isAuthenticated, isAdmin]);
   
-  // Cargar usuarios
+  // Sistema de debugging automático
   useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        if (isAuthenticated && isAdmin) {
-          const usersData = await userService.getAllUsers();
-          setUsers(usersData);
-          logDebugError('Usuarios cargados', { count: usersData.length }, 'info');
-        }
-      } catch (err: any) {
-        logDebugError('Error al cargar usuarios', err, 'error');
-      }
+    if (!autoDebugEnabled) return;
+    
+    // Capturar errores globales de JavaScript
+    const handleGlobalError = (event: ErrorEvent) => {
+      logDebugError('Error global de JavaScript', {
+        message: event.message,
+        filename: event.filename,
+        lineno: event.lineno,
+        colno: event.colno,
+        error: event.error?.stack,
+        timestamp: new Date().toISOString()
+      }, 'error');
     };
     
-    if (isAuthenticated && isAdmin) {
-      fetchUsers();
-    }
-  }, [isAuthenticated, isAdmin]);
-  
-  // Cargar productos
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        if (isAuthenticated && isAdmin) {
-          const productsData = await productService.getAllProducts();
-          setProducts(productsData);
-          logDebugError('Productos cargados', { count: productsData.length }, 'info');
-        }
-      } catch (err: any) {
-        logDebugError('Error al cargar productos', err, 'error');
-      }
+    // Capturar promesas rechazadas
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      logDebugError('Promesa rechazada no manejada', {
+        reason: event.reason,
+        timestamp: new Date().toISOString()
+      }, 'error');
     };
     
-    if (isAuthenticated && isAdmin) {
-      fetchProducts();
-    }
-  }, [isAuthenticated, isAdmin]);
+    // Agregar event listeners
+    window.addEventListener('error', handleGlobalError);
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+    
+    // Log de inicio del sistema de debugging
+    logDebugError('Sistema de debugging automático iniciado', {
+      timestamp: new Date().toISOString(),
+      userAgent: navigator.userAgent,
+      url: window.location.href
+    }, 'info');
+    
+    // Cleanup
+    return () => {
+      window.removeEventListener('error', handleGlobalError);
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+    };
+  }, [autoDebugEnabled]);
   
   // Filtrar usuarios
   const filteredUsers = users.filter(user => {
@@ -310,7 +335,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
   );
   
   // Función para registrar errores de depuración
-  const logDebugError = (message: string, details: any = null, severity: DebugError['severity'] = 'info') => {
+  const logDebugError = async (message: string, details: any = null, severity: DebugError['severity'] = 'info') => {
     const newError: DebugError = {
       id: Date.now().toString(),
       message,
@@ -329,6 +354,24 @@ const AdminSupportCompleteFlow: React.FC = () => {
     } else {
       console.info(`[DEBUG] ${message}`, details);
     }
+    
+    // Enviar log al servidor si el debug automático está habilitado
+    if (autoDebugEnabled) {
+      try {
+        await debugService.sendDebugLog({
+          id: newError.id,
+          message: newError.message,
+          timestamp: newError.timestamp,
+          severity: newError.severity,
+          details: newError.details,
+          url: window.location.href,
+          userAgent: navigator.userAgent
+        });
+      } catch (err) {
+        // No loguear errores del servicio de debug para evitar loops infinitos
+        console.warn('No se pudo enviar log de debug al servidor:', err);
+      }
+    }
   };
   
   // Función para agregar producto a un usuario
@@ -342,19 +385,56 @@ const AdminSupportCompleteFlow: React.FC = () => {
       setAddProductLoading(true);
       setAddProductError('');
       
+      // Debug: Log de la información del producto seleccionado
+      logDebugError('Iniciando asignación de producto', {
+        userId: selectedUser._id,
+        userName: selectedUser.nombre,
+        productId: selectedProductToAdd._id,
+        productName: selectedProductToAdd.nombre,
+        quantity,
+        selectedVariants,
+        hasVariants: !!selectedProductToAdd.variants,
+        variantsEnabled: selectedProductToAdd.variants?.enabled,
+        variantsAttributes: selectedProductToAdd.variants?.attributes?.length || 0
+      }, 'info');
+      
       // Validar que el producto tenga stock disponible
       if (selectedProductToAdd.stock < quantity) {
-        throw new Error(`Stock insuficiente. Disponible: ${selectedProductToAdd.stock}`);
+        throw new Error(`Stock insuficiente. Disponible: ${selectedProductToAdd.stock}, Solicitado: ${quantity}`);
       }
       
       // Validar variantes si el producto las tiene
       if (selectedProductToAdd.variants && selectedProductToAdd.variants.enabled) {
         const requiredAttributes = selectedProductToAdd.variants.attributes.filter(attr => attr.required);
+        
+        logDebugError('Validando variantes requeridas', {
+          totalAttributes: selectedProductToAdd.variants.attributes.length,
+          requiredAttributes: requiredAttributes.length,
+          selectedVariants: Object.keys(selectedVariants).length
+        }, 'info');
+        
         for (const attr of requiredAttributes) {
           if (!selectedVariants[attr.name]) {
-            throw new Error(`Debes seleccionar una opción para ${attr.name}`);
+            throw new Error(`Debes seleccionar una opción para el atributo requerido: ${attr.name}`);
+          }
+          
+          // Validar que la opción seleccionada existe
+          const optionExists = attr.options.some(opt => opt.value === selectedVariants[attr.name]);
+          if (!optionExists) {
+            throw new Error(`La opción seleccionada para ${attr.name} no es válida`);
+          }
+          
+          // Validar stock de la variante específica
+          const selectedOption = attr.options.find(opt => opt.value === selectedVariants[attr.name]);
+          if (selectedOption && selectedOption.stock < quantity) {
+            throw new Error(`Stock insuficiente para la variante ${attr.name}: ${selectedOption.value}. Disponible: ${selectedOption.stock}`);
           }
         }
+        
+        logDebugError('Variantes validadas correctamente', {
+          selectedVariants,
+          requiredAttributes: requiredAttributes.map(attr => attr.name)
+        }, 'info');
       }
       
       // Llamar al API para asignar el producto al usuario
@@ -391,7 +471,13 @@ const AdminSupportCompleteFlow: React.FC = () => {
     } catch (err: any) {
       const errorMessage = err.message || err.toString();
       setAddProductError(errorMessage);
-      logDebugError('Error al asignar producto', err, 'error');
+      logDebugError('Error al asignar producto', {
+        error: errorMessage,
+        selectedUser: selectedUser?._id,
+        selectedProduct: selectedProductToAdd?._id,
+        selectedVariants,
+        quantity
+      }, 'error');
     } finally {
       setAddProductLoading(false);
     }
@@ -403,112 +489,139 @@ const AdminSupportCompleteFlow: React.FC = () => {
     setShowAddProductModal(true);
   };
   
+  // Función para mostrar productos de un usuario específico
+  const showUserProducts = async (user: User) => {
+    try {
+      setSelectedUserForProducts(user);
+      setUserProductsLoading(true);
+      setShowUserProductsModal(true);
+      
+      // Usar el nuevo servicio para obtener productos del usuario específico
+      const userProductsList = await orderService.getUserProducts(user._id);
+      
+      setUserProducts(userProductsList);
+      
+      logDebugError('Productos del usuario cargados', {
+        userId: user._id,
+        userName: user.nombre,
+        productsCount: userProductsList.length
+      }, 'info');
+      
+    } catch (err: any) {
+      logDebugError('Error al cargar productos del usuario', err, 'error');
+      alert('Error al cargar productos del usuario: ' + (err.message || err.toString()));
+    } finally {
+      setUserProductsLoading(false);
+    }
+  };
+  
+  // Función para mostrar y gestionar el estado de las reservas del usuario
+  const showReservationStatus = async (user: User) => {
+    try {
+      setSelectedUserForReservations(user);
+      setReservationStatusLoading(true);
+      setShowReservationStatusModal(true);
+      
+      // Obtener productos del usuario para mostrar sus estados
+      const userProductsList = await orderService.getUserProducts(user._id);
+      
+      // Preparar acciones disponibles para cada producto
+      const actions = userProductsList
+        .filter(product => product._id || product.originalItemId)
+        .map(product => ({
+          productId: (product._id || product.originalItemId) || '',
+          productName: product.product.nombre,
+          currentStatus: product.isClaimed ? 'claimed' : product.isReserved ? 'reserved' : 'available',
+          newStatus: '',
+          action: ''
+        }));
+      
+      setReservationActions(actions);
+      
+      logDebugError('Estado de reservas cargado', {
+        userId: user._id,
+        userName: user.nombre,
+        productsCount: userProductsList.length
+      }, 'info');
+      
+    } catch (err: any) {
+      logDebugError('Error al cargar estado de reservas', err, 'error');
+      alert('Error al cargar estado de reservas: ' + (err.message || err.toString()));
+    } finally {
+      setReservationStatusLoading(false);
+    }
+  };
+  
+  // Función para cambiar el estado de un producto
+  const changeProductStatus = async (productId: string, newStatus: string, action: string) => {
+    try {
+      setManualActionLoading(true);
+      
+      // Aquí implementaremos la lógica para cambiar el estado
+      // Por ahora solo logueamos la acción
+      logDebugError('Cambio de estado solicitado', {
+        productId,
+        newStatus,
+        action,
+        timestamp: new Date().toISOString()
+      }, 'info');
+      
+      // TODO: Implementar llamada al servidor para cambiar estado
+      alert(`Acción ${action} aplicada al producto ${productId}. Estado: ${newStatus}`);
+      
+    } catch (err: any) {
+      logDebugError('Error al cambiar estado del producto', err, 'error');
+      alert('Error al cambiar estado: ' + (err.message || err.toString()));
+    } finally {
+      setManualActionLoading(false);
+    }
+  };
+  
   // Función para manejar selección de variantes
   const handleVariantChange = (attributeName: string, value: string) => {
     setSelectedVariants(prev => ({
       ...prev,
       [attributeName]: value
     }));
+    
+    // Debug: Log del cambio de variante
+    logDebugError('Variante seleccionada', {
+      attributeName,
+      value,
+      allSelectedVariants: { ...selectedVariants, [attributeName]: value }
+    }, 'info');
   };
   
-  // Función para manejar el cambio de estado manualmente
-  const handleManualStatusChange = async (productId: string, newStatus: IndividualProduct['status']) => {
-    try {
-      setManualActionLoading(true);
-      setManualActionProduct(productId);
-      
-      // Aquí iría la lógica para cambiar el estado manualmente
-      // Por ahora solo simulamos la acción y registramos en debug
-      logDebugError(`Cambio de estado manual: ${productId} -> ${newStatus}`, {
-        productId,
-        newStatus,
-        timestamp: new Date().toISOString()
-      }, 'info');
-      
-      // Actualizar la lista local
-      setIndividualProducts(prev => 
-        prev.map(p => 
-          p._id === productId ? { ...p, status: newStatus } : p
-        )
-      );
-      
-      alert(`Estado cambiado a: ${newStatus}`);
-    } catch (err: any) {
-      logDebugError('Error al cambiar estado manualmente', err, 'error');
-      alert('Error al cambiar el estado: ' + (err.message || err.toString()));
-    } finally {
-      setManualActionLoading(false);
-      setManualActionProduct(null);
+  // Función para validar si se pueden agregar productos
+  const canAddProduct = () => {
+    if (!selectedUser || !selectedProductToAdd) return false;
+    
+    // Validar variantes requeridas
+    if (selectedProductToAdd.variants && selectedProductToAdd.variants.enabled) {
+      const requiredAttributes = selectedProductToAdd.variants.attributes.filter(attr => attr.required);
+      for (const attr of requiredAttributes) {
+        if (!selectedVariants[attr.name]) return false;
+      }
     }
+    
+    return true;
   };
   
-  // Función para asignar manualmente un casillero
-  const handleManualLockerAssignment = async (productId: string, lockerNumber: number) => {
-    try {
-      setManualActionLoading(true);
-      setManualActionProduct(productId);
-      
-      // Aquí iría la lógica para asignar el casillero manualmente
-      logDebugError(`Asignación de casillero manual: ${productId} -> Locker ${lockerNumber}`, {
-        productId,
-        lockerNumber,
-        timestamp: new Date().toISOString()
-      }, 'info');
-      
-      // Actualizar la lista local
-      setIndividualProducts(prev => 
-        prev.map(p => 
-          p._id === productId ? { ...p, assigned_locker: lockerNumber } : p
-        )
-      );
-      
-      alert(`Casillero ${lockerNumber} asignado`);
-    } catch (err: any) {
-      logDebugError('Error al asignar casillero manualmente', err, 'error');
-      alert('Error al asignar el casillero: ' + (err.message || err.toString()));
-    } finally {
-      setManualActionLoading(false);
-      setManualActionProduct(null);
+  // Función para obtener el mensaje de error de validación
+  const getValidationMessage = () => {
+    if (!selectedUser) return 'Debes seleccionar un usuario';
+    if (!selectedProductToAdd) return 'Debes seleccionar un producto';
+    
+    if (selectedProductToAdd.variants && selectedProductToAdd.variants.enabled) {
+      const requiredAttributes = selectedProductToAdd.variants.attributes.filter(attr => attr.required);
+      for (const attr of requiredAttributes) {
+        if (!selectedVariants[attr.name]) {
+          return `Debes seleccionar una opción para: ${attr.name}`;
+        }
+      }
     }
-  };
-  
-  // Función para liberar manualmente un producto
-  const handleManualRelease = async (productId: string) => {
-    try {
-      setManualActionLoading(true);
-      setManualActionProduct(productId);
-      
-      // Aquí iría la lógica para liberar el producto manualmente
-      logDebugError(`Liberación manual: ${productId}`, {
-        productId,
-        timestamp: new Date().toISOString()
-      }, 'info');
-      
-      // Actualizar la lista local
-      setIndividualProducts(prev => 
-        prev.map(p => 
-          p._id === productId ? { ...p, status: 'available', assigned_locker: undefined } : p
-        )
-      );
-      
-      alert('Producto liberado');
-    } catch (err: any) {
-      logDebugError('Error al liberar producto manualmente', err, 'error');
-      alert('Error al liberar el producto: ' + (err.message || err.toString()));
-    } finally {
-      setManualActionLoading(false);
-      setManualActionProduct(null);
-    }
-  };
-  
-  // Función para ordenar
-  const handleSort = (field: string) => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection('asc');
-    }
+    
+    return '';
   };
   
   // Función para limpiar filtros
@@ -528,7 +641,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
       const headers = ['ID', 'Producto', 'Estado', 'Casillero', 'Precio Unitario', 'Fecha de Creación', 'Variantes'];
       const csvContent = [
         headers.join(','),
-        ...sortedProducts.map(product => [
+        ...individualProducts.map(product => [
           product._id,
           product.product.nombre,
           product.status,
@@ -547,10 +660,20 @@ const AdminSupportCompleteFlow: React.FC = () => {
       a.click();
       window.URL.revokeObjectURL(url);
       
-      logDebugError('Exportación CSV realizada', { count: sortedProducts.length }, 'info');
+      logDebugError('Exportación CSV realizada', { count: individualProducts.length }, 'info');
     } catch (err: any) {
       logDebugError('Error al exportar CSV', err, 'error');
       alert('Error al exportar: ' + (err.message || err.toString()));
+    }
+  };
+  
+  // Función para ordenar
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
     }
   };
   
@@ -586,7 +709,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
       </span>
     );
   };
-  
+
   if (!isAuthenticated || !isAdmin) {
     return null;
   }
@@ -630,7 +753,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
                 <label className="form-label">Usuario Seleccionado</label>
                 {selectedUser ? (
                   <div className="p-2 border rounded">
-                    <div><strong>Nombre:</strong> {selectedUser.nombre} {selectedUser.apellido}</div>
+                    <div><strong>Nombre:</strong> {selectedUser.nombre}</div>
                     <div><strong>Email:</strong> {selectedUser.email}</div>
                     <div><strong>Rol:</strong> {selectedUser.role}</div>
                   </div>
@@ -648,7 +771,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
                     <option value="">Seleccionar usuario...</option>
                     {users.map(user => (
                       <option key={user._id} value={user._id}>
-                        {user.nombre} {user.apellido} ({user.email})
+                        {user.nombre} ({user.email})
                       </option>
                     ))}
                   </select>
@@ -667,6 +790,17 @@ const AdminSupportCompleteFlow: React.FC = () => {
                     setSelectedProductToAdd(product);
                     // Resetear variantes al cambiar de producto
                     setSelectedVariants({});
+                    
+                    // Debug: Log del producto seleccionado
+                    if (product) {
+                      logDebugError('Producto seleccionado', {
+                        id: product._id,
+                        nombre: product.nombre,
+                        tieneVariantes: !!product.variants,
+                        variantesHabilitadas: product.variants?.enabled,
+                        atributos: product.variants?.attributes?.length || 0
+                      }, 'info');
+                    }
                   }}
                   disabled={productsLoading || addProductLoading}
                 >
@@ -683,27 +817,72 @@ const AdminSupportCompleteFlow: React.FC = () => {
               {selectedProductToAdd && selectedProductToAdd.variants && selectedProductToAdd.variants.enabled && (
                 <div className="mb-3 border p-3 rounded">
                   <h6>Variantes del Producto</h6>
-                  {selectedProductToAdd.variants.attributes.map(attr => (
-                    <div key={attr.name} className="mb-2">
-                      <label className="form-label">
-                        {attr.name} {attr.required && <span className="text-danger">*</span>}
-                      </label>
-                      <select
-                        className="form-select"
-                        value={selectedVariants[attr.name] || ''}
-                        onChange={(e) => handleVariantChange(attr.name, e.target.value)}
-                        disabled={addProductLoading}
-                        required={attr.required}
-                      >
-                        <option value="">Seleccionar {attr.name}...</option>
-                        {attr.options.map(option => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
+                  {/* Debug info para variantes */}
+                  <div className="small text-muted mb-2">
+                    <strong>Debug:</strong> Producto: {selectedProductToAdd.nombre} | 
+                    Variantes habilitadas: {selectedProductToAdd.variants.enabled ? 'Sí' : 'No'} | 
+                    Cantidad de atributos: {selectedProductToAdd.variants.attributes?.length || 0}
+                  </div>
+                  
+                  {selectedProductToAdd.variants.attributes && selectedProductToAdd.variants.attributes.length > 0 ? (
+                    selectedProductToAdd.variants.attributes.map(attr => (
+                      <div key={attr.name} className="mb-2">
+                        <label className="form-label">
+                          {attr.name} {attr.required && <span className="text-danger">*</span>}
+                          <small className="text-muted ms-2">
+                            ({attr.options?.length || 0} opciones disponibles)
+                          </small>
+                        </label>
+                        <select
+                          className="form-select"
+                          value={selectedVariants[attr.name] || ''}
+                          onChange={(e) => handleVariantChange(attr.name, e.target.value)}
+                          disabled={addProductLoading}
+                          required={attr.required}
+                        >
+                          <option value="">Seleccionar {attr.name}...</option>
+                          {attr.options && attr.options.length > 0 ? (
+                            attr.options.map(option => (
+                              <option key={option.value} value={option.value}>
+                                {option.value} - ${option.price} (Stock: {option.stock})
+                              </option>
+                            ))
+                          ) : (
+                            <option value="" disabled>No hay opciones disponibles</option>
+                          )}
+                        </select>
+                        {attr.required && !selectedVariants[attr.name] && (
+                          <div className="text-danger small mt-1">
+                            Este campo es obligatorio
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="alert alert-warning">
+                      <i className="bi bi-exclamation-triangle me-2"></i>
+                      El producto tiene variantes habilitadas pero no se encontraron atributos configurados.
                     </div>
-                  ))}
+                  )}
+                </div>
+              )}
+              
+              {/* Debug info adicional */}
+              {selectedProductToAdd && (
+                <div className="mb-3 small text-muted">
+                  <details>
+                    <summary>Información de Debug del Producto</summary>
+                    <pre className="mt-2" style={{ fontSize: '0.8em', maxHeight: '200px', overflow: 'auto' }}>
+                      {JSON.stringify({
+                        id: selectedProductToAdd._id,
+                        nombre: selectedProductToAdd.nombre,
+                        tieneVariantes: !!selectedProductToAdd.variants,
+                        variantesHabilitadas: selectedProductToAdd.variants?.enabled,
+                        atributos: selectedProductToAdd.variants?.attributes?.length || 0,
+                        stock: selectedProductToAdd.stock
+                      }, null, 2)}
+                    </pre>
+                  </details>
                 </div>
               )}
               
@@ -744,7 +923,8 @@ const AdminSupportCompleteFlow: React.FC = () => {
               <button
                 className="btn btn-primary"
                 onClick={handleAddProductToUser}
-                disabled={addProductLoading || !selectedUser || !selectedProductToAdd}
+                disabled={addProductLoading || !canAddProduct()}
+                title={getValidationMessage() || 'Agregar producto al usuario'}
               >
                 {addProductLoading ? (
                   <>
@@ -773,21 +953,78 @@ const AdminSupportCompleteFlow: React.FC = () => {
                   </p>
                   
                   <div className="d-flex gap-2 flex-wrap">
-            <button
-              className="btn btn-outline-primary btn-sm"
-              onClick={() => setShowFilters(!showFilters)}
-            >
-              <i className="bi bi-funnel"></i> Filtros
-            </button>
-            <button
-              className="btn btn-outline-success btn-sm"
-              onClick={() => {
-                setSelectedUser(null);
-                setShowAddProductModal(true);
-              }}
-            >
-              <i className="bi bi-plus-circle"></i> Agregar Producto a Usuario
-            </button>
+                    <button
+                      className="btn btn-outline-primary btn-sm"
+                      onClick={() => setShowFilters(!showFilters)}
+                    >
+                      <i className="bi bi-funnel"></i> Filtros
+                    </button>
+                    
+                    {/* Panel de Debugging */}
+                    <div className="ms-auto">
+                      <button
+                        className={`btn btn-sm ${debugMode ? 'btn-danger' : 'btn-outline-secondary'}`}
+                        onClick={() => setDebugMode(!debugMode)}
+                        title="Activar/Desactivar modo debug"
+                      >
+                        <i className="bi bi-bug"></i> Debug Mode
+                      </button>
+                      <button
+                        className={`btn btn-sm ${autoDebugEnabled ? 'btn-success' : 'btn-outline-secondary'} ms-2`}
+                        onClick={() => setAutoDebugEnabled(!autoDebugEnabled)}
+                        title="Activar/Desactivar debug automático"
+                      >
+                        <i className="bi bi-robot"></i> Auto-Debug
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {/* Panel de Debugging Expandido */}
+                  {debugMode && (
+                    <div className="mt-3 p-3 bg-light border rounded">
+                      <h6 className="mb-3">
+                        <i className="bi bi-bug text-danger"></i> Panel de Debugging
+                      </h6>
+                      <div className="row">
+                        <div className="col-md-6">
+                          <div className="mb-2">
+                            <strong>Estado del Sistema:</strong>
+                            <span className="badge bg-success ms-2">Operativo</span>
+                          </div>
+                          <div className="mb-2">
+                            <strong>Productos Cargados:</strong>
+                            <span className="badge bg-info ms-2">{individualProducts.length}</span>
+                          </div>
+                          <div className="mb-2">
+                            <strong>Usuarios Cargados:</strong>
+                            <span className="badge bg-info ms-2">{users.length}</span>
+                          </div>
+                        </div>
+                        <div className="col-md-6">
+                          <div className="mb-2">
+                            <strong>Debug Automático:</strong>
+                            <span className={`badge ${autoDebugEnabled ? 'bg-success' : 'bg-secondary'} ms-2`}>
+                              {autoDebugEnabled ? 'Activado' : 'Desactivado'}
+                            </span>
+                          </div>
+                          <div className="mb-2">
+                            <strong>Errores Capturados:</strong>
+                            <span className="badge bg-warning ms-2">{debugErrors.length}</span>
+                          </div>
+                          <div className="mb-2">
+                            <button
+                              className="btn btn-sm btn-outline-warning"
+                              onClick={() => setShowDebugPanel(!showDebugPanel)}
+                            >
+                              <i className="bi bi-list-ul"></i> Ver Errores
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div className="d-flex gap-2 flex-wrap">
             <button
               className="btn btn-outline-success btn-sm"
               onClick={handleExportCSV}
@@ -979,18 +1216,20 @@ const AdminSupportCompleteFlow: React.FC = () => {
                             </span>
                           </td>
                           <td>
-                            <div className="d-flex gap-2">
+                            <div className="d-flex gap-2 flex-wrap">
                               <button 
                                 className="btn btn-sm btn-outline-primary" 
-                                onClick={() => console.log('Ver detalles de usuario', user._id)}
+                                onClick={() => showUserProducts(user)}
+                                title="Ver productos del usuario"
                               >
                                 <i className="bi bi-eye"></i>
                               </button>
                               <button 
                                 className="btn btn-sm btn-outline-warning" 
-                                onClick={() => console.log('Editar usuario', user._id)}
+                                onClick={() => showReservationStatus(user)}
+                                title="Gestionar estado de reservas"
                               >
-                                <i className="bi bi-pencil"></i>
+                                <i className="bi bi-clock-history"></i>
                               </button>
                               <button 
                                 className="btn btn-sm btn-primary" 
@@ -1141,6 +1380,369 @@ const AdminSupportCompleteFlow: React.FC = () => {
                   }}
                 >
                   Acciones Adicionales
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Modal para mostrar productos del usuario */}
+      {showUserProductsModal && (
+        <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
+          <div className="modal-dialog modal-lg">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">
+                  Productos de {selectedUserForProducts?.nombre}
+                </h5>
+                <button type="button" className="btn-close" onClick={() => setShowUserProductsModal(false)}></button>
+              </div>
+              <div className="modal-body">
+                {userProductsLoading ? (
+                  <div className="text-center">
+                    <div className="spinner-border" role="status">
+                      <span className="visually-hidden">Cargando...</span>
+                    </div>
+                  </div>
+                ) : userProducts.length === 0 ? (
+                  <div className="alert alert-info">
+                    Este usuario no tiene productos asignados.
+                  </div>
+                ) : (
+                  <div className="table-responsive">
+                    <table className="table table-hover">
+                      <thead className="table-dark">
+                        <tr>
+                          <th>Producto</th>
+                          <th>Estado</th>
+                          <th>Casillero</th>
+                          <th>Precio</th>
+                          <th>Fecha</th>
+                          <th>Variantes</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {userProducts.map(product => (
+                          <tr key={product._id}>
+                            <td>
+                              <div className="d-flex align-items-center">
+                                <img 
+                                  src={product.product.imagen_url} 
+                                  alt={product.product.nombre}
+                                  className="me-2"
+                                  style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: '4px' }}
+                                />
+                                <div>
+                                  <div className="fw-bold">{product.product.nombre}</div>
+                                  <small className="text-muted">ID: {product._id.substring(0, 8)}</small>
+                                </div>
+                              </div>
+                            </td>
+                            <td>{renderStatusBadge(product.status)}</td>
+                            <td>{product.assigned_locker || 'Sin asignar'}</td>
+                            <td>${product.unit_price?.toLocaleString('es-CO')}</td>
+                            <td>
+                              {product.orderCreatedAt ? 
+                                new Date(product.orderCreatedAt).toLocaleDateString('es-CO') : 
+                                'N/A'
+                              }
+                            </td>
+                            <td>
+                              {product.variants ? (
+                                <div className="small">
+                                  {Object.entries(product.variants).map(([key, value]) => (
+                                    <div key={key}>
+                                      <strong>{key}:</strong> {value}
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-muted">Sin variantes</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={() => setShowUserProductsModal(false)}>
+                  Cerrar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Modal para gestionar estado de reservas */}
+      {showReservationStatusModal && (
+        <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
+          <div className="modal-dialog modal-xl">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">
+                  Gestión de Estado de Reservas - {selectedUserForReservations?.nombre}
+                </h5>
+                <button type="button" className="btn-close" onClick={() => setShowReservationStatusModal(false)}></button>
+              </div>
+              <div className="modal-body">
+                {reservationStatusLoading ? (
+                  <div className="text-center">
+                    <div className="spinner-border" role="status">
+                      <span className="visually-hidden">Cargando...</span>
+                    </div>
+                  </div>
+                ) : reservationActions.length === 0 ? (
+                  <div className="alert alert-info">
+                    Este usuario no tiene productos para gestionar.
+                  </div>
+                ) : (
+                  <div className="table-responsive">
+                    <table className="table table-hover">
+                      <thead className="table-dark">
+                        <tr>
+                          <th>Producto</th>
+                          <th>Estado Actual</th>
+                          <th>Nuevo Estado</th>
+                          <th>Acción</th>
+                          <th>Operaciones</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {reservationActions.map((action, index) => (
+                          <tr key={action.productId}>
+                            <td>
+                              <div className="fw-bold">{action.productName}</div>
+                              <small className="text-muted">ID: {action.productId.substring(0, 8)}</small>
+                            </td>
+                            <td>
+                              <span className={`badge bg-${
+                                action.currentStatus === 'claimed' ? 'success' : 
+                                action.currentStatus === 'reserved' ? 'warning' : 'primary'
+                              }`}>
+                                {action.currentStatus === 'claimed' ? 'Reclamado' : 
+                                 action.currentStatus === 'reserved' ? 'Reservado' : 'Disponible'}
+                              </span>
+                            </td>
+                            <td>
+                              <select 
+                                className="form-select form-select-sm"
+                                value={action.newStatus}
+                                onChange={(e) => {
+                                  const newActions = [...reservationActions];
+                                  newActions[index].newStatus = e.target.value;
+                                  setReservationActions(newActions);
+                                }}
+                              >
+                                <option value="">Seleccionar...</option>
+                                <option value="available">Disponible</option>
+                                <option value="reserved">Reservado</option>
+                                <option value="claimed">Reclamado</option>
+                                <option value="picked_up">Recogido</option>
+                              </select>
+                            </td>
+                            <td>
+                              <select 
+                                className="form-select form-select-sm"
+                                value={action.action}
+                                onChange={(e) => {
+                                  const newActions = [...reservationActions];
+                                  newActions[index].action = e.target.value;
+                                  setReservationActions(newActions);
+                                }}
+                              >
+                                <option value="">Seleccionar...</option>
+                                <option value="force_available">Forzar Disponible</option>
+                                <option value="force_reserved">Forzar Reservado</option>
+                                <option value="force_claimed">Forzar Reclamado</option>
+                                <option value="force_picked_up">Forzar Recogido</option>
+                                <option value="reset_status">Resetear Estado</option>
+                                <option value="fix_locker">Reparar Casillero</option>
+                                <option value="clear_penalties">Limpiar Penalizaciones</option>
+                              </select>
+                            </td>
+                            <td>
+                              <button 
+                                className="btn btn-sm btn-warning"
+                                disabled={!action.newStatus && !action.action}
+                                onClick={() => changeProductStatus(action.productId, action.newStatus, action.action)}
+                              >
+                                {manualActionLoading && manualActionProduct === action.productId ? (
+                                  <span className="spinner-border spinner-border-sm" role="status" />
+                                ) : (
+                                  <i className="bi bi-tools"></i>
+                                )}
+                                Aplicar
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={() => setShowReservationStatusModal(false)}>
+                  Cerrar
+                </button>
+                <button 
+                  type="button" 
+                  className="btn btn-primary"
+                  onClick={() => {
+                    // Aplicar todos los cambios pendientes
+                    alert('Funcionalidad de aplicación masiva en desarrollo');
+                  }}
+                >
+                  Aplicar Todos los Cambios
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Modal del Panel de Debugging */}
+      {showDebugPanel && (
+        <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
+          <div className="modal-dialog modal-xl">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">
+                  <i className="bi bi-bug text-danger"></i> Panel de Debugging - Errores y Logs
+                </h5>
+                <button type="button" className="btn-close" onClick={() => setShowDebugPanel(false)}></button>
+              </div>
+              <div className="modal-body">
+                <div className="row mb-3">
+                  <div className="col-md-6">
+                    <button
+                      className="btn btn-outline-info btn-sm"
+                      onClick={() => {
+                        // Capturar estado actual del sistema
+                        const systemState = {
+                          timestamp: new Date().toISOString(),
+                          individualProducts: individualProducts.length,
+                          users: users.length,
+                          products: products.length,
+                          debugMode,
+                          autoDebugEnabled
+                        };
+                        logDebugError('Estado del sistema capturado', systemState, 'info');
+                      }}
+                    >
+                      <i className="bi bi-camera"></i> Capturar Estado
+                    </button>
+                    <button
+                      className="btn btn-outline-warning btn-sm ms-2"
+                      onClick={() => {
+                        // Simular error para testing
+                        logDebugError('Error de prueba generado', {
+                          message: 'Este es un error de prueba para verificar el sistema de debugging',
+                          timestamp: new Date().toISOString()
+                        }, 'error');
+                      }}
+                    >
+                      <i className="bi bi-exclamation-triangle"></i> Generar Error de Prueba
+                    </button>
+                  </div>
+                  <div className="col-md-6 text-end">
+                    <button
+                      className="btn btn-outline-danger btn-sm"
+                      onClick={() => setDebugErrors([])}
+                    >
+                      <i className="bi bi-trash"></i> Limpiar Logs
+                    </button>
+                  </div>
+                </div>
+                
+                {debugErrors.length === 0 ? (
+                  <div className="alert alert-info">
+                    <i className="bi bi-info-circle me-2"></i>
+                    No hay errores o logs de debug registrados.
+                  </div>
+                ) : (
+                  <div className="table-responsive">
+                    <table className="table table-hover">
+                      <thead className="table-dark">
+                        <tr>
+                          <th>Timestamp</th>
+                          <th>Severidad</th>
+                          <th>Mensaje</th>
+                          <th>Detalles</th>
+                          <th>Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {debugErrors.map((error, index) => (
+                          <tr key={error.id}>
+                            <td>
+                              <small>{new Date(error.timestamp).toLocaleString('es-CO')}</small>
+                            </td>
+                            <td>
+                              <span className={`badge bg-${
+                                error.severity === 'error' ? 'danger' : 
+                                error.severity === 'warning' ? 'warning' : 'info'
+                              }`}>
+                                {error.severity === 'error' ? 'Error' : 
+                                 error.severity === 'warning' ? 'Advertencia' : 'Info'}
+                              </span>
+                            </td>
+                            <td>
+                              <div className="fw-bold">{error.message}</div>
+                            </td>
+                            <td>
+                              <details>
+                                <summary>Ver detalles</summary>
+                                <pre className="mt-2 small" style={{ maxHeight: '100px', overflow: 'auto' }}>
+                                  {JSON.stringify(error.details, null, 2)}
+                                </pre>
+                              </details>
+                            </td>
+                            <td>
+                              <button
+                                className="btn btn-sm btn-outline-danger"
+                                onClick={() => {
+                                  const newErrors = debugErrors.filter((_, i) => i !== index);
+                                  setDebugErrors(newErrors);
+                                }}
+                              >
+                                <i className="bi bi-trash"></i>
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={() => setShowDebugPanel(false)}>
+                  Cerrar
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => {
+                    // Exportar logs a archivo
+                    const logsText = debugErrors.map(error => 
+                      `[${error.timestamp}] ${error.severity.toUpperCase()}: ${error.message}`
+                    ).join('\n');
+                    const blob = new Blob([logsText], { type: 'text/plain' });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `debug_logs_${new Date().toISOString().split('T')[0]}.txt`;
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                  }}
+                >
+                  <i className="bi bi-download"></i> Exportar Logs
                 </button>
               </div>
             </div>

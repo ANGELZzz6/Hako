@@ -89,11 +89,16 @@ exports.addProductToUser = async (req, res) => {
         product: productId,
         quantity: quantity,
         price: product.precio,
+        unit_price: product.precio,
+        total_price: product.precio * quantity,
         variants: variants || {}
       }],
       total: product.precio * quantity,
-      status: 'completed',
-      source: 'admin_assignment'
+      total_amount: product.precio * quantity,
+      status: 'paid',
+      source: 'admin_assignment',
+      external_reference: `admin_assignment_${Date.now()}_${userId}`,
+      notes: `Producto asignado manualmente por administrador`
     });
     
     await order.save();
