@@ -552,7 +552,7 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ product, isOpen, is
                       ))}
                     </ul>
                     <div className="text-danger">
-                      Ajusta los valores para que solo uno de los atributos tenga stock (> 0).
+                      Ajusta los valores para que solo uno de los atributos tenga stock (&gt; 0).
                     </div>
                   </div>
                 )}

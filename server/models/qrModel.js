@@ -76,7 +76,6 @@ const qrSchema = new mongoose.Schema({
 });
 
 // Índices para búsquedas eficientes
-qrSchema.index({ qr_id: 1 });
 qrSchema.index({ order: 1 });
 qrSchema.index({ appointment: 1 });
 qrSchema.index({ user: 1 });

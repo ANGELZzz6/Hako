@@ -293,8 +293,8 @@ const AdminAppointmentsPage: React.FC = () => {
                       </td>
                       <td>
                         <div>
-                          <strong>{appointment.user.nombre}</strong><br />
-                          <small className="text-muted">{appointment.user.email}</small>
+                          <strong>{appointment.user?.nombre || 'Usuario eliminado'}</strong><br />
+                          <small className="text-muted">{appointment.user?.email || 'N/A'}</small>
                         </div>
                       </td>
                       <td>
@@ -311,13 +311,13 @@ const AdminAppointmentsPage: React.FC = () => {
                           {appointment.itemsToPickup.map((item, idx) => (
                             <div key={idx} className="d-flex align-items-center mb-1">
                               <img 
-                                src={item.product.imagen_url} 
-                                alt={item.product.nombre}
+                                src={item.product?.imagen_url || ''} 
+                                alt={item.product?.nombre || 'Sin nombre'}
                                 className="rounded me-2"
                                 style={{ width: 24, height: 24, objectFit: 'cover' }}
                               />
                               <span className="text-truncate" style={{ maxWidth: '120px' }}>
-                                {item.product.nombre}
+                                {item.product?.nombre || 'Sin nombre'}
                               </span>
                               <span className="badge bg-secondary ms-1">
                                 {item.quantity} - C{item.lockerNumber}
@@ -348,7 +348,7 @@ const AdminAppointmentsPage: React.FC = () => {
                             className="btn btn-outline-primary btn-sm"
                             onClick={() => {
                               // Aquí podrías abrir un modal con detalles completos
-                              alert(`Detalles de la cita:\n\nUsuario: ${appointment.user.nombre}\nEmail: ${appointment.user.email}\nFecha: ${formatDateTime(appointment.scheduledDate, appointment.timeSlot)}\nEstado: ${statusLabels[appointment.status]}`);
+                              alert(`Detalles de la cita:\n\nUsuario: ${appointment.user?.nombre || 'N/A'}\nEmail: ${appointment.user?.email || 'N/A'}\nFecha: ${formatDateTime(appointment.scheduledDate, appointment.timeSlot)}\nEstado: ${statusLabels[appointment.status]}`);
                             }}
                             title="Ver detalles"
                           >

@@ -138,7 +138,7 @@ const AdminOrdersPage: React.FC = () => {
         const orderId = order._id.toLowerCase();
         const userEmail = typeof order.user === 'object' ? order.user.email.toLowerCase() : '';
         const userName = typeof order.user === 'object' ? order.user.nombre.toLowerCase() : '';
-        const productNames = order.items.map(item => item.product.nombre.toLowerCase()).join(' ');
+        const productNames = order.items.map(item => item.product?.nombre?.toLowerCase() || '').join(' ');
         
         if (!orderId.includes(searchLower) && 
             !userEmail.includes(searchLower) && 
@@ -338,7 +338,7 @@ const AdminOrdersPage: React.FC = () => {
         order._id,
         typeof order.user === 'object' ? order.user.nombre : 'N/A',
         typeof order.user === 'object' ? order.user.email : 'N/A',
-        order.items.map(item => `${item.product.nombre} (x${item.quantity})`).join('; '),
+        order.items.map(item => `${item.product?.nombre || 'Sin nombre'} (x${item.quantity})`).join('; '),
         order.total_amount,
         statusLabels[order.status],
         new Date(order.createdAt).toLocaleString('es-CO'),
@@ -634,12 +634,12 @@ const AdminOrdersPage: React.FC = () => {
                           {order.items.map((item, idx) => (
                                 <div key={idx} className="product-item">
                               <img 
-                                src={item.product.imagen_url} 
-                                alt={item.product.nombre} 
+                                src={item.product?.imagen_url || ''} 
+                                alt={item.product?.nombre || 'Sin nombre'} 
                                     style={{ width: 24, height: 24, objectFit: 'cover', borderRadius: 2 }} 
                                   />
                                   <span className="product-name">
-                                    {item.product.nombre}
+                                    {item.product?.nombre || 'Sin nombre'}
                                   </span>
                                   <span className="badge bg-secondary">x{item.quantity}</span>
                                 </div>
@@ -660,7 +660,7 @@ const AdminOrdersPage: React.FC = () => {
                               <div key={idx} className="mb-1">
                                 <div className="d-flex justify-content-between">
                                       <span className="text-truncate" style={{ maxWidth: '60px' }}>
-                                    {item.product.nombre}
+                                    {item.product?.nombre || 'Sin nombre'}
                                   </span>
                                   <span className="badge bg-secondary">
                                     {claimedQuantity}/{totalQuantity}
@@ -833,11 +833,11 @@ const AdminOrdersPage: React.FC = () => {
                           <td>
                             <div className="d-flex align-items-center">
                               <img 
-                                src={item.product.imagen_url} 
-                                alt={item.product.nombre} 
+                                src={item.product?.imagen_url || ''} 
+                                alt={item.product?.nombre || 'Sin nombre'} 
                                 style={{ width: 32, height: 32, objectFit: 'cover', borderRadius: 4, marginRight: 8 }} 
                               />
-                              {item.product.nombre}
+                              {item.product?.nombre || 'Sin nombre'}
                             </div>
                           </td>
                           <td>{item.quantity}</td>

@@ -37,6 +37,9 @@ const supportRoutes = require('./routes/supportRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const orderRoutes = require('./routes/orderRoutes');
 const appointmentRoutes = require('./routes/appointmentRoutes');
+const debugRoutes = require('./routes/debugRoutes');
+const qrRoutes = require('./routes/qrRoutes');
+const healthRoutes = require('./routes/healthRoutes');
 
 // Importar el modelo IndividualProduct para asegurar que esté disponible
 require('./models/IndividualProduct');
@@ -101,6 +104,9 @@ app.use('/api/support', supportRoutes);
 app.use('/api/payment', paymentRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/appointments', appointmentRoutes);
+app.use('/api/debug', debugRoutes);
+app.use('/api/qr', qrRoutes);
+app.use('/api/health', healthRoutes);
 
 console.log('✅ Rutas de pago montadas en /api/payment');
 console.log('✅ Rutas de pedidos montadas en /api/orders');

@@ -107,7 +107,6 @@ const paymentSchema = new mongoose.Schema({
 });
 
 // Índices para búsquedas eficientes
-paymentSchema.index({ mp_payment_id: 1 });
 paymentSchema.index({ external_reference: 1 });
 paymentSchema.index({ status: 1 });
 paymentSchema.index({ date_created: -1 });
