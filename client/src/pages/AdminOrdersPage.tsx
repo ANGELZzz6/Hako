@@ -136,8 +136,8 @@ const AdminOrdersPage: React.FC = () => {
       if (filters.searchTerm) {
         const searchLower = filters.searchTerm.toLowerCase();
         const orderId = order._id.toLowerCase();
-        const userEmail = typeof order.user === 'object' ? order.user.email.toLowerCase() : '';
-        const userName = typeof order.user === 'object' ? order.user.nombre.toLowerCase() : '';
+        const userEmail = (order.user && typeof order.user === 'object') ? order.user.email.toLowerCase() : '';
+        const userName = (order.user && typeof order.user === 'object') ? order.user.nombre.toLowerCase() : '';
         const productNames = order.items.map(item => item.product?.nombre?.toLowerCase() || '').join(' ');
         
         if (!orderId.includes(searchLower) && 
@@ -173,8 +173,8 @@ const AdminOrdersPage: React.FC = () => {
           bValue = b.status;
           break;
         case 'user':
-          aValue = typeof a.user === 'object' ? a.user.nombre : '';
-          bValue = typeof b.user === 'object' ? b.user.nombre : '';
+          aValue = (a.user && typeof a.user === 'object') ? a.user.nombre : '';
+          bValue = (b.user && typeof b.user === 'object') ? b.user.nombre : '';
           break;
         default:
           aValue = a[sortField as keyof Order];
@@ -336,8 +336,8 @@ const AdminOrdersPage: React.FC = () => {
       headers.join(','),
       ...filteredAndSortedOrders.map(order => [
         order._id,
-        typeof order.user === 'object' ? order.user.nombre : 'N/A',
-        typeof order.user === 'object' ? order.user.email : 'N/A',
+        (order.user && typeof order.user === 'object') ? order.user.nombre : 'N/A',
+        (order.user && typeof order.user === 'object') ? order.user.email : 'N/A',
         order.items.map(item => `${item.product?.nombre || 'Sin nombre'} (x${item.quantity})`).join('; '),
         order.total_amount,
         statusLabels[order.status],
@@ -622,10 +622,10 @@ const AdminOrdersPage: React.FC = () => {
                           <td>
                             <div className="user-info">
                               <div className="user-name">
-                                {typeof order.user === 'object' ? order.user.nombre : 'N/A'}
+                                {(order.user && typeof order.user === 'object') ? order.user.nombre : 'N/A'}
                               </div>
                               <div className="user-email">
-                                {typeof order.user === 'object' ? order.user.email : 'N/A'}
+                                {(order.user && typeof order.user === 'object') ? order.user.email : 'N/A'}
                               </div>
                             </div>
                       </td>
@@ -800,16 +800,16 @@ const AdminOrdersPage: React.FC = () => {
                 <div className="row">
                   <div className="col-md-6">
                     <h6>Información del Cliente</h6>
-                    <p><strong>Nombre:</strong> {typeof selectedOrder.user === 'object' ? selectedOrder.user.nombre : 'N/A'}</p>
-                    <p><strong>Email:</strong> {typeof selectedOrder.user === 'object' ? selectedOrder.user.email : 'N/A'}</p>
+                    <p><strong>Nombre:</strong> {(selectedOrder.user && typeof selectedOrder.user === 'object') ? (selectedOrder.user as any).nombre : 'N/A'}</p>
+                    <p><strong>Email:</strong> {(selectedOrder.user && typeof selectedOrder.user === 'object') ? (selectedOrder.user as any).email : 'N/A'}</p>
                     <p><strong>Fecha de creación:</strong> {new Date(selectedOrder.createdAt).toLocaleString('es-CO')}</p>
                     <p><strong>Estado:</strong> <span className={`badge bg-${statusColors[selectedOrder.status]} status-badge status-${selectedOrder.status}`}>{statusLabels[selectedOrder.status]}</span></p>
                   </div>
                   <div className="col-md-6">
                     <h6>Información de Pago</h6>
                     <p><strong>Total:</strong> ${selectedOrder.total_amount.toLocaleString('es-CO')}</p>
-                    <p><strong>Método:</strong> {selectedOrder.payment.method}</p>
-                    <p><strong>ID de pago:</strong> {selectedOrder.payment.mp_payment_id}</p>
+                    <p><strong>Método:</strong> {selectedOrder.payment?.method || 'N/A'}</p>
+                    <p><strong>ID de pago:</strong> {selectedOrder.payment?.mp_payment_id || 'N/A'}</p>
                     <p><strong>Referencia:</strong> {selectedOrder.external_reference}</p>
                   </div>
                 </div>
