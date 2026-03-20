@@ -1502,7 +1502,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
                                 <div className="small">
                                   {Object.entries(product.variants).map(([key, value]) => (
                                     <div key={key}>
-                                      <strong>{key}:</strong> {value}
+                                      <strong>{key}:</strong> {String(value)}
                                     </div>
                                   ))}
                                 </div>
