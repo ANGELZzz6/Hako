@@ -174,6 +174,28 @@ export const rateTicket = async (id: string, stars: number, comment: string) => 
   return await response.json();
 };
 
+export const addProductToUser = async (userId: string, productId: string, quantity: number, variants?: Record<string, string>) => {
+  const response = await fetch(`${ENDPOINTS.SUPPORT}/add-product-to-user`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ userId, productId, quantity, variants }),
+    credentials: 'include',
+  });
+  if (!response.ok) {
+    let errorMessage = 'Error al agregar producto al usuario';
+    try {
+      const errorData = await response.json();
+      errorMessage = errorData.error || errorMessage;
+    } catch {
+      const textError = await response.text();
+      errorMessage = textError || errorMessage;
+    }
+    throw new Error(errorMessage);
+  }
+  handle401(response);
+  return await response.json();
+};
+
 export default {
   createTicket,
   getTickets,
@@ -185,4 +207,5 @@ export default {
   assignResponsable,
   closeByUser,
   rateTicket,
-}; 
+  addProductToUser,
+};

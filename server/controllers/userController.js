@@ -8,7 +8,8 @@ const { OAuth2Client } = require('google-auth-library');
 const PendingUser = require('../models/PendingUser');
 const transporter = require('../config/nodemailer');
 
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '529191388743-v1gull31du3pi8aovi34d8srt7424kva.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+if (!GOOGLE_CLIENT_ID) throw new Error("GOOGLE_CLIENT_ID no configurado");
 const client = new OAuth2Client(GOOGLE_CLIENT_ID);
 
 function generarCodigo() {
@@ -52,7 +53,7 @@ function generarJWT(user) {
       email: user.email, 
       role: user.role 
     },
-    process.env.JWT_SECRET || 'tu_jwt_secret_super_seguro_cambialo_en_produccion',
+    process.env.JWT_SECRET,
     { expiresIn: '1h' }
   );
 }

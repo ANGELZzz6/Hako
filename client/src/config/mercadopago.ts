@@ -5,7 +5,7 @@
 export const MERCADOPAGO_CONFIG = {
   // Public Key de prueba (debe empezar con TEST-)
   // IMPORTANTE: Obtén tu Public Key real en: https://www.mercadopago.com.co/developers/panel/credentials
-  PUBLIC_KEY: 'TEST-6c5eb3a1-e6be-46ef-a350-afa2bf222252',
+  PUBLIC_KEY: import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY,
   
   // Configuración del SDK
   SDK_CONFIG: {

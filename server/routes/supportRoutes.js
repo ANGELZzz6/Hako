@@ -28,7 +28,10 @@ router.patch('/:id/responsable', auth, adminAuth, supportController.assignRespon
 // Cerrar ticket por usuario
 router.patch('/:id/close-by-user', auth, supportController.closeByUser);
 
+// Agregar producto a usuario (solo admin)
+router.post('/add-product-to-user', auth, adminAuth, supportController.addProductToUser);
+
 // Guardar valoración
 router.patch('/:id/rating', auth, supportController.rateTicket);
 
-module.exports = router; 
+module.exports = router;

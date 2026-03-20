@@ -726,9 +726,10 @@ footer a:hover {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 580px;
-  height: 580px;
-  margin: -290px 0 0 -290px;
+  width: min(580px, 90vw);
+  max-width: 100%;
+  aspect-ratio: 1 / 1;
+  transform: translate(-50%, -50%);
 }
 
 .sphere path {

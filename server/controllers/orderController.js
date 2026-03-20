@@ -1,6 +1,7 @@
 const Order = require('../models/Order');
 const IndividualProduct = require('../models/IndividualProduct');
 const binPackingService = require('../services/binPackingService');
+const mongoose = require('mongoose');
 
 // Obtener el pedido activo del usuario (solo uno por usuario)
 exports.getMyOrders = async (req, res) => {
@@ -134,15 +135,19 @@ exports.claimProductsFromInventory = async (req, res) => {
     const validationErrors = [];
     const lockerAssignments = new Map(); // locker -> volumen total
 
+    const orderIds = [...new Set(selectedItems.map(s => s.orderId))];
+    const orders = await Order.find({
+      _id: { $in: orderIds },
+      user: req.user.id,
+      status: { $in: ['paid', 'ready_for_pickup'] }
+    }).populate('items.product');
+    
+    const ordersMap = new Map(orders.map(o => [o._id.toString(), o]));
+
     for (const selection of selectedItems) {
       const { itemIndex, quantity, lockerNumber, orderId } = selection;
       
-      // Obtener el pedido y validar
-      const order = await Order.findOne({ 
-        _id: orderId, 
-        user: req.user.id,
-        status: { $in: ['paid', 'ready_for_pickup'] }
-      }).populate('items.product');
+      const order = ordersMap.get(orderId.toString());
 
       if (!order) {
         validationErrors.push(`Pedido no encontrado o no disponible`);
@@ -226,17 +231,23 @@ exports.claimProductsFromInventory = async (req, res) => {
     }
 
     // Aplicar las reclamaciones
+    const ordersToSave = new Set();
+    
     for (const selection of selectedItems) {
       const { itemIndex, quantity, lockerNumber, orderId } = selection;
       
-      const order = await Order.findById(orderId);
+      const order = ordersMap.get(orderId.toString());
       if (!order) continue;
 
       const item = order.items[itemIndex];
       item.claimed_quantity = (item.claimed_quantity || 0) + quantity;
       item.assigned_locker = lockerNumber;
 
-      await order.save();
+      ordersToSave.add(order);
+    }
+
+    for (const orderToSave of ordersToSave) {
+      await orderToSave.save();
     }
 
     res.json({
@@ -325,17 +336,33 @@ exports.claimIndividualProducts = async (req, res) => {
     }
 
     // Aplicar las reclamaciones
-    for (const selection of selectedItems) {
-      const { individualProductId, lockerNumber } = selection;
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    
+    try {
+      for (const selection of selectedItems) {
+        const { individualProductId, lockerNumber } = selection;
+        
+        const individualProduct = await IndividualProduct.findById(individualProductId).session(session);
+        if (!individualProduct) continue;
+
+        if (individualProduct.status !== 'available') {
+          throw new Error(`El producto individual ${individualProductId} ya no está disponible`);
+        }
+
+        individualProduct.status = 'claimed';
+        individualProduct.assignedLocker = lockerNumber;
+        individualProduct.claimedAt = new Date();
+
+        await individualProduct.save({ session });
+      }
       
-      const individualProduct = await IndividualProduct.findById(individualProductId);
-      if (!individualProduct) continue;
-
-      individualProduct.status = 'claimed';
-      individualProduct.assignedLocker = lockerNumber;
-      individualProduct.claimedAt = new Date();
-
-      await individualProduct.save();
+      await session.commitTransaction();
+      session.endSession();
+    } catch (transactionError) {
+      await session.abortTransaction();
+      session.endSession();
+      throw transactionError;
     }
 
     res.json({

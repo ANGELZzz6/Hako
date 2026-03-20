@@ -2,7 +2,7 @@ const { MercadoPagoConfig } = require('mercadopago');
 
 // Configuración para entorno de pruebas
 // IMPORTANTE: Usar un access token válido de tu cuenta de Mercado Pago
-const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN || 'TEST-3997869409987199-070320-5f0b936cb84305d1e5215b576d609165-544117534';
+const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
 
 const mp = new MercadoPagoConfig({
   accessToken: accessToken

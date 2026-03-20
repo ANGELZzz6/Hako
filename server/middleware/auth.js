@@ -13,7 +13,7 @@ const auth = async (req, res, next) => {
       return res.status(401).json({ error: 'Token de acceso requerido' });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'tu_jwt_secret_super_seguro_cambialo_en_produccion');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     console.log('Token decoded:', JSON.stringify(decoded, null, 2));
     
     // Verificar que el usuario existe y está activo

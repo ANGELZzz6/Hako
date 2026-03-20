@@ -4,7 +4,7 @@ const User = require('../models/User');
 
 // Configuración de Mercado Pago
 const mp = new MercadoPagoConfig({
-  accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN || 'TEST_USR-7141205000973179-070320-5e2fcea86869ce7063884eb151f62d92-2531494471'
+  accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN
 });
 
 // Función para crear preferencias de pago (Checkout Pro)
@@ -12,7 +12,10 @@ exports.createPreference = async (req, res) => {
   try {
     console.log('=== CREANDO PREFERENCIA DE PAGO (CHECKOUT PRO) ===');
     
-    const { items, payer, external_reference, user_id, selected_items } = req.body;
+    const { items, payer, external_reference, selected_items } = req.body;
+    
+    // ✅ FIX IDOR: Extraer el user_id de la sesión validada del JWT
+    const user_id = req.user.id;
     
     // Validar datos requeridos
     if (!items || !Array.isArray(items) || items.length === 0) {
@@ -89,7 +92,7 @@ exports.createPreference = async (req, res) => {
         pending: `${process.env.FRONTEND_URL}/payment-result`
       },
       // auto_return: 'all', // Comentado para pruebas de webhook - habilitar en producción
-      notification_url: 'https://3732a623be80.ngrok-free.app/api/payment/webhook/mercadopago',
+      notification_url: process.env.WEBHOOK_URL,
       external_reference: finalExternalReference,
       expires: true,
       expiration_date_to: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 minutos
@@ -253,7 +256,7 @@ exports.testConfig = async (req, res) => {
         failure: 'https://httpbin.org/status/200',
         pending: 'https://httpbin.org/status/200'
       },
-      notification_url: 'https://3732a623be80.ngrok-free.app/api/payment/webhook/mercadopago',
+      notification_url: process.env.WEBHOOK_URL,
       external_reference: `TEST_${Date.now()}`,
       expires: true,
       expiration_date_to: new Date(Date.now() + 30 * 60 * 1000).toISOString()

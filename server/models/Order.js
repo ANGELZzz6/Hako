@@ -138,7 +138,6 @@ const orderSchema = new mongoose.Schema({
 // Índices para búsquedas eficientes
 orderSchema.index({ user: 1 });
 orderSchema.index({ status: 1 });
-orderSchema.index({ external_reference: 1 });
 orderSchema.index({ 'payment.mp_payment_id': 1 });
 orderSchema.index({ createdAt: -1 });
 

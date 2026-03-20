@@ -1,5 +1,26 @@
 require('dotenv').config();
 
+const REQUIRED_ENV_VARS = [
+  'MONGODB_URI',
+  'JWT_SECRET', 
+  'MERCADOPAGO_ACCESS_TOKEN',
+  'GOOGLE_CLIENT_ID',
+  'FRONTEND_URL',
+  'WEBHOOK_URL',
+  'PORT'
+];
+
+const missing = REQUIRED_ENV_VARS.filter(key => !process.env[key]);
+
+if (missing.length > 0) {
+  console.error('❌ ERROR: Faltan variables de entorno:');
+  missing.forEach(key => console.error(`   → ${key}`));
+  console.error('Agrega estas variables al archivo .env y reinicia.');
+  process.exit(1);
+}
+
+console.log('✅ Todas las variables de entorno están configuradas.');
+
 // Configurar zona horaria para el servidor
 process.env.TZ = 'America/Bogota'; // Zona horaria de Colombia
 console.log('🕐 Zona horaria del servidor configurada:', process.env.TZ);
@@ -34,7 +55,7 @@ app.use((req, res, next) => {
 
 // Configuración de CORS específica para Google OAuth
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:8080'],
+  origin: process.env.FRONTEND_URL,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
@@ -45,11 +66,18 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
   crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
   crossOriginResourcePolicy: { policy: "cross-origin" },
-  contentSecurityPolicy: false, // Desactivar CSP temporalmente para Google OAuth
-  hsts: false, // Desactivar HSTS para desarrollo
-  noSniff: false, // Desactivar noSniff para desarrollo
-  referrerPolicy: false, // Desactivar referrerPolicy para desarrollo
-  xssFilter: false // Desactivar XSS filter para desarrollo
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://accounts.google.com"],
+      frameSrc: ["'self'", "https://accounts.google.com"],
+      connectSrc: ["'self'", "https://accounts.google.com"]
+    }
+  },
+  hsts: true,
+  noSniff: true,
+  referrerPolicy: false,
+  xssFilter: true
 }));
 
 // Rate limiting
@@ -59,6 +87,7 @@ const limiter = rateLimit({
   message: 'Demasiadas peticiones desde esta IP, intenta de nuevo en 15 minutos.',
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { xForwardedForHeader: false }
 });
 
 app.use(limiter);

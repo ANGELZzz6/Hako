@@ -1,5 +1,6 @@
 // Servicio para pagos con Mercado Pago
 
+import authService from './authService';
 import { handle401 } from '../utils/handle401';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -50,9 +51,13 @@ const paymentService = {
     userId?: string,
     selectedItems?: MPItem[]
   ): Promise<PreferenceResponse> {
+    const token = authService.getToken();
     const response = await fetch(`${API_URL}/payment/create_preference`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      },
       body: JSON.stringify({
         items,
         payer,
@@ -74,7 +79,12 @@ const paymentService = {
 
   // Obtener estado de un pago
   async getPaymentStatus(paymentId: string): Promise<PaymentStatusResponse> {
-    const response = await fetch(`${API_URL}/payment/status/${paymentId}`);
+    const token = authService.getToken();
+    const response = await fetch(`${API_URL}/payment/status/${paymentId}`, {
+      headers: {
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      }
+    });
 
     handle401(response);
 
@@ -88,7 +98,12 @@ const paymentService = {
 
   // Probar configuración
   async testConfig(): Promise<any> {
-    const response = await fetch(`${API_URL}/payment/test-config`);
+    const token = authService.getToken();
+    const response = await fetch(`${API_URL}/payment/test-config`, {
+      headers: {
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      }
+    });
 
     handle401(response);
 

@@ -73,6 +73,12 @@ const AdminDashboard: React.FC = () => {
               <i className="bi bi-boxes icon"></i>
               <p>Casilleros</p>
             </Link>
+            
+            {/* Botón de FLUJO COMPLETO SOPORTE TOTAL */}
+            <Link to="/admin/support-complete" className="dashboard-card" style={{ textDecoration: 'none' }}>
+              <i className="bi bi-tools icon"></i>
+              <p>Soporte Total</p>
+            </Link>
           </div>
         </div>
       </main>
