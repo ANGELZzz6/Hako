@@ -9,9 +9,8 @@ router.get('/appointment/:appointmentId', auth, qrController.getQRByAppointment)
 router.get('/info/:qrId', qrController.getQRInfo);
 router.post('/pickup/:qrId', adminAuth, qrController.markQRAsPickedUp);
 router.get('/user', auth, qrController.getUserQRs);
-<<<<<<< HEAD
-=======
+
 router.post('/clean-expired', adminAuth, qrController.cleanExpiredQRs);
->>>>>>> usb/main
+
 
 module.exports = router;

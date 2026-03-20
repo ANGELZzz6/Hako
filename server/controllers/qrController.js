@@ -51,22 +51,7 @@ async function generateQR(req, res) {
       return res.status(400).json({ error: 'La cita ya ha vencido' });
     }
 
-<<<<<<< HEAD
-    // Verificar que no exista ya un QR para esta cita
-    const existingQR = await Qr.findOne({ appointment: appointmentId });
-    if (existingQR) {
-      console.log('ℹ️ QR ya existe para esta cita, devolviendo el existente');
-      return res.json({
-        success: true,
-        message: 'Código QR ya existe para esta cita',
-        qr: {
-          qr_id: existingQR.qr_id,
-          qr_url: existingQR.qr_url,
-          status: existingQR.status,
-          vencimiento: existingQR.vencimiento
-        }
-      });
-=======
+
     // Verificar si existe ya un QR para esta cita
     const existingQR = await Qr.findOne({ appointment: appointmentId });
     
@@ -91,7 +76,7 @@ async function generateQR(req, res) {
           }
         });
       }
->>>>>>> usb/main
+
     }
 
     // Generar ID único para el QR
@@ -360,8 +345,6 @@ async function updateExpiredQRs() {
   }
 }
 
-<<<<<<< HEAD
-=======
 // Limpiar QRs vencidos automáticamente
 async function cleanExpiredQRs(req, res) {
   try {
@@ -403,18 +386,12 @@ async function cleanExpiredQRs(req, res) {
   }
 }
 
->>>>>>> usb/main
 module.exports = {
   generateQR,
   getQRInfo,
   markQRAsPickedUp,
-<<<<<<< HEAD
   getUserQRs,
   getQRByAppointment,
-  updateExpiredQRs
-=======
-  getQRByAppointment,
-  getUserQRs,
+  updateExpiredQRs,
   cleanExpiredQRs
->>>>>>> usb/main
 };

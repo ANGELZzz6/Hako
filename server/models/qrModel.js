@@ -76,10 +76,9 @@ const qrSchema = new mongoose.Schema({
 });
 
 // Índices para búsquedas eficientes
-<<<<<<< HEAD
-=======
+
 qrSchema.index({ qr_id: 1 });
->>>>>>> usb/main
+
 qrSchema.index({ order: 1 });
 qrSchema.index({ appointment: 1 });
 qrSchema.index({ user: 1 });
