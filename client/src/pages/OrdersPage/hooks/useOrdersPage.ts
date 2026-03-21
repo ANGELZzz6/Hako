@@ -15,7 +15,7 @@ import { createLocalDate } from '../utils/dateUtils';
 export const useOrdersPage = () => {
   const { isAuthenticated, isLoading } = useAuth();
   const navigate = useNavigate();
-  
+
   // Estados principales
   const [purchasedProducts, setPurchasedProducts] = useState<OrderItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -73,10 +73,10 @@ export const useOrdersPage = () => {
       try {
         setLoading(true);
         setError('');
-        
+
         // Limpiar estados antes de cargar nuevos datos
         forceCleanupStates();
-        
+
         // Obtener todos los productos comprados por el usuario
         const products = await orderService.getMyPurchasedProducts();
         console.log('Productos comprados:', products);
@@ -89,12 +89,10 @@ export const useOrdersPage = () => {
           });
         });
         setPurchasedProducts(products);
-        
+
         // Seleccionar automáticamente todos los productos disponibles después de cargar
-        setTimeout(() => {
-          selectAllAvailableProducts();
-        }, 100);
-        
+        selectAllAvailableProducts();
+
       } catch (err: any) {
         setError('Error al cargar tus productos comprados');
         console.error('Error fetching purchased products:', err);
@@ -115,7 +113,7 @@ export const useOrdersPage = () => {
         console.error('Error al obtener casilleros disponibles:', err);
       }
     };
-    
+
     if (isAuthenticated) {
       fetchAvailableLockers();
     }
@@ -150,13 +148,13 @@ export const useOrdersPage = () => {
           const now = new Date();
           const activePenalties: string[] = [];
           const expiredPenalties: string[] = [];
-          
+
           user.reservationPenalties.forEach((penalty: any) => {
             // CORRECCIÓN: Usar la fecha de la reserva vencida, no la fecha de creación de la penalización
             const penaltyDate = penalty.expiredAppointmentDate || penalty.date || penalty.appointmentDate;
             const penaltyTime = new Date(penalty.createdAt);
             const hoursSincePenalty = (now.getTime() - penaltyTime.getTime()) / (1000 * 60 * 60);
-            
+
             if (hoursSincePenalty < 24) {
               activePenalties.push(penaltyDate);
               console.log(`🔍 Penalización activa para ${penaltyDate} (${hoursSincePenalty.toFixed(2)}h transcurridas)`);
@@ -166,9 +164,9 @@ export const useOrdersPage = () => {
               console.log(`✅ Penalización expirada para ${penaltyDate} (${hoursSincePenalty.toFixed(2)}h transcurridas)`);
             }
           });
-          
+
           setPenalizedDates(activePenalties);
-          
+
           // Mostrar advertencia si hay penalizaciones activas
           if (activePenalties.length > 0) {
             setPenaltyWarning(`Tienes ${activePenalties.length} penalización(es) activa(s). Las penalizaciones expiran en 24 horas.`);
@@ -188,7 +186,7 @@ export const useOrdersPage = () => {
   // Función para seleccionar todos los productos disponibles
   const selectAllAvailableProducts = () => {
     const newSelectedProducts = new Map<number, { quantity: number; lockerNumber: number }>();
-    
+
     // Obtener IDs de productos que ya están en reservas existentes
     const productosEnReservas = new Set<string>();
     myAppointments.forEach(appointment => {
@@ -198,16 +196,16 @@ export const useOrdersPage = () => {
         });
       }
     });
-    
+
     console.log('📋 Productos ya en reservas:', Array.from(productosEnReservas));
-    
+
     // Obtener productos disponibles para selección
     const availableProducts: Product3D[] = [];
     const productIndexMap = new Map<number, number>(); // Mapeo de índice de producto a índice en availableProducts
-    
+
     purchasedProducts.forEach((item, index) => {
       const yaEstaReservado = productosEnReservas.has(item._id || '');
-      
+
       if (!item.isClaimed && !item.assigned_locker && !yaEstaReservado) {
         const dimensiones = getDimensiones(item);
         const product3D: Product3D = {
@@ -221,7 +219,7 @@ export const useOrdersPage = () => {
           quantity: 1,
           volume: getVolumen(item),
         };
-        
+
         availableProducts.push(product3D);
         productIndexMap.set(index, availableProducts.length - 1);
       }
@@ -241,10 +239,10 @@ export const useOrdersPage = () => {
         });
       }
     });
-    
+
     console.log('🔄 Seleccionando automáticamente productos disponibles:', newSelectedProducts.size);
     setSelectedProducts(newSelectedProducts);
-    
+
     // Llamar a updateLockerAssignments para optimizar con casilleros existentes
     updateLockerAssignments(newSelectedProducts);
   };
@@ -254,7 +252,7 @@ export const useOrdersPage = () => {
     console.log('🔄 Actualizando asignaciones de lockers con optimización inteligente...');
     console.log('Productos seleccionados:', newSelectedProducts);
     console.log('Reservas existentes:', myAppointments);
-    
+
     if (newSelectedProducts.size === 0) {
       console.log('❌ No hay productos seleccionados');
       setPackingResult(null);
@@ -265,21 +263,21 @@ export const useOrdersPage = () => {
     // Convertir productos seleccionados al formato del algoritmo
     const selectedItems: Product3D[] = Array.from(newSelectedProducts.entries()).map(([itemIndex, selection]) => {
       const item = purchasedProducts[itemIndex];
-      
+
       // Usar directamente las dimensiones calculadas del backend si están disponibles
       let dimensiones = item.dimensiones;
       let volume = item.product?.volumen;
-      
+
       // Si no hay dimensiones del backend, usar el fallback
       if (!dimensiones) {
         dimensiones = getDimensiones(item);
       }
-      
+
       // Si no hay volumen del backend, calcularlo
       if (!volume) {
         volume = getVolumen(item);
       }
-      
+
       return {
         id: item._id || item.product?._id || `item_${itemIndex}`,
         name: item.product?.nombre || `Producto ${itemIndex + 1}`,
@@ -297,7 +295,7 @@ export const useOrdersPage = () => {
 
     // Analizar reservas existentes para optimizar el uso de casilleros
     const existingLockers = new Map<number, { usedVolume: number; items: Product3D[]; usedSlots: number }>();
-    
+
     // Agrupar productos de reservas existentes por casillero
     myAppointments.forEach(appointment => {
       if (
@@ -309,22 +307,22 @@ export const useOrdersPage = () => {
         appointment.itemsToPickup.forEach((item: any) => {
           const lockerNumber = item.lockerNumber;
           const currentLocker = existingLockers.get(lockerNumber) || { usedVolume: 0, items: [], usedSlots: 0 };
-          
+
           // Agregar productos existentes al casillero con dimensiones reales
           // Usar las dimensiones calculadas del backend si están disponibles
           let itemDimensiones = item.dimensiones;
           let itemVolume = item.volumen;
-          
+
           // Si no hay dimensiones del backend, usar las del producto
           if (!itemDimensiones) {
             itemDimensiones = (item.product as any).dimensiones;
           }
-          
+
           // Si no hay volumen del backend, calcularlo
           if (!itemVolume) {
             itemVolume = (itemDimensiones?.largo || 15) * (itemDimensiones?.ancho || 15) * (itemDimensiones?.alto || 15);
           }
-          
+
           const existingItem: Product3D = {
             id: item.product._id || `existing_${lockerNumber}_${item.product.nombre}`,
             name: item.product.nombre || 'Producto existente',
@@ -338,7 +336,7 @@ export const useOrdersPage = () => {
           };
           currentLocker.items.push(existingItem);
           currentLocker.usedVolume += existingItem.volume * item.quantity;
-          
+
           // Calcular slots usados por productos existentes
           const itemSlots = calculateSlotsNeeded({
             largo: existingItem.dimensions.length,
@@ -346,7 +344,7 @@ export const useOrdersPage = () => {
             alto: existingItem.dimensions.height
           });
           currentLocker.usedSlots += itemSlots;
-          
+
           existingLockers.set(lockerNumber, currentLocker);
         });
       }
@@ -366,27 +364,27 @@ export const useOrdersPage = () => {
       const LOCKER_MAX_SLOTS = 27; // 3x3x3 slots
       const availableVolume = LOCKER_MAX_VOLUME - existingLocker.usedVolume;
       const availableSlots = LOCKER_MAX_SLOTS - existingLocker.usedSlots;
-      
+
       console.log(`🔍 Analizando casillero ${lockerNumber}:`);
       console.log(`   Espacio disponible: ${availableVolume.toLocaleString()} cm³`);
       console.log(`   Slots disponibles: ${availableSlots}/27`);
-      
+
       if (availableVolume > 0 && availableSlots > 0) {
         // Ordenar productos por volumen (más grandes primero) para optimizar mejor
         const sortedItems = [...optimizedItems].sort((a, b) => b.volume - a.volume);
-        
+
         // Buscar productos que quepan en este casillero (por volumen Y slots)
         const itemsThatFit: Product3D[] = [];
         let remainingVolume = availableVolume;
         let remainingSlots = availableSlots;
-        
+
         for (const item of sortedItems) {
           const itemSlots = calculateSlotsNeeded({
             largo: item.dimensions.length,
             ancho: item.dimensions.width,
             alto: item.dimensions.height
           });
-          
+
           if (item.volume <= remainingVolume && itemSlots <= remainingSlots) {
             itemsThatFit.push(item);
             remainingVolume -= item.volume;
@@ -404,7 +402,7 @@ export const useOrdersPage = () => {
               ancho: bestFit.dimensions.width,
               alto: bestFit.dimensions.height
             });
-            
+
             console.log(`   ✅ Agregando "${bestFit.name}" (${bestFit.volume.toLocaleString()} cm³, ${itemSlots} slots) al casillero ${lockerNumber}`);
 
             // Agregar a casillero existente
@@ -467,7 +465,7 @@ export const useOrdersPage = () => {
 
         // Usar grid packing para generar la visualización real
         const lockerPackingResult = gridPackingService.packProducts3D(allProductsForLocker);
-        
+
         if (lockerPackingResult.lockers.length > 0) {
           const combinedLocker = {
             ...lockerPackingResult.lockers[0],

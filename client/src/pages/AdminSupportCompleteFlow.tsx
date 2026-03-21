@@ -64,12 +64,12 @@ interface DebugError {
 const AdminSupportCompleteFlow: React.FC = () => {
   const { isAuthenticated, isAdmin, isLoading } = useAuth();
   const navigate = useNavigate();
-  
+
   // Estados principales
   const [individualProducts, setIndividualProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  
+
   // Estados para manejo de usuarios y productos
   const [users, setUsers] = useState<User[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -80,7 +80,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
   const [showAddProductModal, setShowAddProductModal] = useState(false);
   const [addProductLoading, setAddProductLoading] = useState(false);
   const [addProductError, setAddProductError] = useState('');
-  
+
   // Estados de filtros
   const [filters, setFilters] = useState({
     status: '',
@@ -88,7 +88,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
     dateFrom: '',
     dateTo: '',
   });
-  
+
   // Estados de UI
   const [selectedProduct, setSelectedProduct] = useState<IndividualProduct | null>(null);
   const [showFilters, setShowFilters] = useState(false);
@@ -96,27 +96,27 @@ const AdminSupportCompleteFlow: React.FC = () => {
   const [productsPerPage] = useState(20);
   const [sortField, setSortField] = useState<string>('createdAt');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-  
+
   // Estados para debugging
   const [debugErrors, setDebugErrors] = useState<DebugError[]>([]);
   const [showDebugPanel, setShowDebugPanel] = useState(false);
   const [debugLoading, setDebugLoading] = useState(false);
-  
+
   // Estados para agregar productos a usuarios
   const [usersLoading, setUsersLoading] = useState(false);
   const [productsLoading, setProductsLoading] = useState(false);
-  
-  
+
+
   // Estados para acciones manuales
   const [manualActionLoading, setManualActionLoading] = useState(false);
   const [manualActionProduct, setManualActionProduct] = useState<string | null>(null);
-  
+
   // Estados para mostrar productos del usuario
   const [selectedUserForProducts, setSelectedUserForProducts] = useState<User | null>(null);
   const [userProducts, setUserProducts] = useState<any[]>([]);
   const [showUserProductsModal, setShowUserProductsModal] = useState(false);
   const [userProductsLoading, setUserProductsLoading] = useState(false);
-  
+
   // Estados para manejo de reservas y debugging
   const [showReservationStatusModal, setShowReservationStatusModal] = useState(false);
   const [selectedUserForReservations, setSelectedUserForReservations] = useState<User | null>(null);
@@ -128,36 +128,36 @@ const AdminSupportCompleteFlow: React.FC = () => {
     newStatus: string;
     action: string;
   }>>([]);
-  
+
   // Estados para debugging automático
   const [debugMode, setDebugMode] = useState(false);
   const [autoDebugEnabled, setAutoDebugEnabled] = useState(true);
-  
+
   // Verificar autenticación y permisos
   useEffect(() => {
     if (!isLoading && (!isAuthenticated || !isAdmin)) {
       navigate('/');
     }
   }, [isAuthenticated, isAdmin, isLoading, navigate]);
-  
+
   // Cargar usuarios y productos
   useEffect(() => {
     const fetchData = async () => {
       try {
         setUsersLoading(true);
         setProductsLoading(true);
-        
+
         const [usersResponse, productsResponse] = await Promise.all([
           userService.getAllUsers(),
           productService.getAllProducts()
         ]);
-        
+
         setUsers(usersResponse);
         setProducts(productsResponse);
-        
-        logDebugError('Datos cargados correctamente', { 
-          usersCount: usersResponse.length, 
-          productsCount: productsResponse.length 
+
+        logDebugError('Datos cargados correctamente', {
+          usersCount: usersResponse.length,
+          productsCount: productsResponse.length
         }, 'info');
       } catch (err: any) {
         logDebugError('Error al cargar datos', err, 'error');
@@ -166,21 +166,21 @@ const AdminSupportCompleteFlow: React.FC = () => {
         setProductsLoading(false);
       }
     };
-    
+
     if (isAuthenticated && isAdmin) {
       fetchData();
     }
   }, [isAuthenticated, isAdmin]);
-  
+
   // Función para cargar productos individuales
   const fetchIndividualProducts = async () => {
     try {
       setLoading(true);
       setError('');
-      
+
       // Obtener productos comprados por usuarios (que incluyen productos individuales)
-      const purchasedProducts = await orderService.getMyPurchasedProducts();
-      
+      const purchasedProducts = await orderService.getAllIndividualProducts();
+
       // Transformar los datos al formato esperado
       const transformedProducts: IndividualProduct[] = purchasedProducts.map((item: any) => ({
         _id: item._id || item.originalItemId,
@@ -198,7 +198,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
         variants: item.variants,
         user: item.user, // Añadir usuario propietario
       }));
-      
+
       setIndividualProducts(transformedProducts);
     } catch (err: any) {
       setError('Error al cargar los productos individuales: ' + (err.message || err.toString()));
@@ -214,11 +214,11 @@ const AdminSupportCompleteFlow: React.FC = () => {
       fetchIndividualProducts();
     }
   }, [isAuthenticated, isAdmin]);
-  
+
   // Sistema de debugging automático
   useEffect(() => {
     if (!autoDebugEnabled) return;
-    
+
     // Capturar errores globales de JavaScript
     const handleGlobalError = (event: ErrorEvent) => {
       logDebugError('Error global de JavaScript', {
@@ -230,7 +230,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
         timestamp: new Date().toISOString()
       }, 'error');
     };
-    
+
     // Capturar promesas rechazadas
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
       logDebugError('Promesa rechazada no manejada', {
@@ -238,25 +238,25 @@ const AdminSupportCompleteFlow: React.FC = () => {
         timestamp: new Date().toISOString()
       }, 'error');
     };
-    
+
     // Agregar event listeners
     window.addEventListener('error', handleGlobalError);
     window.addEventListener('unhandledrejection', handleUnhandledRejection);
-    
+
     // Log de inicio del sistema de debugging
     logDebugError('Sistema de debugging automático iniciado', {
       timestamp: new Date().toISOString(),
       userAgent: navigator.userAgent,
       url: window.location.href
     }, 'info');
-    
+
     // Cleanup
     return () => {
       window.removeEventListener('error', handleGlobalError);
       window.removeEventListener('unhandledrejection', handleUnhandledRejection);
     };
   }, [autoDebugEnabled]);
-  
+
   // Filtrar usuarios
   const filteredUsers = users.filter(user => {
     // Filtro por estado/rol
@@ -266,40 +266,40 @@ const AdminSupportCompleteFlow: React.FC = () => {
       if (filters.status === 'active' && !user.isActive) return false;
       if (filters.status === 'inactive' && user.isActive) return false;
     }
-    
+
     // Filtro por búsqueda
     if (filters.search) {
       const searchLower = filters.search.toLowerCase();
       const userName = user.nombre.toLowerCase();
       const userEmail = user.email.toLowerCase();
       const userId = user._id.toLowerCase();
-      
+
       if (!userName.includes(searchLower) && !userEmail.includes(searchLower) && !userId.includes(searchLower)) {
         return false;
       }
     }
-    
+
     // Filtro por fechas
     if (filters.dateFrom) {
       const userDate = new Date(user.createdAt || new Date());
       const fromDate = new Date(filters.dateFrom);
       if (userDate < fromDate) return false;
     }
-    
+
     if (filters.dateTo) {
       const userDate = new Date(user.createdAt || new Date());
       const toDate = new Date(filters.dateTo);
       toDate.setHours(23, 59, 59, 999);
       if (userDate > toDate) return false;
     }
-    
+
     return true;
   });
-  
+
   // Ordenar usuarios
   const sortedUsers = [...filteredUsers].sort((a, b) => {
     let aValue: any, bValue: any;
-    
+
     switch (sortField) {
       case 'nombre':
         aValue = a.nombre.toLowerCase();
@@ -321,21 +321,21 @@ const AdminSupportCompleteFlow: React.FC = () => {
         aValue = a[sortField as keyof User];
         bValue = b[sortField as keyof User];
     }
-    
+
     if (sortDirection === 'asc') {
       return aValue > bValue ? 1 : -1;
     } else {
       return aValue < bValue ? 1 : -1;
     }
   });
-  
+
   // Paginación
   const totalPages = Math.ceil(sortedUsers.length / productsPerPage);
   const paginatedUsers = sortedUsers.slice(
     (currentPage - 1) * productsPerPage,
     currentPage * productsPerPage
   );
-  
+
   // Función para registrar errores de depuración
   const logDebugError = async (message: string, details: any = null, severity: DebugError['severity'] = 'info') => {
     const newError: DebugError = {
@@ -345,9 +345,9 @@ const AdminSupportCompleteFlow: React.FC = () => {
       severity,
       details
     };
-    
+
     setDebugErrors(prev => [newError, ...prev.slice(0, 49)]); // Mantener solo los últimos 50 errores
-    
+
     // Si es un error, también mostrar en consola para facilitar debugging
     if (severity === 'error') {
       console.error(`[DEBUG] ${message}`, details);
@@ -356,37 +356,35 @@ const AdminSupportCompleteFlow: React.FC = () => {
     } else {
       console.info(`[DEBUG] ${message}`, details);
     }
-    
+
     // Enviar log al servidor si el debug automático está habilitado
-    if (autoDebugEnabled) {
+    if (autoDebugEnabled && (severity === 'error' || severity === 'warning')) {
       try {
         await debugService.sendDebugLog({
           id: newError.id,
           message: newError.message,
           timestamp: newError.timestamp,
           severity: newError.severity,
-          details: newError.details,
+          // Omitir details para no filtrar datos sensibles
           url: window.location.href,
-          userAgent: navigator.userAgent
         });
       } catch (err) {
-        // No loguear errores del servicio de debug para evitar loops infinitos
         console.warn('No se pudo enviar log de debug al servidor:', err);
       }
     }
   };
-  
+
   // Función para agregar producto a un usuario
   const handleAddProductToUser = async () => {
     if (!selectedUser || !selectedProductToAdd) {
       setAddProductError('Debes seleccionar un usuario y un producto');
       return;
     }
-    
+
     try {
       setAddProductLoading(true);
       setAddProductError('');
-      
+
       // Debug: Log de la información del producto seleccionado
       logDebugError('Iniciando asignación de producto', {
         userId: selectedUser._id,
@@ -399,33 +397,33 @@ const AdminSupportCompleteFlow: React.FC = () => {
         variantsEnabled: selectedProductToAdd.variants?.enabled,
         variantsAttributes: selectedProductToAdd.variants?.attributes?.length || 0
       }, 'info');
-      
+
       // Validar que el producto tenga stock disponible
       if (selectedProductToAdd.stock < quantity) {
         throw new Error(`Stock insuficiente. Disponible: ${selectedProductToAdd.stock}, Solicitado: ${quantity}`);
       }
-      
+
       // Validar variantes si el producto las tiene
       if (selectedProductToAdd.variants && selectedProductToAdd.variants.enabled) {
         const requiredAttributes = selectedProductToAdd.variants.attributes.filter(attr => attr.required);
-        
+
         logDebugError('Validando variantes requeridas', {
           totalAttributes: selectedProductToAdd.variants.attributes.length,
           requiredAttributes: requiredAttributes.length,
           selectedVariants: Object.keys(selectedVariants).length
         }, 'info');
-        
+
         for (const attr of requiredAttributes) {
           if (!selectedVariants[attr.name]) {
             throw new Error(`Debes seleccionar una opción para el atributo requerido: ${attr.name}`);
           }
-          
+
           // Validar que la opción seleccionada existe
           const optionExists = attr.options.some(opt => opt.value === selectedVariants[attr.name]);
           if (!optionExists) {
             throw new Error(`La opción seleccionada para ${attr.name} no es válida`);
           }
-          
+
           // Solo validar stock de la variante específica si el producto no tiene stock general suficiente
           if (selectedProductToAdd.stock < quantity) {
             const selectedOption = attr.options.find(opt => opt.value === selectedVariants[attr.name]);
@@ -434,13 +432,13 @@ const AdminSupportCompleteFlow: React.FC = () => {
             }
           }
         }
-        
+
         logDebugError('Variantes validadas correctamente', {
           selectedVariants,
           requiredAttributes: requiredAttributes.map(attr => attr.name)
         }, 'info');
       }
-      
+
       // Llamar al API para asignar el producto al usuario
       const response = await supportService.addProductToUser(
         selectedUser._id,
@@ -448,16 +446,16 @@ const AdminSupportCompleteFlow: React.FC = () => {
         quantity,
         Object.keys(selectedVariants).length > 0 ? selectedVariants : undefined
       );
-      
+
       logDebugError('Producto asignado manualmente', response, 'info');
-      
+
       // Log del precio calculado
       console.log('💰 Precio del producto asignado:', {
         precioBase: selectedProductToAdd.precio,
         variantesSeleccionadas: selectedVariants,
         precioTotal: response.products?.[0]?.unitPrice || 'No disponible'
       });
-      
+
       // Log de la estructura de la respuesta para debugging
       console.log('🔍 Estructura de la respuesta del servidor:', {
         responseKeys: Object.keys(response),
@@ -468,7 +466,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
         firstProductVariants: response.products?.[0]?.variants,
         variantsType: typeof response.products?.[0]?.variants
       });
-      
+
       // Actualizar la lista de productos individuales solo si hay productos en la respuesta
       if (response.products && Array.isArray(response.products)) {
         setIndividualProducts(prev => [
@@ -505,16 +503,16 @@ const AdminSupportCompleteFlow: React.FC = () => {
       } else {
         console.warn('⚠️ La respuesta no contiene productos válidos:', response);
       }
-      
+
       // Limpiar selecciones del modal pero mantener el usuario seleccionado
       setSelectedProductToAdd(null);
       setSelectedVariants({});
       setQuantity(1);
       setShowAddProductModal(false);
-      
+
       // Mostrar mensaje de éxito
       alert(response.message || `Producto asignado a ${selectedUser.nombre} correctamente`);
-      
+
       // Recargar la lista de productos individuales para mostrar el nuevo producto
       await fetchIndividualProducts();
     } catch (err: any) {
@@ -531,31 +529,31 @@ const AdminSupportCompleteFlow: React.FC = () => {
       setAddProductLoading(false);
     }
   };
-  
+
   // Función para abrir el modal de agregar producto a un usuario específico
   const openAddProductModal = (user: User) => {
     setSelectedUser(user);
     setShowAddProductModal(true);
   };
-  
+
   // Función para mostrar productos de un usuario específico
   const showUserProducts = async (user: User) => {
     try {
       setSelectedUserForProducts(user);
       setUserProductsLoading(true);
       setShowUserProductsModal(true);
-      
+
       // Usar el nuevo servicio para obtener productos del usuario específico
       const userProductsList = await orderService.getUserProducts(user._id);
-      
+
       setUserProducts(userProductsList);
-      
+
       logDebugError('Productos del usuario cargados', {
         userId: user._id,
         userName: user.nombre,
         productsCount: userProductsList.length
       }, 'info');
-      
+
     } catch (err: any) {
       logDebugError('Error al cargar productos del usuario', err, 'error');
       alert('Error al cargar productos del usuario: ' + (err.message || err.toString()));
@@ -563,17 +561,17 @@ const AdminSupportCompleteFlow: React.FC = () => {
       setUserProductsLoading(false);
     }
   };
-  
+
   // Función para mostrar y gestionar el estado de las reservas del usuario
   const showReservationStatus = async (user: User) => {
     try {
       setSelectedUserForReservations(user);
       setReservationStatusLoading(true);
       setShowReservationStatusModal(true);
-      
+
       // Obtener productos del usuario para mostrar sus estados
       const userProductsList = await orderService.getUserProducts(user._id);
-      
+
       // Preparar acciones disponibles para cada producto
       const actions = userProductsList
         .filter(product => product._id || product.originalItemId)
@@ -584,15 +582,15 @@ const AdminSupportCompleteFlow: React.FC = () => {
           newStatus: '',
           action: ''
         }));
-      
+
       setReservationActions(actions);
-      
+
       logDebugError('Estado de reservas cargado', {
         userId: user._id,
         userName: user.nombre,
         productsCount: userProductsList.length
       }, 'info');
-      
+
     } catch (err: any) {
       logDebugError('Error al cargar estado de reservas', err, 'error');
       alert('Error al cargar estado de reservas: ' + (err.message || err.toString()));
@@ -600,39 +598,65 @@ const AdminSupportCompleteFlow: React.FC = () => {
       setReservationStatusLoading(false);
     }
   };
-  
+
   // Función para cambiar el estado de un producto
   const changeProductStatus = async (productId: string, newStatus: string, action: string) => {
+    if (!newStatus && !action) {
+      alert('Debes seleccionar un nuevo estado o una acción');
+      return;
+    }
+
+    // Mapear acción a estado si no hay newStatus
+    const actionToStatus: Record<string, string> = {
+      'force_available': 'available',
+      'force_reserved': 'reserved',
+      'force_claimed': 'claimed',
+      'force_picked_up': 'picked_up',
+      'reset_status': 'available',
+    };
+
+    const finalStatus = newStatus || actionToStatus[action];
+    if (!finalStatus) {
+      alert(`La acción '${action}' no está soportada aún`);
+      return;
+    }
+
     try {
       setManualActionLoading(true);
-      
-      // Aquí implementaremos la lógica para cambiar el estado
-      // Por ahora solo logueamos la acción
-      logDebugError('Cambio de estado solicitado', {
+      setManualActionProduct(productId);
+
+      const result = await orderService.changeIndividualProductStatus(productId, finalStatus);
+
+      logDebugError('Estado cambiado exitosamente', {
         productId,
-        newStatus,
+        finalStatus,
         action,
-        timestamp: new Date().toISOString()
+        result
       }, 'info');
-      
-      // TODO: Implementar llamada al servidor para cambiar estado
-      alert(`Acción ${action} aplicada al producto ${productId}. Estado: ${newStatus}`);
-      
+
+      alert(result.message || `Estado actualizado a '${finalStatus}' correctamente`);
+
+      // Refrescar la lista del modal
+      if (selectedUserForReservations) {
+        await showReservationStatus(selectedUserForReservations);
+      }
+
     } catch (err: any) {
       logDebugError('Error al cambiar estado del producto', err, 'error');
       alert('Error al cambiar estado: ' + (err.message || err.toString()));
     } finally {
       setManualActionLoading(false);
+      setManualActionProduct(null);
     }
   };
-  
+
   // Función para manejar selección de variantes
   const handleVariantChange = (attributeName: string, value: string) => {
     setSelectedVariants(prev => ({
       ...prev,
       [attributeName]: value
     }));
-    
+
     // Debug: Log del cambio de variante
     logDebugError('Variante seleccionada', {
       attributeName,
@@ -640,11 +664,11 @@ const AdminSupportCompleteFlow: React.FC = () => {
       allSelectedVariants: { ...selectedVariants, [attributeName]: value }
     }, 'info');
   };
-  
+
   // Función para validar si se pueden agregar productos
   const canAddProduct = () => {
     if (!selectedUser || !selectedProductToAdd) return false;
-    
+
     // Validar variantes requeridas
     if (selectedProductToAdd.variants && selectedProductToAdd.variants.enabled) {
       const requiredAttributes = selectedProductToAdd.variants.attributes.filter(attr => attr.required);
@@ -652,15 +676,15 @@ const AdminSupportCompleteFlow: React.FC = () => {
         if (!selectedVariants[attr.name]) return false;
       }
     }
-    
+
     return true;
   };
-  
+
   // Función para obtener el mensaje de error de validación
   const getValidationMessage = () => {
     if (!selectedUser) return 'Debes seleccionar un usuario';
     if (!selectedProductToAdd) return 'Debes seleccionar un producto';
-    
+
     if (selectedProductToAdd.variants && selectedProductToAdd.variants.enabled) {
       const requiredAttributes = selectedProductToAdd.variants.attributes.filter(attr => attr.required);
       for (const attr of requiredAttributes) {
@@ -669,10 +693,10 @@ const AdminSupportCompleteFlow: React.FC = () => {
         }
       }
     }
-    
+
     return '';
   };
-  
+
   // Función para limpiar filtros
   const handleClearFilters = () => {
     setFilters({
@@ -683,7 +707,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
     });
     setCurrentPage(1);
   };
-  
+
   // Función para exportar a CSV
   const handleExportCSV = () => {
     try {
@@ -700,7 +724,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
           product.variants ? JSON.stringify(product.variants) : 'Sin variantes'
         ].join(','))
       ].join('\n');
-      
+
       const blob = new Blob([csvContent], { type: 'text/csv' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -708,14 +732,14 @@ const AdminSupportCompleteFlow: React.FC = () => {
       a.download = `productos_individuales_${new Date().toISOString().split('T')[0]}.csv`;
       a.click();
       window.URL.revokeObjectURL(url);
-      
+
       logDebugError('Exportación CSV realizada', { count: individualProducts.length }, 'info');
     } catch (err: any) {
       logDebugError('Error al exportar CSV', err, 'error');
       alert('Error al exportar: ' + (err.message || err.toString()));
     }
   };
-  
+
   // Función para ordenar
   const handleSort = (field: string) => {
     if (sortField === field) {
@@ -725,12 +749,12 @@ const AdminSupportCompleteFlow: React.FC = () => {
       setSortDirection('asc');
     }
   };
-  
+
   // Renderizar badge de estado
   const renderStatusBadge = (status: IndividualProduct['status']) => {
     let color = 'secondary';
     let text = '';
-    
+
     switch (status) {
       case 'available':
         color = 'success';
@@ -751,7 +775,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
       default:
         text = status;
     }
-    
+
     return (
       <span className={`badge bg-${color}`}>
         {text}
@@ -762,7 +786,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
   if (!isAuthenticated || !isAdmin) {
     return null;
   }
-  
+
   return (
     <div className="admin-dashboard admin-orders-page" data-theme="light">
       <header className="admin-header-bar">
@@ -781,23 +805,27 @@ const AdminSupportCompleteFlow: React.FC = () => {
           </div>
         </div>
       </header>
-      
+
       {/* Modal para agregar producto a usuario */}
-      <div className={`modal fade ${showAddProductModal ? 'show' : ''}`} id="addProductModal" tabIndex={-1} aria-labelledby="addProductModalLabel" aria-hidden={!showAddProductModal} style={{display: showAddProductModal ? 'block' : 'none', backgroundColor: showAddProductModal ? 'rgba(0,0,0,0.5)' : 'transparent'}}>
+      <div className={`modal fade ${showAddProductModal ? 'show' : ''}`} id="addProductModal" tabIndex={-1} aria-labelledby="addProductModalLabel" aria-hidden={!showAddProductModal} style={{ display: showAddProductModal ? 'block' : 'none', backgroundColor: showAddProductModal ? 'rgba(0,0,0,0.5)' : 'transparent' }}>
         <div className="modal-dialog modal-lg admin-dashboard">
           <div className="modal-content">
             <div className="modal-header">
               <h5 className="modal-title" id="addProductModalLabel">Agregar Producto a Usuario</h5>
               <button type="button" className="btn-close" onClick={() => {
                 setShowAddProductModal(false);
-                setError('');
+                setAddProductError('');
+                setSelectedUser(null);
+                setSelectedProductToAdd(null);
+                setSelectedVariants({});
+                setQuantity(1);
               }}></button>
             </div>
             <div className="modal-body">
               {addProductError && (
                 <div className="alert alert-danger">{addProductError}</div>
               )}
-              
+
               <div className="mb-3">
                 <label className="form-label">Usuario Seleccionado</label>
                 {selectedUser ? (
@@ -807,8 +835,8 @@ const AdminSupportCompleteFlow: React.FC = () => {
                     <div><strong>Rol:</strong> {selectedUser.role}</div>
                   </div>
                 ) : (
-                  <select 
-                    className="form-select" 
+                  <select
+                    className="form-select"
                     value={''}
                     onChange={(e) => {
                       const userId = e.target.value;
@@ -827,11 +855,11 @@ const AdminSupportCompleteFlow: React.FC = () => {
                 )}
                 {usersLoading && <div className="text-muted mt-1">Cargando usuarios...</div>}
               </div>
-              
+
               <div className="mb-3">
                 <label className="form-label">Seleccionar Producto</label>
-                <select 
-                  className="form-select" 
+                <select
+                  className="form-select"
                   value={''}
                   onChange={(e) => {
                     const productId = e.target.value;
@@ -839,7 +867,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
                     setSelectedProductToAdd(product);
                     // Resetear variantes al cambiar de producto
                     setSelectedVariants({});
-                    
+
                     // Debug: Log del producto seleccionado
                     if (product) {
                       logDebugError('Producto seleccionado', {
@@ -862,17 +890,17 @@ const AdminSupportCompleteFlow: React.FC = () => {
                 </select>
                 {productsLoading && <div className="text-muted mt-1">Cargando productos...</div>}
               </div>
-              
+
               {selectedProductToAdd && selectedProductToAdd.variants && selectedProductToAdd.variants.enabled && (
                 <div className="mb-3 border p-3 rounded">
                   <h6>Variantes del Producto</h6>
                   {/* Debug info para variantes */}
                   <div className="small text-muted mb-2">
-                    <strong>Debug:</strong> Producto: {selectedProductToAdd.nombre} | 
-                    Variantes habilitadas: {selectedProductToAdd.variants.enabled ? 'Sí' : 'No'} | 
+                    <strong>Debug:</strong> Producto: {selectedProductToAdd.nombre} |
+                    Variantes habilitadas: {selectedProductToAdd.variants.enabled ? 'Sí' : 'No'} |
                     Cantidad de atributos: {selectedProductToAdd.variants.attributes?.length || 0}
                   </div>
-                  
+
                   {selectedProductToAdd.variants.attributes && selectedProductToAdd.variants.attributes.length > 0 ? (
                     selectedProductToAdd.variants.attributes.map(attr => (
                       <div key={attr.name} className="mb-2">
@@ -915,7 +943,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
                   )}
                 </div>
               )}
-              
+
               {/* Debug info adicional */}
               {selectedProductToAdd && (
                 <div className="mb-3 small text-muted">
@@ -934,7 +962,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
                   </details>
                 </div>
               )}
-              
+
               <div className="mb-3">
                 <label className="form-label">Cantidad</label>
                 <input
@@ -952,7 +980,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
                   </div>
                 )}
               </div>
-              
+
               <div className="alert alert-info">
                 <i className="bi bi-info-circle me-2"></i>
                 Esta acción asignará el producto seleccionado al usuario. El producto aparecerá como disponible en la cuenta del usuario.
@@ -963,7 +991,11 @@ const AdminSupportCompleteFlow: React.FC = () => {
                 className="btn btn-secondary"
                 onClick={() => {
                   setShowAddProductModal(false);
-                  setError('');
+                  setAddProductError('');
+                  setSelectedUser(null);
+                  setSelectedProductToAdd(null);
+                  setSelectedVariants({});
+                  setQuantity(1);
                 }}
                 disabled={addProductLoading}
               >
@@ -988,7 +1020,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
           </div>
         </div>
       </div>
-      
+
       <main className="admin-main-content">
         <div className="container-fluid">
           {/* Panel de control */}
@@ -1000,7 +1032,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
                   <p className="card-text">
                     Gestiona productos individuales, visualiza estados, implementa debugging y mantenimiento manual.
                   </p>
-                  
+
                   <div className="d-flex gap-2 flex-wrap">
                     <button
                       className="btn btn-outline-primary btn-sm"
@@ -1008,7 +1040,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
                     >
                       <i className="bi bi-funnel"></i> Filtros
                     </button>
-                    
+
                     {/* Panel de Debugging */}
                     <div className="ms-auto">
                       <button
@@ -1027,7 +1059,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
                       </button>
                     </div>
                   </div>
-                  
+
                   {/* Panel de Debugging Expandido */}
                   {debugMode && (
                     <div className="mt-3 p-3 bg-light border rounded">
@@ -1072,32 +1104,32 @@ const AdminSupportCompleteFlow: React.FC = () => {
                       </div>
                     </div>
                   )}
-                  
+
                   <div className="d-flex gap-2 flex-wrap">
-            <button
-              className="btn btn-outline-success btn-sm"
-              onClick={handleExportCSV}
-            >
-              <i className="bi bi-download"></i> Exportar CSV
-            </button>
-            <button
-              className="btn btn-outline-info btn-sm"
-              onClick={() => setShowDebugPanel(!showDebugPanel)}
-            >
-              <i className="bi bi-bug"></i> Panel Debug
-            </button>
-            <button
-              className="btn btn-outline-warning btn-sm"
-              onClick={() => window.location.reload()}
-            >
-              <i className="bi bi-arrow-clockwise"></i> Refrescar
-            </button>
-          </div>
+                    <button
+                      className="btn btn-outline-success btn-sm"
+                      onClick={handleExportCSV}
+                    >
+                      <i className="bi bi-download"></i> Exportar CSV
+                    </button>
+                    <button
+                      className="btn btn-outline-info btn-sm"
+                      onClick={() => setShowDebugPanel(!showDebugPanel)}
+                    >
+                      <i className="bi bi-bug"></i> Panel Debug
+                    </button>
+                    <button
+                      className="btn btn-outline-warning btn-sm"
+                      onClick={() => window.location.reload()}
+                    >
+                      <i className="bi bi-arrow-clockwise"></i> Refrescar
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-          
+
           {/* Filtros */}
           {showFilters && (
             <div className="card mb-3 filters-section">
@@ -1108,7 +1140,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
                     <select
                       className="form-select form-select-sm"
                       value={filters.status}
-                      onChange={(e) => setFilters({...filters, status: e.target.value})}
+                      onChange={(e) => setFilters({ ...filters, status: e.target.value })}
                     >
                       <option value="">Todos los tipos</option>
                       <option value="admin">Administrador</option>
@@ -1124,7 +1156,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
                       className="form-control form-control-sm"
                       placeholder="Nombre o email del usuario..."
                       value={filters.search}
-                      onChange={(e) => setFilters({...filters, search: e.target.value})}
+                      onChange={(e) => setFilters({ ...filters, search: e.target.value })}
                     />
                   </div>
                   <div className="col-md-2">
@@ -1133,7 +1165,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
                       type="date"
                       className="form-control form-control-sm"
                       value={filters.dateFrom}
-                      onChange={(e) => setFilters({...filters, dateFrom: e.target.value})}
+                      onChange={(e) => setFilters({ ...filters, dateFrom: e.target.value })}
                     />
                   </div>
                   <div className="col-md-2">
@@ -1142,7 +1174,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
                       type="date"
                       className="form-control form-control-sm"
                       value={filters.dateTo}
-                      onChange={(e) => setFilters({...filters, dateTo: e.target.value})}
+                      onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })}
                     />
                   </div>
                   <div className="col-md-2">
@@ -1158,13 +1190,13 @@ const AdminSupportCompleteFlow: React.FC = () => {
               </div>
             </div>
           )}
-          
+
           {/* Panel de debugging */}
           {showDebugPanel && (
             <div className="card mb-3">
               <div className="card-header d-flex justify-content-between align-items-center">
                 <span>Panel de Debugging</span>
-                <button 
+                <button
                   className="btn btn-sm btn-outline-secondary"
                   onClick={() => setShowDebugPanel(false)}
                 >
@@ -1178,8 +1210,8 @@ const AdminSupportCompleteFlow: React.FC = () => {
                 ) : (
                   <div className="debug-errors-list" style={{ maxHeight: 300, overflowY: 'auto' }}>
                     {debugErrors.map(error => (
-                      <div 
-                        key={error.id} 
+                      <div
+                        key={error.id}
                         className={`alert alert-${error.severity === 'error' ? 'danger' : error.severity === 'warning' ? 'warning' : 'info'} mb-2`}
                       >
                         <div className="d-flex justify-content-between">
@@ -1198,7 +1230,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
               </div>
             </div>
           )}
-          
+
           {/* Tabla de productos individuales */}
           {loading ? (
             <div className="text-center">
@@ -1215,16 +1247,16 @@ const AdminSupportCompleteFlow: React.FC = () => {
                   <table className="table table-hover mb-0">
                     <thead className="table-dark">
                       <tr>
-                        <th onClick={() => handleSort('nombre')} style={{cursor: 'pointer'}}>
+                        <th onClick={() => handleSort('nombre')} style={{ cursor: 'pointer' }}>
                           Nombre {sortField === 'nombre' && (sortDirection === 'asc' ? '↑' : '↓')}
                         </th>
-                        <th onClick={() => handleSort('email')} style={{cursor: 'pointer'}}>
+                        <th onClick={() => handleSort('email')} style={{ cursor: 'pointer' }}>
                           Email {sortField === 'email' && (sortDirection === 'asc' ? '↑' : '↓')}
                         </th>
-                        <th onClick={() => handleSort('role')} style={{cursor: 'pointer'}}>
+                        <th onClick={() => handleSort('role')} style={{ cursor: 'pointer' }}>
                           Rol {sortField === 'role' && (sortDirection === 'asc' ? '↑' : '↓')}
                         </th>
-                        <th onClick={() => handleSort('createdAt')} style={{cursor: 'pointer'}}>
+                        <th onClick={() => handleSort('createdAt')} style={{ cursor: 'pointer' }}>
                           Fecha de Registro {sortField === 'createdAt' && (sortDirection === 'asc' ? '↑' : '↓')}
                         </th>
                         <th>Estado</th>
@@ -1266,22 +1298,22 @@ const AdminSupportCompleteFlow: React.FC = () => {
                           </td>
                           <td>
                             <div className="d-flex gap-2 flex-wrap">
-                              <button 
-                                className="btn btn-sm btn-outline-primary" 
+                              <button
+                                className="btn btn-sm btn-outline-primary"
                                 onClick={() => showUserProducts(user)}
                                 title="Ver productos del usuario"
                               >
                                 <i className="bi bi-eye"></i>
                               </button>
-                              <button 
-                                className="btn btn-sm btn-outline-warning" 
+                              <button
+                                className="btn btn-sm btn-outline-warning"
                                 onClick={() => showReservationStatus(user)}
                                 title="Gestionar estado de reservas"
                               >
                                 <i className="bi bi-clock-history"></i>
                               </button>
-                              <button 
-                                className="btn btn-sm btn-primary" 
+                              <button
+                                className="btn btn-sm btn-primary"
                                 onClick={() => openAddProductModal(user)}
                                 title="Agregar Producto a Usuario"
                               >
@@ -1297,7 +1329,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
               </div>
             </div>
           )}
-          
+
           {/* Paginación */}
           {totalPages > 1 && (
             <nav className="mt-3">
@@ -1324,7 +1356,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
           )}
         </div>
       </main>
-      
+
       {/* Modal de detalles del producto */}
       {selectedProduct && (
         <div className="modal fade show d-block order-details-modal" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
@@ -1360,7 +1392,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
                     )}
                   </div>
                 </div>
-                
+
                 <div className="row mt-3">
                   <div className="col-md-6">
                     <h6>Fechas</h6>
@@ -1382,7 +1414,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
                     )}
                   </div>
                 </div>
-                
+
                 <div className="row mt-3">
                   <div className="col-12">
                     <h6>Información del Usuario</h6>
@@ -1399,29 +1431,29 @@ const AdminSupportCompleteFlow: React.FC = () => {
                     )}
                   </div>
                 </div>
-                
+
                 <div className="row mt-3">
                   <div className="col-12">
                     <h6>Imagen</h6>
-                    <img 
-                      src={selectedProduct.product.imagen_url} 
-                      alt={selectedProduct.product.nombre} 
-                      className="img-fluid" 
+                    <img
+                      src={selectedProduct.product.imagen_url}
+                      alt={selectedProduct.product.nombre}
+                      className="img-fluid"
                       style={{ maxHeight: 200 }}
                     />
                   </div>
                 </div>
               </div>
               <div className="modal-footer">
-                <button 
-                  type="button" 
-                  className="btn btn-secondary" 
+                <button
+                  type="button"
+                  className="btn btn-secondary"
                   onClick={() => setSelectedProduct(null)}
                 >
                   Cerrar
                 </button>
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   className="btn btn-primary"
                   onClick={() => {
                     // Aquí podrías implementar una acción específica para este producto
@@ -1435,7 +1467,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
           </div>
         </div>
       )}
-      
+
       {/* Modal para mostrar productos del usuario */}
       {showUserProductsModal && (
         <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
@@ -1476,8 +1508,8 @@ const AdminSupportCompleteFlow: React.FC = () => {
                           <tr key={product._id}>
                             <td>
                               <div className="d-flex align-items-center">
-                                <img 
-                                  src={product.product.imagen_url} 
+                                <img
+                                  src={product.product.imagen_url}
                                   alt={product.product.nombre}
                                   className="me-2"
                                   style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: '4px' }}
@@ -1492,8 +1524,8 @@ const AdminSupportCompleteFlow: React.FC = () => {
                             <td>{product.assigned_locker || 'Sin asignar'}</td>
                             <td>${product.unit_price?.toLocaleString('es-CO')}</td>
                             <td>
-                              {product.orderCreatedAt ? 
-                                new Date(product.orderCreatedAt).toLocaleDateString('es-CO') : 
+                              {product.orderCreatedAt ?
+                                new Date(product.orderCreatedAt).toLocaleDateString('es-CO') :
                                 'N/A'
                               }
                             </td>
@@ -1526,7 +1558,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
           </div>
         </div>
       )}
-      
+
       {/* Modal para gestionar estado de reservas */}
       {showReservationStatusModal && (
         <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
@@ -1569,16 +1601,15 @@ const AdminSupportCompleteFlow: React.FC = () => {
                               <small className="text-muted">ID: {action.productId.substring(0, 8)}</small>
                             </td>
                             <td>
-                              <span className={`badge bg-${
-                                action.currentStatus === 'claimed' ? 'success' : 
+                              <span className={`badge bg-${action.currentStatus === 'claimed' ? 'success' :
                                 action.currentStatus === 'reserved' ? 'warning' : 'primary'
-                              }`}>
-                                {action.currentStatus === 'claimed' ? 'Reclamado' : 
-                                 action.currentStatus === 'reserved' ? 'Reservado' : 'Disponible'}
+                                }`}>
+                                {action.currentStatus === 'claimed' ? 'Reclamado' :
+                                  action.currentStatus === 'reserved' ? 'Reservado' : 'Disponible'}
                               </span>
                             </td>
                             <td>
-                              <select 
+                              <select
                                 className="form-select form-select-sm"
                                 value={action.newStatus}
                                 onChange={(e) => {
@@ -1595,7 +1626,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
                               </select>
                             </td>
                             <td>
-                              <select 
+                              <select
                                 className="form-select form-select-sm"
                                 value={action.action}
                                 onChange={(e) => {
@@ -1615,7 +1646,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
                               </select>
                             </td>
                             <td>
-                              <button 
+                              <button
                                 className="btn btn-sm btn-warning"
                                 disabled={!action.newStatus && !action.action}
                                 onClick={() => changeProductStatus(action.productId, action.newStatus, action.action)}
@@ -1639,8 +1670,8 @@ const AdminSupportCompleteFlow: React.FC = () => {
                 <button type="button" className="btn btn-secondary" onClick={() => setShowReservationStatusModal(false)}>
                   Cerrar
                 </button>
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   className="btn btn-primary"
                   onClick={() => {
                     // Aplicar todos los cambios pendientes
@@ -1654,7 +1685,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
           </div>
         </div>
       )}
-      
+
       {/* Modal del Panel de Debugging */}
       {showDebugPanel && (
         <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
@@ -1708,7 +1739,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
                     </button>
                   </div>
                 </div>
-                
+
                 {debugErrors.length === 0 ? (
                   <div className="alert alert-info">
                     <i className="bi bi-info-circle me-2"></i>
@@ -1733,12 +1764,11 @@ const AdminSupportCompleteFlow: React.FC = () => {
                               <small>{new Date(error.timestamp).toLocaleString('es-CO')}</small>
                             </td>
                             <td>
-                              <span className={`badge bg-${
-                                error.severity === 'error' ? 'danger' : 
+                              <span className={`badge bg-${error.severity === 'error' ? 'danger' :
                                 error.severity === 'warning' ? 'warning' : 'info'
-                              }`}>
-                                {error.severity === 'error' ? 'Error' : 
-                                 error.severity === 'warning' ? 'Advertencia' : 'Info'}
+                                }`}>
+                                {error.severity === 'error' ? 'Error' :
+                                  error.severity === 'warning' ? 'Advertencia' : 'Info'}
                               </span>
                             </td>
                             <td>
@@ -1779,7 +1809,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
                   className="btn btn-primary"
                   onClick={() => {
                     // Exportar logs a archivo
-                    const logsText = debugErrors.map(error => 
+                    const logsText = debugErrors.map(error =>
                       `[${error.timestamp}] ${error.severity.toUpperCase()}: ${error.message}`
                     ).join('\n');
                     const blob = new Blob([logsText], { type: 'text/plain' });

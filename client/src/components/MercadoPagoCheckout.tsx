@@ -12,15 +12,15 @@ interface MercadoPagoCheckoutProps {
   onError?: (error: string) => void;
 }
 
-const MercadoPagoCheckout: React.FC<MercadoPagoCheckoutProps> = ({ 
-  onSuccess, 
-  onError 
+const MercadoPagoCheckout: React.FC<MercadoPagoCheckoutProps> = ({
+  onSuccess,
+  onError
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { currentUser } = useAuth();
   const { refreshCart } = useCart();
-  
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [items, setItems] = useState<MPItem[]>([]);
@@ -36,7 +36,7 @@ const MercadoPagoCheckout: React.FC<MercadoPagoCheckoutProps> = ({
       try {
         // Validar configuración
         validateMercadoPagoConfig();
-        
+
         // Inicializar SDK
         await initMercadoPago();
         setSdkLoaded(true);
@@ -54,14 +54,14 @@ const MercadoPagoCheckout: React.FC<MercadoPagoCheckoutProps> = ({
     const loadCheckoutData = async () => {
       try {
         console.log('=== CARGANDO DATOS DEL CHECKOUT ===');
-        
+
         // Obtener productos seleccionados del estado de navegación
         const selectedItems = location.state?.items;
         const selectedPayer = location.state?.payer;
-        
+
         console.log('Productos seleccionados recibidos:', selectedItems);
         console.log('Datos del pagador recibidos:', selectedPayer);
-        
+
         if (!selectedItems || selectedItems.length === 0) {
           setError('No hay productos seleccionados para el pago');
           return;
@@ -80,7 +80,7 @@ const MercadoPagoCheckout: React.FC<MercadoPagoCheckoutProps> = ({
             surname: '',
             identification: {
               type: 'CC',
-              number: '12345678'
+              number: (currentUser as any).cedula || ''
             }
           });
         }
@@ -114,19 +114,18 @@ const MercadoPagoCheckout: React.FC<MercadoPagoCheckoutProps> = ({
             hasVariants: !!item.variants && Object.keys(item.variants).length > 0
           });
         });
-        
+
         const preference = await paymentService.createPreference(
-          items, 
-          payer, 
+          items,
+          payer,
           `HAKO_${Date.now()}`,
-          currentUser?.id,
           items // Enviar los productos que llegaron al checkout
         );
 
         console.log('Preferencia creada:', preference);
         setPreferenceId(preference.preference_id);
         setRedirectUrl(preference.init_point);
-        
+
       } catch (err: any) {
         console.error('Error creando preferencia:', err);
         setError(err.message || 'Error al crear la preferencia de pago');
@@ -142,7 +141,7 @@ const MercadoPagoCheckout: React.FC<MercadoPagoCheckoutProps> = ({
   const handlePaymentSuccess = async (paymentData: any) => {
     try {
       console.log('Pago exitoso:', paymentData);
-      
+
       // Eliminar productos del carrito
       if (items.length > 0) {
         const productIds = items.map(item => item.id).filter((id): id is string => !!id);
@@ -158,8 +157,8 @@ const MercadoPagoCheckout: React.FC<MercadoPagoCheckoutProps> = ({
       }
 
       // Redirigir a página de éxito
-      navigate('/payment-success', { 
-        state: { paymentData } 
+      navigate('/payment-success', {
+        state: { paymentData }
       });
 
     } catch (error) {
@@ -171,7 +170,7 @@ const MercadoPagoCheckout: React.FC<MercadoPagoCheckoutProps> = ({
   const handlePaymentError = (error: string) => {
     console.error('Error en el pago:', error);
     setError(error);
-    
+
     if (onError) {
       onError(error);
     }
@@ -190,7 +189,7 @@ const MercadoPagoCheckout: React.FC<MercadoPagoCheckoutProps> = ({
     try {
       console.log('Redirigiendo a Checkout Pro...');
       console.log('URL:', redirectUrl);
-      
+
       // Redirigir directamente usando la URL guardada
       window.location.href = redirectUrl;
 
@@ -217,8 +216,8 @@ const MercadoPagoCheckout: React.FC<MercadoPagoCheckoutProps> = ({
       <div className="alert alert-danger">
         <h4>Error</h4>
         <p>{error}</p>
-        <button 
-          className="btn btn-primary" 
+        <button
+          className="btn btn-primary"
           onClick={() => navigate('/cart')}
         >
           Volver al carrito
@@ -251,7 +250,7 @@ const MercadoPagoCheckout: React.FC<MercadoPagoCheckoutProps> = ({
                   <div className="col-md-8">
                     <h6 className="mb-0">{item.title}</h6>
                     <small className="text-muted">
-                      Cantidad: {item.quantity || 1} | 
+                      Cantidad: {item.quantity || 1} |
                       Precio: {formatPrice(item.unit_price)}
                     </small>
                   </div>
@@ -263,7 +262,7 @@ const MercadoPagoCheckout: React.FC<MercadoPagoCheckoutProps> = ({
             </div>
           ))}
         </div>
-        
+
         <div className="col-lg-4">
           <div className="card">
             <div className="card-header">
@@ -271,13 +270,13 @@ const MercadoPagoCheckout: React.FC<MercadoPagoCheckoutProps> = ({
             </div>
             <div className="card-body">
               <h4 className="text-primary mb-3">{formatPrice(calculateTotal())}</h4>
-              
+
               {error && (
                 <div className="alert alert-danger mb-3">
                   {error}
                 </div>
               )}
-              
+
               {redirectUrl && (
                 <button
                   className="btn btn-success btn-lg w-100 mt-3"

@@ -48,10 +48,10 @@ async function enviarCodigo(email, code) {
 
 function generarJWT(user) {
   return jwt.sign(
-    { 
-      id: user._id, 
-      email: user.email, 
-      role: user.role 
+    {
+      id: user._id,
+      email: user.email,
+      role: user.role
     },
     process.env.JWT_SECRET,
     { expiresIn: '1h' }
@@ -91,7 +91,7 @@ function generarContraseñaSegura() {
 exports.register = async (req, res) => {
   try {
     const { nombre, email, contraseña } = req.body;
-    
+
     // Validación de campos obligatorios
     if (!nombre || !email || !contraseña) {
       return res.status(400).json({ error: 'Todos los campos son obligatorios' });
@@ -109,8 +109,8 @@ exports.register = async (req, res) => {
 
     // Validación de contraseña
     if (!validarContraseña(contraseña)) {
-      return res.status(400).json({ 
-        error: 'La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula, un número y un símbolo' 
+      return res.status(400).json({
+        error: 'La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula, un número y un símbolo'
       });
     }
 
@@ -136,9 +136,9 @@ exports.register = async (req, res) => {
     await pendingUser.save();
     await enviarCodigo(email, code);
     console.log(`Nuevo registro pendiente: ${email} desde IP: ${req.ip}`);
-    res.status(201).json({ 
+    res.status(201).json({
       message: 'Registro iniciado. Revisa tu correo para el código de verificación.',
-      verificacionPendiente: true 
+      verificacionPendiente: true
     });
   } catch (error) {
     console.error('Error en registro:', error);
@@ -150,7 +150,7 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
   try {
     const { email, contraseña } = req.body;
-    
+
     // Validación de campos obligatorios
     if (!email || !contraseña) {
       return res.status(400).json({ error: 'Todos los campos son obligatorios' });
@@ -163,7 +163,7 @@ exports.login = async (req, res) => {
 
     // Buscar usuario incluyendo campos de seguridad
     const user = await User.findOne({ email: email.toLowerCase() }).select('+loginAttempts +lockUntil');
-    
+
     if (!user) {
       // Log de intento fallido
       console.log(`Intento de login fallido - email no encontrado: ${email} desde IP: ${req.ip}`);
@@ -174,8 +174,8 @@ exports.login = async (req, res) => {
     if (user.isLocked()) {
       const lockTime = Math.ceil((user.lockUntil - Date.now()) / 1000 / 60);
       console.log(`Intento de login en cuenta bloqueada: ${email} desde IP: ${req.ip}`);
-      return res.status(423).json({ 
-        error: `Cuenta temporalmente bloqueada. Intenta de nuevo en ${lockTime} minutos.` 
+      return res.status(423).json({
+        error: `Cuenta temporalmente bloqueada. Intenta de nuevo en ${lockTime} minutos.`
       });
     }
 
@@ -183,7 +183,7 @@ exports.login = async (req, res) => {
     if (!match) {
       // Incrementar intentos fallidos
       await user.incLoginAttempts();
-      
+
       // Log de intento fallido
       console.log(`Intento de login fallido - contraseña incorrecta: ${email} desde IP: ${req.ip}`);
       return res.status(400).json({ error: 'Credenciales inválidas' });
@@ -199,17 +199,17 @@ exports.login = async (req, res) => {
 
     // Generar JWT directamente
     const token = generarJWT(user);
-    
+
     // Log de login exitoso
     console.log(`Login exitoso: ${email} desde IP: ${req.ip}`);
-    
-    res.json({ 
-      message: 'Login exitoso', 
-      user: { 
-        id: user._id, 
-        nombre: user.nombre, 
-        email: user.email, 
-        role: user.role 
+
+    res.json({
+      message: 'Login exitoso',
+      user: {
+        id: user._id,
+        nombre: user.nombre,
+        email: user.email,
+        role: user.role
       },
       token: token
     });
@@ -234,9 +234,18 @@ exports.verifyCode = async (req, res) => {
     if (!pendingUser) {
       return res.status(400).json({ error: 'No hay registro pendiente para este correo o ya fue verificado' });
     }
+    // Incrementar intentos fallidos
+    pendingUser.attempts = (pendingUser.attempts || 0) + 1;
+
     if (pendingUser.verificationCode !== code) {
-      console.log(`Intento de verificación fallido: ${email} desde IP: ${req.ip}`);
-      return res.status(400).json({ error: 'Código incorrecto' });
+      if (pendingUser.attempts >= 5) {
+        await PendingUser.deleteOne({ _id: pendingUser._id });
+        console.log(`Demasiados intentos de verificación fallidos: ${email} desde IP: ${req.ip}`);
+        return res.status(400).json({ error: 'Demasiados intentos fallidos. El registro ha sido cancelado, vuelve a registrarte.' });
+      }
+      await pendingUser.save();
+      console.log(`Intento de verificación fallido (${pendingUser.attempts}/5): ${email} desde IP: ${req.ip}`);
+      return res.status(400).json({ error: `Código incorrecto. Te quedan ${5 - pendingUser.attempts} intentos.` });
     }
     if (pendingUser.verificationCodeExpires < new Date()) {
       return res.status(400).json({ error: 'Código expirado' });
@@ -284,7 +293,7 @@ exports.getAllUsers = async (req, res) => {
 exports.updateUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const { nombre, email, role, isActive, telefono, direccion, fechaNacimiento, genero, bio } = req.body;
+    const { nombre, email, role, isActive, cedula, telefono, direccion, fechaNacimiento, genero, bio } = req.body;
 
     if (!validator.isMongoId(id)) {
       return res.status(400).json({ error: 'ID de usuario inválido' });
@@ -322,6 +331,7 @@ exports.updateUser = async (req, res) => {
     if (direccion !== undefined) updateData.direccion = direccion;
     if (fechaNacimiento !== undefined) updateData.fechaNacimiento = fechaNacimiento;
     if (genero !== undefined) updateData.genero = genero;
+    if (cedula !== undefined) updateData.cedula = cedula;
     if (bio !== undefined) updateData.bio = bio;
 
     const user = await User.findByIdAndUpdate(
@@ -362,7 +372,7 @@ exports.deleteUser = async (req, res) => {
     }
 
     await User.findByIdAndDelete(id);
-    
+
     console.log(`Usuario eliminado: ${user.email} por admin desde IP: ${req.ip}`);
     res.json({ message: 'Usuario eliminado correctamente' });
   } catch (error) {
@@ -395,9 +405,9 @@ exports.toggleUserStatus = async (req, res) => {
 
     const statusText = user.isActive ? 'activado' : 'desactivado';
     console.log(`Usuario ${statusText}: ${user.email} por admin desde IP: ${req.ip}`);
-    
-    res.json({ 
-      message: `Usuario ${statusText} correctamente`, 
+
+    res.json({
+      message: `Usuario ${statusText} correctamente`,
       user: {
         id: user._id,
         nombre: user.nombre,
@@ -416,16 +426,16 @@ exports.toggleUserStatus = async (req, res) => {
 exports.getProfile = async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     if (!validator.isMongoId(id)) {
       return res.status(400).json({ error: 'ID de usuario inválido' });
     }
-    
+
     const user = await User.findById(id).select('-contraseña -verificationCode -verificationCodeExpires');
     if (!user) {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
-    
+
     res.json({
       _id: user._id,
       id: user._id,
@@ -435,6 +445,7 @@ exports.getProfile = async (req, res) => {
       isActive: user.isActive,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
+      cedula: user.cedula,
       telefono: user.telefono,
       direccion: user.direccion,
       fechaNacimiento: user.fechaNacimiento,
@@ -495,14 +506,14 @@ exports.validateToken = async (req, res) => {
     // El middleware de autenticación ya verificó el token
     // y agregó el usuario a req.user
     const user = req.user;
-    
+
     if (!user) {
       return res.status(401).json({ error: 'Token inválido' });
     }
 
     // Verificar que el usuario aún existe en la base de datos
     const currentUser = await User.findById(user.id).select('-contraseña -verificationCode -verificationCodeExpires');
-    
+
     if (!currentUser) {
       return res.status(401).json({ error: 'Usuario no encontrado' });
     }
@@ -521,6 +532,7 @@ exports.validateToken = async (req, res) => {
         isActive: currentUser.isActive,
         createdAt: currentUser.createdAt,
         updatedAt: currentUser.updatedAt,
+        cedula: currentUser.cedula,
         telefono: currentUser.telefono,
         direccion: currentUser.direccion,
         fechaNacimiento: currentUser.fechaNacimiento,

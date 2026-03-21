@@ -11,8 +11,9 @@ const User = require('../models/User');
 // Obtener todos los productos
 exports.getAllProducts = async (req, res) => {
   try {
-    const { page = 1, limit = 10, search = '', sortBy = 'fecha_creacion', sortOrder = 'desc' } = req.query;
-    
+    const { page = 1, search = '', sortBy = 'fecha_creacion', sortOrder = 'desc' } = req.query;
+    const limit = Math.min(parseInt(req.query.limit) || 10, 100); // Máximo 100
+
     // Construir filtro de búsqueda
     const filter = { isActive: true };
     if (search) {
@@ -97,12 +98,12 @@ exports.createProduct = async (req, res) => {
       categoria,
       dimensiones
     });
-    
+
     console.log('🔧 Variantes recibidas:', {
       enabled: variants?.enabled,
       attributesCount: variants?.attributes?.length || 0
     });
-    
+
     if (variants && variants.enabled && variants.attributes) {
       console.log('📋 Detalle de variantes recibidas:');
       variants.attributes.forEach((attr, attrIndex) => {
@@ -110,7 +111,7 @@ exports.createProduct = async (req, res) => {
         console.log(`     - Required: ${attr.required}`);
         console.log(`     - DefinesDimensions: ${attr.definesDimensions}`);
         console.log(`     - Opciones: ${attr.options?.length || 0}`);
-        
+
         if (attr.options) {
           attr.options.forEach((option, optIndex) => {
             console.log(`       Opción ${optIndex + 1}: ${option.value}`);
@@ -145,7 +146,7 @@ exports.createProduct = async (req, res) => {
       if (typeof variants.enabled !== 'boolean') {
         return res.status(400).json({ error: 'El campo enabled de variantes debe ser un booleano' });
       }
-      
+
       if (variants.enabled && (!Array.isArray(variants.attributes) || variants.attributes.length === 0)) {
         return res.status(400).json({ error: 'Si las variantes están habilitadas, debe haber al menos un atributo' });
       }
@@ -187,14 +188,14 @@ exports.createProduct = async (req, res) => {
       variantsEnabled: product.variants?.enabled,
       attributesCount: product.variants?.attributes?.length || 0
     });
-    
+
     if (product.variants && product.variants.enabled) {
       console.log('🔧 Variantes guardadas en DB:');
       product.variants.attributes.forEach((attr, attrIndex) => {
         console.log(`   Atributo ${attrIndex + 1}: ${attr.name}`);
         console.log(`     - DefinesDimensions: ${attr.definesDimensions}`);
         console.log(`     - Opciones: ${attr.options?.length || 0}`);
-        
+
         if (attr.options) {
           attr.options.forEach((option, optIndex) => {
             console.log(`       Opción ${optIndex + 1}: ${option.value}`);
@@ -205,9 +206,9 @@ exports.createProduct = async (req, res) => {
     }
 
     console.log(`Nuevo producto creado: ${nombre} por admin desde IP: ${req.ip}`);
-    res.status(201).json({ 
-      message: 'Producto creado correctamente', 
-      product 
+    res.status(201).json({
+      message: 'Producto creado correctamente',
+      product
     });
   } catch (error) {
     console.error('Error creando producto:', error);
@@ -234,19 +235,19 @@ exports.updateProduct = async (req, res) => {
       categoria,
       dimensiones
     });
-    
+
     console.log('🔧 Variantes recibidas:', {
       enabled: variants?.enabled,
       attributesCount: variants?.attributes?.length || 0
     });
-    
+
     if (variants && variants.enabled && variants.attributes) {
       console.log('📋 Detalle de variantes recibidas:');
       variants.attributes.forEach((attr, attrIndex) => {
         console.log(`   Atributo ${attrIndex + 1}: ${attr.name}`);
         console.log(`     - DefinesDimensions: ${attr.definesDimensions}`);
         console.log(`     - Opciones: ${attr.options?.length || 0}`);
-        
+
         if (attr.options) {
           attr.options.forEach((option, optIndex) => {
             console.log(`       Opción ${optIndex + 1}: ${option.value}`);
@@ -291,7 +292,7 @@ exports.updateProduct = async (req, res) => {
       if (typeof variants.enabled !== 'boolean') {
         return res.status(400).json({ error: 'El campo enabled de variantes debe ser un booleano' });
       }
-      
+
       if (variants.enabled && (!Array.isArray(variants.attributes) || variants.attributes.length === 0)) {
         return res.status(400).json({ error: 'Si las variantes están habilitadas, debe haber al menos un atributo' });
       }
@@ -359,14 +360,14 @@ exports.updateProduct = async (req, res) => {
       variantsEnabled: product.variants?.enabled,
       attributesCount: product.variants?.attributes?.length || 0
     });
-    
+
     if (product.variants && product.variants.enabled) {
       console.log('🔧 Variantes guardadas en DB:');
       product.variants.attributes.forEach((attr, attrIndex) => {
         console.log(`   Atributo ${attrIndex + 1}: ${attr.name}`);
         console.log(`     - DefinesDimensions: ${attr.definesDimensions}`);
         console.log(`     - Opciones: ${attr.options?.length || 0}`);
-        
+
         if (attr.options) {
           attr.options.forEach((option, optIndex) => {
             console.log(`       Opción ${optIndex + 1}: ${option.value}`);
@@ -403,7 +404,7 @@ exports.deleteProduct = async (req, res) => {
     }
 
     await Product.findByIdAndDelete(id);
-    
+
     console.log(`Producto eliminado: ${product.nombre} por admin desde IP: ${req.ip}`);
     res.json({ message: 'Producto eliminado correctamente' });
   } catch (error) {
@@ -431,10 +432,10 @@ exports.toggleProductStatus = async (req, res) => {
 
     const statusText = product.isActive ? 'activado' : 'desactivado';
     console.log(`Producto ${statusText}: ${product.nombre} por admin desde IP: ${req.ip}`);
-    
-    res.json({ 
-      message: `Producto ${statusText} correctamente`, 
-      product 
+
+    res.json({
+      message: `Producto ${statusText} correctamente`,
+      product
     });
   } catch (error) {
     console.error('Error cambiando estado de producto:', error);
@@ -446,18 +447,19 @@ exports.toggleProductStatus = async (req, res) => {
 exports.searchProducts = async (req, res) => {
   try {
     const { q } = req.query;
-    
+
     if (!q || q.trim().length === 0) {
       return res.status(400).json({ error: 'Término de búsqueda requerido' });
     }
 
+    const escapedQuery = q.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const products = await Product.find({
       $and: [
         { isActive: true },
         {
           $or: [
-            { nombre: { $regex: q.trim(), $options: 'i' } },
-            { descripcion: { $regex: q.trim(), $options: 'i' } }
+            { nombre: { $regex: escapedQuery, $options: 'i' } },
+            { descripcion: { $regex: escapedQuery, $options: 'i' } }
           ]
         }
       ]
@@ -474,13 +476,13 @@ exports.searchProducts = async (req, res) => {
 exports.getDestacados = async (req, res) => {
   try {
     const { limit = 8 } = req.query;
-    
+
     const products = await Product.find({
       isActive: true,
       isDestacado: true
     })
-    .sort({ fecha_creacion: -1 })
-    .limit(parseInt(limit));
+      .sort({ fecha_creacion: -1 })
+      .limit(parseInt(limit));
 
     res.json(products);
   } catch (error) {
@@ -493,13 +495,13 @@ exports.getDestacados = async (req, res) => {
 exports.getOfertas = async (req, res) => {
   try {
     const { limit = 12 } = req.query;
-    
+
     const products = await Product.find({
       isActive: true,
       isOferta: true
     })
-    .sort({ fecha_creacion: -1 })
-    .limit(parseInt(limit));
+      .sort({ fecha_creacion: -1 })
+      .limit(parseInt(limit));
 
     res.json(products);
   } catch (error) {
@@ -527,10 +529,10 @@ exports.toggleDestacado = async (req, res) => {
 
     const statusText = product.isDestacado ? 'marcado como destacado' : 'removido de destacados';
     console.log(`Producto ${statusText}: ${product.nombre} por admin desde IP: ${req.ip}`);
-    
-    res.json({ 
-      message: `Producto ${statusText} correctamente`, 
-      product 
+
+    res.json({
+      message: `Producto ${statusText} correctamente`,
+      product
     });
   } catch (error) {
     console.error('Error cambiando estado de destacado:', error);
@@ -554,7 +556,7 @@ exports.toggleOferta = async (req, res) => {
     }
 
     product.isOferta = !product.isOferta;
-    
+
     if (product.isOferta) {
       if (precioOferta !== undefined) {
         product.precioOferta = parseFloat(precioOferta);
@@ -572,10 +574,10 @@ exports.toggleOferta = async (req, res) => {
 
     const statusText = product.isOferta ? 'marcado como oferta' : 'removido de ofertas';
     console.log(`Producto ${statusText}: ${product.nombre} por admin desde IP: ${req.ip}`);
-    
-    res.json({ 
-      message: `Producto ${statusText} correctamente`, 
-      product 
+
+    res.json({
+      message: `Producto ${statusText} correctamente`,
+      product
     });
   } catch (error) {
     console.error('Error cambiando estado de oferta:', error);
@@ -802,17 +804,17 @@ exports.deleteSuggestion = async (req, res) => {
 exports.getIndividualProductWithDimensions = async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const individualProduct = await IndividualProduct.findById(id)
       .populate('product', 'nombre imagen_url dimensiones variants');
-    
+
     if (!individualProduct) {
       return res.status(404).json({ error: 'IndividualProduct no encontrado' });
     }
-    
+
     // Calcular dimensiones considerando variantes
     const calculatedDimensions = individualProduct.getVariantOrProductDimensions();
-    
+
     res.json({
       _id: individualProduct._id,
       product: individualProduct.product,

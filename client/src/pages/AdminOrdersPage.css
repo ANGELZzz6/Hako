@@ -9,12 +9,12 @@
 .stats-card {
   transition: transform 0.2s ease-in-out;
   border: none;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .stats-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
 
 .stats-card .card-body {
@@ -36,7 +36,7 @@
 .filters-section {
   background: white;
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   margin-bottom: 1rem;
 }
 
@@ -48,7 +48,7 @@
 .orders-table {
   background: white;
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   overflow: hidden;
 }
 
@@ -107,7 +107,7 @@
 /* Modal de detalles */
 .order-details-modal .modal-content {
   border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
 }
 
 .order-details-modal .modal-header {
@@ -147,19 +147,19 @@
   .stats-card {
     margin-bottom: 1rem;
   }
-  
+
   .orders-table .table-responsive {
     font-size: 0.8rem;
   }
-  
+
   .orders-table td {
     padding: 0.5rem;
   }
-  
+
   .btn-group-vertical {
     flex-direction: row;
   }
-  
+
   .btn-group-vertical .btn {
     margin-bottom: 0;
     margin-right: 0.25rem;
@@ -173,7 +173,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(255,255,255,0.8);
+  background: rgba(255, 255, 255, 0.8);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -182,8 +182,15 @@
 
 /* Animaciones */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .stats-card,
@@ -298,7 +305,7 @@
 
 .product-item img {
   border-radius: 4px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .product-item .product-name {
@@ -332,7 +339,7 @@
 .advanced-filters {
   background: white;
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   margin-bottom: 1rem;
 }
 
@@ -352,7 +359,7 @@
 .advanced-filters .form-control:focus,
 .advanced-filters .form-select:focus {
   border-color: #80bdff;
-  box-shadow: 0 0 0 0.2rem rgba(0,123,255,0.25);
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
 }
 
 /* Información de paginación */
@@ -389,8 +396,13 @@
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 /* Mensajes de estado */

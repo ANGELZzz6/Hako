@@ -9,6 +9,59 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import cartService from '../services/cartService';
 import { useCart } from '../contexts/CartContext';
+import { showSuccessToast } from '../utils/toast.ts';
+
+interface ProductCardItemProps {
+  product: Product;
+  onCardClick: (id: string) => void;
+  onButtonClick: (e: React.MouseEvent, id: string) => void;
+}
+
+const ProductCardItem: React.FC<ProductCardItemProps> = ({ product, onCardClick, onButtonClick }) => (
+  <Col xs={4} sm={6} md={4} lg={3} className="px-1">
+    <Card
+      className="h-100 product-card"
+      style={{ cursor: 'pointer', position: 'relative' }}
+      onClick={() => onCardClick(product._id)}
+    >
+      {product.isOferta && (
+        <div className="oferta-ribbon">
+          <i className="bi bi-tag-fill me-1"></i>¡Oferta!
+        </div>
+      )}
+      {product.isDestacado && (
+        <div className="destacado-ribbon">
+          <i className="bi bi-star-fill me-1"></i>Destacado
+        </div>
+      )}
+      <Card.Img
+        variant="top"
+        src={product.imagen_url}
+        alt={product.nombre}
+        className="product-image"
+        style={{ width: '100%', height: '180px', objectFit: 'cover', objectPosition: 'center' }}
+        onError={(e) => { e.currentTarget.src = 'https://via.placeholder.com/300x200?text=Sin+Imagen'; }}
+      />
+      <Card.Body className="d-flex flex-column">
+        <Card.Title>{product.nombre}</Card.Title>
+        <Card.Text>{product.descripcion}</Card.Text>
+        <div className="price-tag mt-auto mb-3">
+          <span style={{ fontSize: '0.95em', fontWeight: 400, marginRight: 4 }}>COP</span>
+          {product.precio.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}
+        </div>
+        <div className="d-none d-md-block">
+          <button
+            className="btn btn-danger w-100"
+            onClick={(e) => onButtonClick(e, product._id)}
+          >
+            <i className="bi bi-box-seam me-2"></i>
+            A MI BOX
+          </button>
+        </div>
+      </Card.Body>
+    </Card>
+  </Col>
+);
 
 interface ProductosProps {
   products: Product[];
@@ -38,18 +91,18 @@ const Productos: React.FC<ProductosProps> = ({ products }) => {
   const filteredProducts = products
     .filter(product => {
       // Filtro por búsqueda
-      const matchesSearch = searchTerm === '' || 
+      const matchesSearch = searchTerm === '' ||
         product.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
         product.descripcion.toLowerCase().includes(searchTerm.toLowerCase());
       // Filtro por categoría
       const matchesCategory = selectedCategory === 'todos' || product.categoria === selectedCategory;
       // Filtro por rango de precio
       const matchesPrice = (!priceRange.min || product.precio >= parseFloat(priceRange.min)) &&
-                          (!priceRange.max || product.precio <= parseFloat(priceRange.max));
+        (!priceRange.max || product.precio <= parseFloat(priceRange.max));
       // Filtro por tipo (oferta/destacado)
       let matchesType = true;
-      if (sortAndFilter === 'oferta') matchesType = product.isOferta;
-      if (sortAndFilter === 'destacado') matchesType = product.isDestacado;
+      if (sortAndFilter === 'oferta') matchesType = !!product.isOferta;
+      if (sortAndFilter === 'destacado') matchesType = !!product.isDestacado;
       return matchesSearch && matchesCategory && matchesPrice && matchesType;
     })
     .sort((a, b) => {
@@ -78,7 +131,7 @@ const Productos: React.FC<ProductosProps> = ({ products }) => {
   // Función para agregar al carrito
   const handleAddToCart = async (e: React.MouseEvent, productId: string) => {
     e.stopPropagation(); // Evitar que se active el onClick de la tarjeta
-    
+
     if (!isAuthenticated) {
       navigate('/login');
       return;
@@ -98,7 +151,7 @@ const Productos: React.FC<ProductosProps> = ({ products }) => {
     if (!selectedProduct) return;
     try {
       setAddingToCart(selectedProduct._id);
-      
+
       // Si el producto tiene variantes, usar addToCartWithVariants, sino usar addToCart
       if (selectedProduct.variants && selectedProduct.variants.enabled) {
         const cartItem = {
@@ -110,32 +163,12 @@ const Productos: React.FC<ProductosProps> = ({ products }) => {
       } else {
         await cartService.addToCart(selectedProduct._id, quantity);
       }
-      
+
       await refreshCart(); // Actualiza el carrito global
       setShowVariantModal(false);
-      
+
       // Mostrar toast de éxito
-      const toast = document.createElement('div');
-      toast.className = 'toast-success';
-      toast.innerHTML = `
-        <div style="
-          position: fixed; top: 20px; right: 20px; 
-          background: #28a745; color: white; padding: 1rem 1.5rem; 
-          border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-          z-index: 10000; animation: slideInRight 0.3s ease;
-          display: flex; align-items: center; gap: 0.5rem;
-        ">
-          <i class="bi bi-check-circle-fill"></i>
-          ¡Producto agregado al box! 🎉
-        </div>
-      `;
-      document.body.appendChild(toast);
-      
-      setTimeout(() => {
-        toast.style.animation = 'slideOutRight 0.3s ease';
-        setTimeout(() => document.body.removeChild(toast), 3000);
-      }, 3000);
-      
+      showSuccessToast('¡Producto agregado al box! 🎉');
     } catch (error) {
       console.error('Error al agregar al box:', error);
       alert('Error al agregar al box. Intenta de nuevo.');
@@ -149,11 +182,11 @@ const Productos: React.FC<ProductosProps> = ({ products }) => {
       <div className="productos-falling-lines">
         <FallingLines />
       </div>
-      
+
       {/* Header con búsqueda */}
       <div className="search-header mb-5">
         <h1 className="text-center mb-4">Nuestros Productos</h1>
-        
+
         {/* Barra de búsqueda principal */}
         <div className="search-container">
           <div className="search-input-wrapper">
@@ -166,7 +199,7 @@ const Productos: React.FC<ProductosProps> = ({ products }) => {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
             {searchTerm && (
-              <button 
+              <button
                 className="btn btn-link clear-search"
                 onClick={(e) => {
                   e.stopPropagation();
@@ -197,7 +230,7 @@ const Productos: React.FC<ProductosProps> = ({ products }) => {
           </div>
         )}
       </div>
-      
+
       {/* Filtros avanzados */}
       <Row className="mb-4 filters-section">
         <Col xs={12} sm={12} lg={3} className="mb-3">
@@ -206,7 +239,7 @@ const Productos: React.FC<ProductosProps> = ({ products }) => {
               <i className="bi bi-tag me-2"></i>
               Categoría
             </Form.Label>
-            <Form.Select 
+            <Form.Select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
               className="filter-select"
@@ -219,14 +252,14 @@ const Productos: React.FC<ProductosProps> = ({ products }) => {
             </Form.Select>
           </Form.Group>
         </Col>
-        
+
         <Col xs={12} sm={6} lg={3} className="mb-3">
           <Form.Group>
             <Form.Label>
               <i className="bi bi-sort-down me-2"></i>
               Ordenar y filtrar
             </Form.Label>
-            <Form.Select 
+            <Form.Select
               value={sortAndFilter}
               onChange={e => setSortAndFilter(e.target.value)}
               className="filter-select"
@@ -241,7 +274,7 @@ const Productos: React.FC<ProductosProps> = ({ products }) => {
             </Form.Select>
           </Form.Group>
         </Col>
-        
+
         <Col xs={6} sm={6} lg={3} className="mb-3">
           <Form.Group>
             <Form.Label>
@@ -258,7 +291,7 @@ const Productos: React.FC<ProductosProps> = ({ products }) => {
             />
           </Form.Group>
         </Col>
-        
+
         <Col xs={6} sm={6} lg={3} className="mb-3">
           <Form.Group>
             <Form.Label>
@@ -280,7 +313,7 @@ const Productos: React.FC<ProductosProps> = ({ products }) => {
       {/* Botón limpiar filtros */}
       {(searchTerm || selectedCategory !== 'todos' || sortAndFilter !== 'default' || priceRange.min || priceRange.max) && (
         <div className="text-center mb-4">
-          <button 
+          <button
             className="btn btn-outline-secondary clear-filters-btn"
             onClick={clearFilters}
           >
@@ -294,53 +327,15 @@ const Productos: React.FC<ProductosProps> = ({ products }) => {
       <Row className="g-4 mx-0">
         {filteredProducts.length > 0 ? (
           filteredProducts.map((product) => (
-            <Col key={product._id} xs={4} sm={6} md={4} lg={3} className="px-1">
-              <Card className="h-100 product-card" style={{ cursor: 'pointer', position: 'relative' }} onClick={() => navigate(`/productos/${product._id}`)}>
-                {/* Cinta de oferta */}
-                {product.isOferta && (
-                  <div className="oferta-ribbon">
-                    <i className="bi bi-tag-fill me-1"></i>¡Oferta!
-                  </div>
-                )}
-                {/* Cinta de destacado */}
-                {product.isDestacado && (
-                  <div className="destacado-ribbon">
-                    <i className="bi bi-star-fill me-1"></i>Destacado
-                  </div>
-                )}
-                <Card.Img 
-                  variant="top" 
-                  src={product.imagen_url} 
-                  alt={product.nombre}
-                  className="product-image"
-                  style={{ width: '100%', height: '180px', objectFit: 'cover', objectPosition: 'center' }}
-                  onError={(e) => {
-                    e.currentTarget.src = 'https://via.placeholder.com/300x200?text=Sin+Imagen';
-                  }}
-                />
-                <Card.Body className="d-flex flex-column">
-                  <Card.Title>{product.nombre}</Card.Title>
-                  <Card.Text>{product.descripcion}</Card.Text>
-                  <div className="price-tag mt-auto mb-3">
-                    <span style={{fontSize: '0.95em', fontWeight: 400, marginRight: 4}}>COP</span>
-                    {product.precio.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}
-                  </div>
-                  <div className="d-none d-md-block">
-                    <Button 
-                      variant="danger" 
-                      className="w-100" 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/productos/${product._id}`);
-                      }}
-                    >
-                      <i className="bi bi-box-seam me-2"></i>
-                      A MI BOX
-                    </Button>
-                  </div>
-                </Card.Body>
-              </Card>
-            </Col>
+            <ProductCardItem
+              key={product._id}
+              product={product}
+              onCardClick={(id) => navigate(`/productos/${id}`)}
+              onButtonClick={(e, id) => {
+                e.stopPropagation();
+                navigate(`/productos/${id}`);
+              }}
+            />
           ))
         ) : (
           <Col xs={12} className="text-center">
@@ -348,8 +343,8 @@ const Productos: React.FC<ProductosProps> = ({ products }) => {
               <i className="bi bi-search display-1 text-muted"></i>
               <h3 className="mt-3">No se encontraron productos</h3>
               <p className="text-muted">
-                Intenta ajustar tus filtros de búsqueda o 
-                <button 
+                Intenta ajustar tus filtros de búsqueda o
+                <button
                   className="btn btn-link p-0 ms-1"
                   onClick={clearFilters}
                 >

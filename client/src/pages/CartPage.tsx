@@ -38,7 +38,7 @@ const CartPage = () => {
 
   const handleUpdateQuantity = async (productId: string, newQuantity: number) => {
     if (newQuantity < 1) return;
-    
+
     try {
       setUpdating(productId);
       const updatedCart = await cartService.updateCartItem(productId, newQuantity);
@@ -51,14 +51,14 @@ const CartPage = () => {
     }
   };
 
-  const handleRemoveItem = async (productId: string) => {
+  const handleRemoveItem = async (productId: string, variants?: Record<string, string>) => {
     if (!window.confirm('¿Estás seguro de que quieres eliminar este producto del box?')) {
       return;
     }
 
     try {
       setUpdating(productId);
-      const updatedCart = await cartService.removeFromCart(productId);
+      const updatedCart = await cartService.removeFromCart(productId, variants);
       setCart(updatedCart);
       setSelectedItems(prev => prev.filter(id => id !== productId));
     } catch (error) {
@@ -86,7 +86,7 @@ const CartPage = () => {
 
   const toggleSelectAll = () => {
     if (!cart) return;
-    
+
     if (selectedItems.length === cart.items.length) {
       setSelectedItems([]);
     } else {
@@ -106,7 +106,7 @@ const CartPage = () => {
 
   const getSelectedTotal = () => {
     if (!cart) return 0;
-    
+
     return cart.items
       .filter(item => selectedItems.includes(item.id_producto._id))
       .reduce((total, item) => total + (item.precio_unitario * item.cantidad), 0);
@@ -133,12 +133,16 @@ const CartPage = () => {
           picture_url: item.imagen_producto,
           variants: item.variants || {} // Incluir las variantes seleccionadas
         }));
-      navigate('/checkout', { state: { items, payer: {
-        email: currentUser.email,
-        name: currentUser.nombre || 'Nombre',
-        surname: '',
-        identification: { type: 'CC', number: '12345678' }
-      } } });
+      navigate('/checkout', {
+        state: {
+          items, payer: {
+            email: currentUser.email,
+            name: currentUser.nombre || 'Nombre',
+            surname: '',
+            identification: { type: 'CC', number: (currentUser as any).cedula || '' }
+          }
+        }
+      });
     } catch (error) {
       console.error('Error al procesar el pago:', error);
       alert('Error al procesar el pago. Por favor intenta de nuevo.');
@@ -190,7 +194,7 @@ const CartPage = () => {
               <div className="d-flex justify-content-between align-items-center mb-4">
                 <h2 className="cart-title">MI BOX ({cart.items.length})</h2>
                 <div className="d-flex align-items-center gap-2">
-                  <div 
+                  <div
                     className={`custom-checkbox ${selectedItems.length === cart.items.length ? 'checked' : ''}`}
                     onClick={toggleSelectAll}
                   ></div>
@@ -207,7 +211,7 @@ const CartPage = () => {
                 <div key={item.id_producto._id} className="cart-item">
                   <div className="row g-0">
                     <div className="col-md-2">
-                      <div 
+                      <div
                         className={`custom-checkbox ${selectedItems.includes(item.id_producto._id) ? 'checked' : ''}`}
                         onClick={() => toggleSelectItem(item.id_producto._id)}
                       ></div>
@@ -228,7 +232,7 @@ const CartPage = () => {
                             {item.variants && Object.keys(item.variants).length > 0 && (
                               <div className="cart-variants mb-2">
                                 {Object.entries(item.variants).map(([attr, value]) => (
-                                  <span key={attr} className="badge bg-info text-dark me-2 mb-1" style={{fontSize: '0.95em'}}>
+                                  <span key={attr} className="badge bg-info text-dark me-2 mb-1" style={{ fontSize: '0.95em' }}>
                                     {attr}: {value}
                                   </span>
                                 ))}
@@ -241,9 +245,9 @@ const CartPage = () => {
                             </div>
                           </div>
                           <div className="action-icons">
-                            <i 
+                            <i
                               className="bi bi-trash action-icon"
-                              onClick={() => handleRemoveItem(item.id_producto._id)}
+                              onClick={() => handleRemoveItem(item.id_producto._id, item.variants)}
                               title="Eliminar producto"
                             ></i>
                           </div>
@@ -287,7 +291,7 @@ const CartPage = () => {
               ))}
 
               <div className="d-flex justify-content-between align-items-center mt-4">
-                <button 
+                <button
                   className="btn btn-outline-danger"
                   onClick={handleClearCart}
                 >
@@ -306,7 +310,7 @@ const CartPage = () => {
           <div className="col-lg-4">
             <div className="cart-summary">
               <h4 className="summary-title">Resumen del Box</h4>
-              
+
               <div className="summary-item total">
                 <span>Total:</span>
                 <span>${getSelectedTotal().toLocaleString('es-CO')}</span>
@@ -333,8 +337,8 @@ const CartPage = () => {
                 </div>
               )}
 
-              <button 
-                className="btn btn-primary w-100 mt-4" 
+              <button
+                className="btn btn-primary w-100 mt-4"
                 disabled={selectedItems.length === 0 || processing}
                 onClick={handleProcessPayment}
               >

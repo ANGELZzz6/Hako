@@ -27,7 +27,7 @@ const SignupPage = () => {
 
   const validarNombre = (nombre: string) => /^[A-Za-zÁÉÍÓÚáéíóúÑñ ]+$/.test(nombre);
   // Solo acepta correos @gmail.com
-  const validarEmail = (email: string) => /^[^\s@]+@gmail\.com$/.test(email);
+  const validarEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   const validarContraseña = (contraseña: string) => /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{8,}$/.test(contraseña);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -41,7 +41,7 @@ const SignupPage = () => {
       return;
     }
     if (!validarEmail(email)) {
-      setError('Solo se permiten correos de @gmail.com.');
+      setError('El formato del correo electrónico no es válido.');
       setLoading(false);
       return;
     }

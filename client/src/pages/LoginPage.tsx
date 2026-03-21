@@ -32,7 +32,7 @@ const LoginPage = () => {
     setMensaje('');
     setError('');
     setLoading(true);
-    
+
     if (!validarEmail(email)) {
       setError('El correo electrónico no es válido.');
       setLoading(false);
@@ -43,14 +43,10 @@ const LoginPage = () => {
       setLoading(false);
       return;
     }
-    
+
     try {
       await login(email, contraseña);
-      setMensaje('¡Inicio de sesión exitoso!');
-      // Redirigir a la página de donde vino o a la página principal
-      setTimeout(() => {
-        navigate(from, { replace: true });
-      }, 1500);
+      navigate(from, { replace: true });
     } catch (err: any) {
       if (err.message && err.message.includes('Credenciales inválidas')) {
         setError('Correo o contraseña incorrectos. Por favor, verifica tus datos.');
@@ -68,10 +64,7 @@ const LoginPage = () => {
     try {
       if (!credentialResponse.credential) throw new Error('No se recibió token de Google');
       await loginWithGoogle(credentialResponse.credential);
-      setMensaje('¡Inicio de sesión con Google exitoso!');
-      setTimeout(() => {
-        navigate(from, { replace: true });
-      }, 1500);
+      navigate(from, { replace: true });
     } catch (err: any) {
       setError(err.message || 'Error al iniciar sesión con Google');
     }

@@ -25,11 +25,11 @@ const logCartAction = async (cartId, userId, action, productId = null, productNa
 const getCart = async (req, res) => {
   try {
     const userId = req.user.id;
-    
+
     let cart = await Cart.findOne({ id_usuario: userId })
       .populate('items.id_producto', 'nombre precio imagen_url descripcion')
       .exec();
-    
+
     if (!cart) {
       // Crear un carrito vacío si no existe
       cart = new Cart({
@@ -39,7 +39,7 @@ const getCart = async (req, res) => {
       });
       await cart.save();
     }
-    
+
     res.json(cart);
   } catch (error) {
     console.error('Error al obtener carrito:', error);
@@ -52,54 +52,54 @@ const addToCart = async (req, res) => {
   try {
     const userId = req.user.id;
     const { productId, quantity = 1, variants = {} } = req.body;
-    
+
     // Validar que el producto existe
     const product = await Product.findById(productId);
     if (!product) {
       return res.status(404).json({ message: 'Producto no encontrado' });
     }
-    
+
     // Validar variantes si el producto las tiene habilitadas
     let finalPrice = product.precio;
     let variantDescription = '';
-    
+
     if (product.variants && product.variants.enabled) {
       // Verificar que se proporcionaron todas las variantes requeridas
       for (const attribute of product.variants.attributes) {
         if (attribute.required && !variants[attribute.name]) {
-          return res.status(400).json({ 
-            message: `La variante '${attribute.name}' es obligatoria` 
+          return res.status(400).json({
+            message: `La variante '${attribute.name}' es obligatoria`
           });
         }
-        
+
         if (variants[attribute.name]) {
           // Buscar la opción seleccionada
           const selectedOption = attribute.options.find(opt => opt.value === variants[attribute.name]);
           if (!selectedOption) {
-            return res.status(400).json({ 
-              message: `Opción '${variants[attribute.name]}' no válida para '${attribute.name}'` 
+            return res.status(400).json({
+              message: `Opción '${variants[attribute.name]}' no válida para '${attribute.name}'`
             });
           }
-          
+
           if (!selectedOption.isActive) {
-            return res.status(400).json({ 
-              message: `La opción '${variants[attribute.name]}' no está disponible` 
+            return res.status(400).json({
+              message: `La opción '${variants[attribute.name]}' no está disponible`
             });
           }
-          
+
           // Verificar stock
           if (selectedOption.stock < quantity) {
-            return res.status(400).json({ 
-              message: `Stock insuficiente para la variante '${variants[attribute.name]}'` 
+            return res.status(400).json({
+              message: `Stock insuficiente para la variante '${variants[attribute.name]}'`
             });
           }
-          
+
           // Agregar precio adicional
           finalPrice += selectedOption.price;
           variantDescription += `${attribute.name}: ${variants[attribute.name]}, `;
         }
       }
-      
+
       // Remover la última coma y espacio
       if (variantDescription) {
         variantDescription = variantDescription.slice(0, -2);
@@ -110,7 +110,7 @@ const addToCart = async (req, res) => {
         return res.status(400).json({ message: 'Stock insuficiente' });
       }
     }
-    
+
     // Buscar o crear carrito
     let cart = await Cart.findOne({ id_usuario: userId });
     if (!cart) {
@@ -120,10 +120,10 @@ const addToCart = async (req, res) => {
         total: 0
       });
     }
-    
+
     // Crear un identificador único para el item (producto + variantes)
     const itemKey = productId + (variantDescription ? `_${variantDescription}` : '');
-    
+
     // Verificar si el producto ya está en el carrito
     const existingItemIndex = cart.items.findIndex(
       item => {
@@ -134,7 +134,7 @@ const addToCart = async (req, res) => {
         return currentItemKey === itemKey;
       }
     );
-    
+
     if (existingItemIndex > -1) {
       // Actualizar cantidad si ya existe
       cart.items[existingItemIndex].cantidad += quantity;
@@ -149,23 +149,23 @@ const addToCart = async (req, res) => {
         variants: Object.keys(variants).length > 0 ? variants : undefined
       });
     }
-    
+
     await cart.save();
-    
+
     // Registrar la acción en el historial
     await logCartAction(
-      cart._id, 
-      userId, 
-      existingItemIndex > -1 ? 'update' : 'add', 
-      productId, 
-      product.nombre, 
-      quantity, 
+      cart._id,
+      userId,
+      existingItemIndex > -1 ? 'update' : 'add',
+      productId,
+      product.nombre,
+      quantity,
       finalPrice
     );
-    
+
     // Poblar los datos del producto para la respuesta
     await cart.populate('items.id_producto', 'nombre precio imagen_url descripcion');
-    
+
     res.json(cart);
   } catch (error) {
     console.error('Error al agregar al carrito:', error);
@@ -179,29 +179,44 @@ const updateCartItem = async (req, res) => {
     const userId = req.user.id;
     const { productId } = req.params;
     const { quantity } = req.body;
-    
+
     if (quantity < 1) {
       return res.status(400).json({ message: 'La cantidad debe ser mayor a 0' });
     }
-    
+
+    // Validar stock del producto
+    const product = await Product.findById(productId);
+    if (product && product.stock < quantity) {
+      return res.status(400).json({ message: `Stock insuficiente. Disponible: ${product.stock}` });
+    }
+
     const cart = await Cart.findOne({ id_usuario: userId });
     if (!cart) {
       return res.status(404).json({ message: 'Carrito no encontrado' });
     }
-    
-    const itemIndex = cart.items.findIndex(
-      item => item.id_producto.toString() === productId
-    );
-    
+
+    const { variants } = req.body;
+
+    let itemIndex = cart.items.findIndex(item => {
+      if (item.id_producto.toString() !== productId) return false;
+      if (!variants || Object.keys(variants).length === 0) return !item.variants || Object.keys(item.variants).length === 0;
+      return JSON.stringify(item.variants) === JSON.stringify(variants);
+    });
+
+    // Fallback: si no encontró con variantes, usar el primero que coincida por productId
+    if (itemIndex === -1) {
+      itemIndex = cart.items.findIndex(item => item.id_producto.toString() === productId);
+    }
+
     if (itemIndex === -1) {
       return res.status(404).json({ message: 'Producto no encontrado en el carrito' });
     }
-    
+
     cart.items[itemIndex].cantidad = quantity;
     await cart.save();
-    
+
     await cart.populate('items.id_producto', 'nombre precio imagen_url descripcion');
-    
+
     res.json(cart);
   } catch (error) {
     console.error('Error al actualizar item del carrito:', error);
@@ -214,23 +229,28 @@ const removeFromCart = async (req, res) => {
   try {
     const userId = req.user.id;
     const { productId } = req.params;
-    
+
     const cart = await Cart.findOne({ id_usuario: userId });
     if (!cart) {
       return res.status(404).json({ message: 'Carrito no encontrado' });
     }
-    
+
     // Encontrar el item antes de eliminarlo para el historial
-    const itemToRemove = cart.items.find(
-      item => item.id_producto.toString() === productId
-    );
-    
-    cart.items = cart.items.filter(
-      item => item.id_producto.toString() !== productId
-    );
-    
+    const { variants } = req.body;
+
+    const itemToRemove = cart.items.find(item => {
+      if (item.id_producto.toString() !== productId) return false;
+      if (!variants || Object.keys(variants).length === 0) return !item.variants || Object.keys(item.variants).length === 0;
+      return JSON.stringify(item.variants) === JSON.stringify(variants);
+    });
+
+    // Si no encontró con variantes exactas, usar el primero que coincida por productId
+    const targetItem = itemToRemove || cart.items.find(item => item.id_producto.toString() === productId);
+
+    cart.items = cart.items.filter(item => item !== targetItem);
+
     await cart.save();
-    
+
     // Registrar la acción en el historial
     if (itemToRemove) {
       await logCartAction(
@@ -243,9 +263,9 @@ const removeFromCart = async (req, res) => {
         itemToRemove.precio_unitario
       );
     }
-    
+
     await cart.populate('items.id_producto', 'nombre precio imagen_url descripcion');
-    
+
     res.json(cart);
   } catch (error) {
     console.error('Error al remover item del carrito:', error);
@@ -258,25 +278,25 @@ const removeMultipleItems = async (req, res) => {
   try {
     const userId = req.user.id;
     const { productIds } = req.body;
-    
+
     if (!Array.isArray(productIds)) {
       return res.status(400).json({ message: 'productIds debe ser un array' });
     }
-    
+
     const cart = await Cart.findOne({ id_usuario: userId });
     if (!cart) {
       return res.status(404).json({ message: 'Carrito no encontrado' });
     }
-    
+
     // Filtrar los items que NO están en la lista de productIds a eliminar
     cart.items = cart.items.filter(
       item => !productIds.includes(item.id_producto.toString())
     );
-    
+
     await cart.save();
-    
+
     await cart.populate('items.id_producto', 'nombre precio imagen_url descripcion');
-    
+
     res.json(cart);
   } catch (error) {
     console.error('Error al remover múltiples items del carrito:', error);
@@ -288,12 +308,12 @@ const removeMultipleItems = async (req, res) => {
 const clearCart = async (req, res) => {
   try {
     const userId = req.user.id;
-    
+
     const cart = await Cart.findOne({ id_usuario: userId });
     if (!cart) {
       return res.status(404).json({ message: 'Carrito no encontrado' });
     }
-    
+
     // Registrar la acción de limpiar carrito en el historial
     if (cart.items.length > 0) {
       await logCartAction(
@@ -306,10 +326,10 @@ const clearCart = async (req, res) => {
         cart.total
       );
     }
-    
+
     cart.items = [];
     await cart.save();
-    
+
     res.json(cart);
   } catch (error) {
     console.error('Error al vaciar carrito:', error);
@@ -325,7 +345,7 @@ const getAllCarts = async (req, res) => {
       .populate('items.id_producto', 'nombre precio imagen_url')
       .sort({ creado_en: -1 })
       .exec();
-    
+
     res.json(carts);
   } catch (error) {
     console.error('Error al obtener todos los carritos:', error);
@@ -342,11 +362,11 @@ const getCartStats = async (req, res) => {
       { $unwind: '$items' },
       { $group: { _id: null, total: { $sum: '$items.cantidad' } } }
     ]);
-    
+
     const totalValue = await Cart.aggregate([
       { $group: { _id: null, total: { $sum: '$total' } } }
     ]);
-    
+
     res.json({
       totalCarts,
       activeCarts,
@@ -363,13 +383,13 @@ const getCartStats = async (req, res) => {
 const getCartHistory = async (req, res) => {
   try {
     const { cartId } = req.params;
-    
+
     const history = await CartHistory.find({ cartId })
       .sort({ timestamp: -1 })
       .limit(50) // Limitar a los últimos 50 registros para no sobrecargar
       .populate('productId', 'nombre imagen_url')
       .exec();
-    
+
     res.json(history);
   } catch (error) {
     console.error('Error al obtener historial del carrito:', error);

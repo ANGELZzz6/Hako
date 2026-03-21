@@ -53,12 +53,12 @@ const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
   const [lockerSchedules, setLockerSchedules] = useState<LockerSchedule[]>([]);
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
-  const [availableLockers, setAvailableLockers] = useState<{[key: string]: number[]}>({}); // key: `${date}_${timeSlot}`
-  const [occupiedLockers, setOccupiedLockers] = useState<{[key: string]: number[]}>({});
+  const [availableLockers, setAvailableLockers] = useState<{ [key: string]: number[] }>({}); // key: `${date}_${timeSlot}`
+  const [occupiedLockers, setOccupiedLockers] = useState<{ [key: string]: number[] }>({});
 
   useEffect(() => {
     console.log('🔍 AppointmentScheduler - itemsToPickup recibidos:', itemsToPickup);
-    
+
     // Si es una reserva existente, cargar los datos
     if (existingAppointment) {
       console.log('📅 Cargando datos de reserva existente');
@@ -74,24 +74,24 @@ const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
       // Inicializar con fecha/hora por defecto para cada casillero
       const schedules: LockerSchedule[] = [];
       const uniqueLockers = new Set<number>();
-      
+
       itemsToPickup.forEach((item, index) => {
         const lockerNumber = item.lockerNumber || 1;
         console.log(`📦 Procesando item ${index}: lockerNumber = ${lockerNumber}`);
-        
+
         if (!uniqueLockers.has(lockerNumber)) {
           uniqueLockers.add(lockerNumber);
           console.log(`✅ Agregando nuevo casillero ${lockerNumber}`);
-          
+
           // Fecha por defecto (hoy)
           const today = new Date();
-          
+
           const productsForThisLocker = itemsToPickup
             .filter(i => (i.lockerNumber || 1) === lockerNumber)
             .flatMap(i => i.products);
-          
+
           console.log(`📋 Productos para casillero ${lockerNumber}:`, productsForThisLocker);
-          
+
           schedules.push({
             lockerNumber,
             date: today.toISOString().split('T')[0],
@@ -102,7 +102,7 @@ const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
           console.log(`⏭️ Casillero ${lockerNumber} ya procesado, saltando`);
         }
       });
-      
+
       console.log('🎯 LockerSchedules finales:', schedules);
       setLockerSchedules(schedules);
     }
@@ -135,13 +135,9 @@ const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
   // Generar fechas disponibles (próximos 7 días)
   // Función utilitaria para crear fechas locales correctamente
   const createLocalDate = (dateString: string): Date => {
-    // Si la fecha viene en formato "YYYY-MM-DD", crear una fecha local
-    if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
-      const [year, month, day] = dateString.split('-');
-      return new Date(Number(year), Number(month) - 1, Number(day));
-    }
-    // Si ya es una fecha completa, usarla tal como está
-    return new Date(dateString);
+    const dateOnly = dateString.includes('T') ? dateString.split('T')[0] : dateString;
+    const [year, month, day] = dateOnly.split('-').map(Number);
+    return new Date(Date.UTC(year, month - 1, day, 5, 0, 0, 0));
   };
 
   const getAvailableDates = () => {
@@ -149,9 +145,9 @@ const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
     const today = new Date();
     // Crear fecha de hoy de manera explícita para evitar problemas de zona horaria
     const todayStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
-    
+
     console.log('📅 Fecha actual detectada:', todayStr);
-    
+
     // Incluir hoy también (no solo mañana en adelante)
     for (let i = 0; i < 7; i++) {
       const date = new Date(today);
@@ -161,7 +157,7 @@ const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
       dates.push(dateStr);
       console.log(`📅 Día ${i}: ${dateStr}`);
     }
-    
+
     console.log('📅 Fechas disponibles finales:', dates);
     return dates;
   };
@@ -187,12 +183,11 @@ const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
 
     for (let hour = 8; hour <= 22; hour++) {
       if (isToday) {
-        if (hour < currentHour) {
-          console.log(`⏭️ Saltando hora ${hour}:00 (ya pasó)`);
-          continue;
-        }
-        if (hour === currentHour && currentMinute >= 0) {
-          console.log(`⏭️ Saltando hora ${hour}:00 (minutos ya pasaron)`);
+        // Requiere mínimo 1 hora de anticipación
+        const slotTotalMinutes = hour * 60;
+        const nowTotalMinutes = currentHour * 60 + currentMinute + 60; // +60 = 1 hora mínima
+        if (slotTotalMinutes <= nowTotalMinutes) {
+          console.log(`⏭️ Saltando hora ${hour}:00 (menos de 1 hora de anticipación)`);
           continue;
         }
       }
@@ -205,7 +200,7 @@ const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
         totalLockers: 12
       });
     }
-    
+
     console.log('📋 Horarios finales para', selectedDate, ':', slots.map(s => s.time));
     return slots;
   };
@@ -232,10 +227,10 @@ const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
     const validSlots = getHourlyTimeSlots(date);
     const firstValid = validSlots.length > 0 ? validSlots[0].time : '';
     console.log('🎯 Primera hora válida:', firstValid);
-    
-    setLockerSchedules(prev => 
-      prev.map(schedule => 
-        schedule.lockerNumber === lockerNumber 
+
+    setLockerSchedules(prev =>
+      prev.map(schedule =>
+        schedule.lockerNumber === lockerNumber
           ? { ...schedule, date, timeSlot: firstValid }
           : schedule
       )
@@ -245,9 +240,9 @@ const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
 
   // Actualizar hora para un casillero específico
   const handleTimeChange = (lockerNumber: number, timeSlot: string) => {
-    setLockerSchedules(prev => 
-      prev.map(schedule => 
-        schedule.lockerNumber === lockerNumber 
+    setLockerSchedules(prev =>
+      prev.map(schedule =>
+        schedule.lockerNumber === lockerNumber
           ? { ...schedule, timeSlot }
           : schedule
       )
@@ -257,12 +252,12 @@ const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
   const handleSchedule = () => {
     console.log('🚀 handleSchedule iniciado');
     console.log('📊 lockerSchedules actuales:', lockerSchedules);
-    
+
     // Validar que todos los casilleros tengan fecha y hora seleccionada
     const invalidSchedules = lockerSchedules.filter(
       schedule => !schedule.date || !schedule.timeSlot
     );
-    
+
     if (invalidSchedules.length > 0) {
       console.log('❌ Schedules inválidos:', invalidSchedules);
       alert('Por favor selecciona fecha y hora para todos los casilleros');
@@ -279,13 +274,13 @@ const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
     console.log('🆕 Creando múltiples reservas nuevas');
     // Crear múltiples reservas, una por casillero
     const appointmentsData: CreateAppointmentData[] = [];
-    
+
     lockerSchedules.forEach((schedule, index) => {
       console.log(`📦 Procesando schedule ${index} para casillero ${schedule.lockerNumber}`);
-      
+
       // Crear itemsToPickup para este casillero
       const itemsToPickup: AppointmentItem[] = [];
-      
+
       schedule.products.forEach(prod => {
         for (let i = 0; i < prod.count; i++) {
           itemsToPickup.push({
@@ -331,8 +326,8 @@ const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
 
   // Función utilitaria para parsear fechas locales correctamente
   function parseLocalDate(dateStr: string) {
-    const [year, month, day] = dateStr.split('-');
-    return new Date(Number(year), Number(month) - 1, Number(day));
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return new Date(Date.UTC(year, month - 1, day, 5, 0, 0, 0));
   }
 
   if (!isOpen) return null;
@@ -344,13 +339,13 @@ const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
           <div className="modal-header">
             <h5 className="modal-title">
               <i className="bi bi-calendar-check me-2"></i>
-              {existingAppointment ? 'Agregar Productos a Reserva' : 
-               onlyExistingLockers ? 'Agregar Nuevos Productos' :
-               onlyNewLockers ? 'Reservar Casilleros Nuevos' : 'Reservar Casillero'}
+              {existingAppointment ? 'Agregar Productos a Reserva' :
+                onlyExistingLockers ? 'Agregar Nuevos Productos' :
+                  onlyNewLockers ? 'Reservar Casilleros Nuevos' : 'Reservar Casillero'}
             </h5>
             <button type="button" className="btn-close" onClick={onClose}></button>
           </div>
-          
+
           <div className="modal-body">
             {existingAppointment ? (
               // Lógica existente para agregar productos a una reserva
@@ -386,127 +381,126 @@ const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
                   <i className="bi bi-info-circle me-2"></i>
                   <strong>
                     {onlyExistingLockers ? 'Agregar Productos a Casilleros Existentes:' :
-                     onlyNewLockers ? 'Reserva de Casilleros Nuevos:' : 'Reserva por Casillero:'}
-                  </strong> 
-                  {onlyExistingLockers 
+                      onlyNewLockers ? 'Reserva de Casilleros Nuevos:' : 'Reserva por Casillero:'}
+                  </strong>
+                  {onlyExistingLockers
                     ? ` Los productos nuevos se agregarán a los ${existingLockersCount} casillero(s) ya reservado(s). No necesitas crear nuevas reservas.`
-                    : onlyNewLockers 
-                    ? ' Los productos para casilleros existentes se han agregado automáticamente. Solo necesitas reservar los casilleros nuevos.'
-                    : ' Cada casillero puede tener su propia fecha y hora de reserva.'
+                    : onlyNewLockers
+                      ? ' Los productos para casilleros existentes se han agregado automáticamente. Solo necesitas reservar los casilleros nuevos.'
+                      : ' Cada casillero puede tener su propia fecha y hora de reserva.'
                   }
                 </div>
-                
+
                 {/* Renderizar los casilleros con disponibilidad en tiempo real */}
                 {lockerSchedules.filter((schedule) => {
-  const key = `${schedule.date}_${schedule.timeSlot}`;
-  const lockersOcupados = occupiedLockers[key] || [];
-  // Solo mostrar si el casillero NO está ocupado
-  return !lockersOcupados.includes(schedule.lockerNumber);
-}).map((schedule, index) => {
-  const key = `${schedule.date}_${schedule.timeSlot}`;
-  const lockersOcupados = occupiedLockers[key] || [];
-  const isOcupado = lockersOcupados.includes(schedule.lockerNumber);
-  return (
-    <div key={schedule.lockerNumber} className="card mb-3">
-      <div className={`card-header ${onlyExistingLockers ? 'bg-success' : 'bg-primary'} text-white`}>
-        <h6 className="mb-0">
-          <i className="bi bi-box me-2"></i>
-          Casillero {schedule.lockerNumber}
-          {onlyExistingLockers && <span className="badge bg-light text-dark ms-2">Existente</span>}
-        </h6>
-      </div>
-      <div className="card-body">
-        {!onlyExistingLockers && (
-          <div className="row">
-            {/* Selección de Fecha */}
-            <div className="col-md-6 mb-3">
-              <label className="form-label">
-                <i className="bi bi-calendar me-1"></i>
-                Fecha
-              </label>
-              <select
-                className="form-select"
-                value={schedule.date}
-                onChange={(e) => handleDateChange(schedule.lockerNumber, e.target.value)}
-                disabled={loading}
-              >
-                {getAvailableDates().map(date => {
-  const localDate = parseLocalDate(date);
-  return (
-    <option key={date} value={date}>
-      {localDate.toLocaleDateString('es-CO', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      })}
-    </option>
-  );
-})}
-              </select>
-            </div>
-            {/* Selección de Hora */}
-            <div className="col-md-6 mb-3">
-              <label className="form-label">
-                <i className="bi bi-clock me-1"></i>
-                Hora
-              </label>
-              <div>
-                {loadingSlots ? (
-                  <div className="text-center py-2">
-                    <div className="spinner-border spinner-border-sm me-2"></div>
-                    Cargando horarios...
-                  </div>
-                ) : (
-                  <div className="row g-2">
-                    {timeSlots.map((slot) => (
-                      <div key={slot.time} className="col-6">
-                        <button
-                          type="button"
-                          className={`btn w-100 ${
-                            schedule.timeSlot === slot.time
-                              ? 'btn-primary'
-                              : slot.available
-                              ? 'btn-outline-primary'
-                              : 'btn-outline-secondary disabled'
-                          }`}
-                          onClick={() => slot.available && handleTimeChange(schedule.lockerNumber, slot.time)}
-                          disabled={!slot.available || loading}
-                        >
-                          {formatTime(slot.time)}
-                        </button>
+                  const key = `${schedule.date}_${schedule.timeSlot}`;
+                  const lockersOcupados = occupiedLockers[key] || [];
+                  // Solo mostrar si el casillero NO está ocupado
+                  return !lockersOcupados.includes(schedule.lockerNumber);
+                }).map((schedule, index) => {
+                  const key = `${schedule.date}_${schedule.timeSlot}`;
+                  const lockersOcupados = occupiedLockers[key] || [];
+                  const isOcupado = lockersOcupados.includes(schedule.lockerNumber);
+                  return (
+                    <div key={schedule.lockerNumber} className="card mb-3">
+                      <div className={`card-header ${onlyExistingLockers ? 'bg-success' : 'bg-primary'} text-white`}>
+                        <h6 className="mb-0">
+                          <i className="bi bi-box me-2"></i>
+                          Casillero {schedule.lockerNumber}
+                          {onlyExistingLockers && <span className="badge bg-light text-dark ms-2">Existente</span>}
+                        </h6>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-        {isOcupado && (
-          <div className="alert alert-danger mt-2">
-            <i className="bi bi-exclamation-triangle me-1"></i>
-            Este casillero ya está reservado en la fecha y hora seleccionada. Por favor elige otra fecha/hora o casillero.
-          </div>
-        )}
-        {/* Productos en este casillero */}
-        <div className="mt-3">
-          <label className="form-label">
-            <i className="bi bi-box-seam me-1"></i>
-            {onlyExistingLockers ? 'Productos a agregar:' : 'Productos en este casillero:'}
-          </label>
-          <div className="border rounded p-2 bg-light">
-            {schedule.products.map((prod, i) => (
-              <span key={i} className="badge bg-secondary me-1 mb-1">
-                {prod.count} × {prod.name}
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-})}
+                      <div className="card-body">
+                        {!onlyExistingLockers && (
+                          <div className="row">
+                            {/* Selección de Fecha */}
+                            <div className="col-md-6 mb-3">
+                              <label className="form-label">
+                                <i className="bi bi-calendar me-1"></i>
+                                Fecha
+                              </label>
+                              <select
+                                className="form-select"
+                                value={schedule.date}
+                                onChange={(e) => handleDateChange(schedule.lockerNumber, e.target.value)}
+                                disabled={loading}
+                              >
+                                {getAvailableDates().map(date => {
+                                  const localDate = parseLocalDate(date);
+                                  return (
+                                    <option key={date} value={date}>
+                                      {localDate.toLocaleDateString('es-CO', {
+                                        weekday: 'long',
+                                        year: 'numeric',
+                                        month: 'long',
+                                        day: 'numeric'
+                                      })}
+                                    </option>
+                                  );
+                                })}
+                              </select>
+                            </div>
+                            {/* Selección de Hora */}
+                            <div className="col-md-6 mb-3">
+                              <label className="form-label">
+                                <i className="bi bi-clock me-1"></i>
+                                Hora
+                              </label>
+                              <div>
+                                {loadingSlots ? (
+                                  <div className="text-center py-2">
+                                    <div className="spinner-border spinner-border-sm me-2"></div>
+                                    Cargando horarios...
+                                  </div>
+                                ) : (
+                                  <div className="row g-2">
+                                    {timeSlots.map((slot) => (
+                                      <div key={slot.time} className="col-6">
+                                        <button
+                                          type="button"
+                                          className={`btn w-100 ${schedule.timeSlot === slot.time
+                                            ? 'btn-primary'
+                                            : slot.available
+                                              ? 'btn-outline-primary'
+                                              : 'btn-outline-secondary disabled'
+                                            }`}
+                                          onClick={() => slot.available && handleTimeChange(schedule.lockerNumber, slot.time)}
+                                          disabled={!slot.available || loading}
+                                        >
+                                          {formatTime(slot.time)}
+                                        </button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        {isOcupado && (
+                          <div className="alert alert-danger mt-2">
+                            <i className="bi bi-exclamation-triangle me-1"></i>
+                            Este casillero ya está reservado en la fecha y hora seleccionada. Por favor elige otra fecha/hora o casillero.
+                          </div>
+                        )}
+                        {/* Productos en este casillero */}
+                        <div className="mt-3">
+                          <label className="form-label">
+                            <i className="bi bi-box-seam me-1"></i>
+                            {onlyExistingLockers ? 'Productos a agregar:' : 'Productos en este casillero:'}
+                          </label>
+                          <div className="border rounded p-2 bg-light">
+                            {schedule.products.map((prod, i) => (
+                              <span key={i} className="badge bg-secondary me-1 mb-1">
+                                {prod.count} × {prod.name}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -525,8 +519,8 @@ const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
               className="btn btn-primary"
               onClick={handleSchedule}
               disabled={(!onlyExistingLockers && (lockerSchedules.some(schedule => !schedule.date || !schedule.timeSlot) || lockerSchedules.some(schedule => (
-    (occupiedLockers[`${schedule.date}_${schedule.timeSlot}`] || []).includes(schedule.lockerNumber)
-  ))) || loading)}
+                (occupiedLockers[`${schedule.date}_${schedule.timeSlot}`] || []).includes(schedule.lockerNumber)
+              ))) || loading)}
             >
               {loading ? (
                 <>

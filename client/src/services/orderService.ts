@@ -19,11 +19,44 @@ class OrderService {
         headers: this.getHeaders(),
       });
       handle401(response);
-      
+
       if (!response.ok) {
         throw new Error('Error al obtener tus productos comprados');
       }
-      
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error:', error);
+      throw error;
+    }
+  }
+  // Cambiar estado de un producto individual (solo admin)
+  async changeIndividualProductStatus(productId: string, newStatus: string, assignedLocker?: number): Promise<any> {
+    try {
+      const response = await fetch(`${ENDPOINTS.ORDERS}/admin/individual-product/${productId}/status`, {
+        method: 'PATCH',
+        headers: this.getHeaders(),
+        body: JSON.stringify({ newStatus, assignedLocker }),
+      });
+      handle401(response);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error al cambiar estado');
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error:', error);
+      throw error;
+    }
+  }
+  // Obtener todos los productos individuales (solo admin)
+  async getAllIndividualProducts(): Promise<OrderItem[]> {
+    try {
+      const response = await fetch(`${ENDPOINTS.ORDERS}/admin/all-individual-products`, {
+        headers: this.getHeaders(),
+      });
+      handle401(response);
+      if (!response.ok) throw new Error('Error al obtener todos los productos');
       return await response.json();
     } catch (error) {
       console.error('Error:', error);
@@ -38,11 +71,11 @@ class OrderService {
         headers: this.getHeaders(),
       });
       handle401(response);
-      
+
       if (!response.ok) {
         throw new Error('Error al obtener productos del usuario');
       }
-      
+
       return await response.json();
     } catch (error) {
       console.error('Error:', error);
@@ -57,11 +90,11 @@ class OrderService {
         headers: this.getHeaders(),
       });
       handle401(response);
-      
+
       if (!response.ok) {
         throw new Error('Error al obtener tu pedido');
       }
-      
+
       return await response.json();
     } catch (error) {
       console.error('Error:', error);
@@ -76,11 +109,11 @@ class OrderService {
         headers: this.getHeaders(),
       });
       handle401(response);
-      
+
       if (!response.ok) {
         throw new Error('Error al obtener historial de pedidos');
       }
-      
+
       return await response.json();
     } catch (error) {
       console.error('Error:', error);
@@ -97,12 +130,12 @@ class OrderService {
         body: JSON.stringify({ lockerNumber }),
       });
       handle401(response);
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Error al seleccionar casillero');
       }
-      
+
       return await response.json();
     } catch (error) {
       console.error('Error:', error);
@@ -118,12 +151,12 @@ class OrderService {
         headers: this.getHeaders(),
       });
       handle401(response);
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Error al marcar como recogido');
       }
-      
+
       return await response.json();
     } catch (error) {
       console.error('Error:', error);
@@ -142,12 +175,12 @@ class OrderService {
         headers: this.getHeaders(),
       });
       handle401(response);
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Error al obtener productos disponibles');
       }
-      
+
       return await response.json();
     } catch (error) {
       console.error('Error:', error);
@@ -176,12 +209,12 @@ class OrderService {
         body: JSON.stringify({ selectedItems }),
       });
       handle401(response);
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Error al reclamar productos');
       }
-      
+
       return await response.json();
     } catch (error) {
       console.error('Error:', error);
@@ -209,12 +242,12 @@ class OrderService {
         body: JSON.stringify({ selectedItems }),
       });
       handle401(response);
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Error al reclamar productos');
       }
-      
+
       return await response.json();
     } catch (error) {
       console.error('Error:', error);
@@ -241,12 +274,12 @@ class OrderService {
         body: JSON.stringify({ selectedItems }),
       });
       handle401(response);
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Error al reclamar productos');
       }
-      
+
       return await response.json();
     } catch (error) {
       console.error('Error:', error);
@@ -261,11 +294,11 @@ class OrderService {
         headers: this.getHeaders(),
       });
       handle401(response);
-      
+
       if (!response.ok) {
         throw new Error('Error al obtener el pedido');
       }
-      
+
       return await response.json();
     } catch (error) {
       console.error('Error:', error);
@@ -280,11 +313,11 @@ class OrderService {
         headers: this.getHeaders(),
       });
       handle401(response);
-      
+
       if (!response.ok) {
         throw new Error('Error al obtener todos los pedidos');
       }
-      
+
       return await response.json();
     } catch (error) {
       console.error('Error:', error);
@@ -303,11 +336,11 @@ class OrderService {
         headers: this.getHeaders(),
       });
       handle401(response);
-      
+
       if (!response.ok) {
         throw new Error('Error al obtener casilleros disponibles');
       }
-      
+
       return await response.json();
     } catch (error) {
       console.error('Error:', error);
@@ -338,11 +371,11 @@ class OrderService {
         headers: this.getHeaders(),
       });
       handle401(response);
-      
+
       if (!response.ok) {
         throw new Error('Error al obtener estado de casilleros');
       }
-      
+
       return await response.json();
     } catch (error) {
       console.error('Error:', error);
@@ -361,12 +394,12 @@ class OrderService {
         headers: this.getHeaders(),
       });
       handle401(response);
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Error al liberar casillero');
       }
-      
+
       return await response.json();
     } catch (error) {
       console.error('Error:', error);
@@ -385,12 +418,12 @@ class OrderService {
         headers: this.getHeaders(),
       });
       handle401(response);
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Error al borrar pedido');
       }
-      
+
       return await response.json();
     } catch (error) {
       console.error('Error:', error);
@@ -407,11 +440,11 @@ class OrderService {
         body: JSON.stringify({ status }),
       });
       handle401(response);
-      
+
       if (!response.ok) {
         throw new Error('Error al actualizar estado del pedido');
       }
-      
+
       return await response.json();
     } catch (error) {
       console.error('Error:', error);
@@ -439,12 +472,12 @@ class OrderService {
         body: JSON.stringify({ lockerNumber, product }),
       });
       handle401(response);
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Error al validar capacidad del casillero');
       }
-      
+
       return await response.json();
     } catch (error) {
       console.error('Error:', error);
@@ -482,12 +515,12 @@ class OrderService {
         headers: this.getHeaders(),
       });
       handle401(response);
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Error al obtener estadísticas de casilleros');
       }
-      
+
       return await response.json();
     } catch (error) {
       console.error('Error:', error);
@@ -519,12 +552,12 @@ class OrderService {
         body: JSON.stringify({ product }),
       });
       handle401(response);
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Error al encontrar mejor casillero');
       }
-      
+
       return await response.json();
     } catch (error) {
       console.error('Error:', error);

@@ -2,7 +2,7 @@ require('dotenv').config();
 
 const REQUIRED_ENV_VARS = [
   'MONGODB_URI',
-  'JWT_SECRET', 
+  'JWT_SECRET',
   'MERCADOPAGO_ACCESS_TOKEN',
   'GOOGLE_CLIENT_ID',
   'FRONTEND_URL',
@@ -37,6 +37,7 @@ const supportRoutes = require('./routes/supportRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const orderRoutes = require('./routes/orderRoutes');
 const appointmentRoutes = require('./routes/appointmentRoutes');
+const lockerAssignmentRoutes = require('./routes/lockerAssignmentRoutes');
 const debugRoutes = require('./routes/debugRoutes');
 const qrRoutes = require('./routes/qrRoutes');
 const healthRoutes = require('./routes/healthRoutes');
@@ -104,6 +105,7 @@ app.use('/api/support', supportRoutes);
 app.use('/api/payment', paymentRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/appointments', appointmentRoutes);
+app.use('/api/locker-assignments', lockerAssignmentRoutes);
 app.use('/api/debug', debugRoutes);
 app.use('/api/qr', qrRoutes);
 app.use('/api/health', healthRoutes);
@@ -111,6 +113,7 @@ app.use('/api/health', healthRoutes);
 console.log('✅ Rutas de pago montadas en /api/payment');
 console.log('✅ Rutas de pedidos montadas en /api/orders');
 console.log('✅ Rutas de citas montadas en /api/appointments');
+console.log('✅ Rutas de casilleros montadas en /api/locker-assignments');
 
 // Ruta de prueba
 app.get('/', (req, res) => {

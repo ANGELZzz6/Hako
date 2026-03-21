@@ -6,11 +6,12 @@ import 'bootstrap-icons/font/bootstrap-icons.css';
 import userService from '../services/userService';
 import authService from '../services/authService';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { Modal, Button } from 'react-bootstrap';
+import PasswordModal from '../components/PasswordModal';
 
 interface ProfileData {
   nombre: string;
   email: string;
+  cedula?: string;
   telefono?: string;
   direccion?: string;
   fechaNacimiento?: string;
@@ -27,16 +28,11 @@ const ProfilePage: React.FC = () => {
   const [error, setError] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [passwordError, setPasswordError] = useState('');
-  const [passwordSuccess, setPasswordSuccess] = useState('');
-  const [passwordLoading, setPasswordLoading] = useState(false);
-  
+
   const [profileData, setProfileData] = useState<ProfileData>({
     nombre: '',
     email: '',
+    cedula: '',
     telefono: '',
     direccion: '',
     fechaNacimiento: '',
@@ -60,6 +56,7 @@ const ProfilePage: React.FC = () => {
           setProfileData({
             nombre: userFromDb.nombre || '',
             email: userFromDb.email || '',
+            cedula: userFromDb.cedula || '',
             telefono: userFromDb.telefono || '',
             direccion: userFromDb.direccion || '',
             fechaNacimiento: userFromDb.fechaNacimiento ? new Date(userFromDb.fechaNacimiento).toISOString().slice(0, 10) : '',
@@ -113,6 +110,7 @@ const ProfilePage: React.FC = () => {
       setProfileData({
         nombre: currentUser.nombre || '',
         email: currentUser.email || '',
+        cedula: '',
         telefono: '',
         direccion: '',
         fechaNacimiento: '',
@@ -127,58 +125,12 @@ const ProfilePage: React.FC = () => {
 
   const handleOpenPasswordModal = () => {
     setShowPasswordModal(true);
-    setCurrentPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
-    setPasswordError('');
-    setPasswordSuccess('');
   };
 
   const handleClosePasswordModal = () => {
     setShowPasswordModal(false);
-    setCurrentPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
-    setPasswordError('');
-    setPasswordSuccess('');
-    setPasswordLoading(false);
   };
 
-  const handlePasswordChange = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setPasswordError('');
-    setPasswordSuccess('');
-    setPasswordLoading(true);
-    if (!isGoogleNoPassword && (!currentPassword || !newPassword || !confirmPassword)) {
-      setPasswordError('Por favor, completa todos los campos.');
-      setPasswordLoading(false);
-      return;
-    }
-    if (isGoogleNoPassword && (!newPassword || !confirmPassword)) {
-      setPasswordError('Por favor, completa todos los campos.');
-      setPasswordLoading(false);
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setPasswordError('Las nuevas contraseñas no coinciden.');
-      setPasswordLoading(false);
-      return;
-    }
-    if (newPassword.length < 8) {
-      setPasswordError('La nueva contraseña debe tener al menos 8 caracteres.');
-      setPasswordLoading(false);
-      return;
-    }
-    try {
-      const result = await userService.changePassword(isGoogleNoPassword ? '' : currentPassword, newPassword);
-      setPasswordSuccess(result.message || (isGoogleNoPassword ? '¡Contraseña establecida exitosamente!' : '¡Contraseña cambiada exitosamente!'));
-      setPasswordLoading(false);
-      setTimeout(() => handleClosePasswordModal(), 1500);
-    } catch (err: any) {
-      setPasswordError(err.message || 'Error al cambiar la contraseña');
-      setPasswordLoading(false);
-    }
-  };
 
   if (isLoading || !isAuthenticated) {
     return <LoadingSpinner message="Verificando autenticación..." />;
@@ -226,7 +178,7 @@ const ProfilePage: React.FC = () => {
           <div className="form-header">
             <h2>Información Personal</h2>
             {!isEditing && (
-              <button 
+              <button
                 className="btn btn-primary edit-btn"
                 onClick={() => setIsEditing(true)}
               >
@@ -271,7 +223,22 @@ const ProfilePage: React.FC = () => {
                   required
                 />
               </div>
-
+              <div className="col-md-6">
+                <label className="form-label">
+                  <i className="bi bi-person-vcard me-2"></i>
+                  Cédula
+                </label>
+                <input
+                  type="text"
+                  className="form-control"
+                  name="cedula"
+                  value={profileData.cedula}
+                  onChange={handleInputChange}
+                  disabled={!isEditing}
+                  placeholder="Número de cédula"
+                  maxLength={12}
+                />
+              </div>
               {/* Teléfono */}
               <div className="col-md-6">
                 <label className="form-label">
@@ -352,8 +319,8 @@ const ProfilePage: React.FC = () => {
                 <textarea
                   className="form-control"
                   name="bio"
-                  value={profileData.bio}
-                  onChange={handleInputChange}
+                  value={profileData.bio ?? ''}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => handleInputChange(e)}
                   disabled={!isEditing}
                   rows={4}
                   placeholder="Cuéntanos un poco sobre ti..."
@@ -368,8 +335,8 @@ const ProfilePage: React.FC = () => {
             {/* Botones de acción */}
             {isEditing && (
               <div className="form-actions">
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   className="btn btn-secondary"
                   onClick={handleCancel}
                   disabled={loading}
@@ -377,8 +344,8 @@ const ProfilePage: React.FC = () => {
                   <i className="bi bi-x-circle me-2"></i>
                   Cancelar
                 </button>
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   className="btn btn-primary"
                   disabled={loading}
                 >
@@ -418,62 +385,11 @@ const ProfilePage: React.FC = () => {
         </div>
 
         {/* Modal de cambio de contraseña */}
-        <Modal show={showPasswordModal} onHide={handleClosePasswordModal} centered>
-          <Modal.Header closeButton>
-            <Modal.Title>{isGoogleNoPassword ? 'Establecer Contraseña' : 'Cambiar Contraseña'}</Modal.Title>
-          </Modal.Header>
-          <form onSubmit={handlePasswordChange}>
-            <Modal.Body>
-              {passwordError && <div className="alert alert-danger py-1">{passwordError}</div>}
-              {passwordSuccess && <div className="alert alert-success py-1">{passwordSuccess}</div>}
-              {!isGoogleNoPassword && (
-                <div className="mb-3">
-                  <label className="form-label">Contraseña actual</label>
-                  <input
-                    type="password"
-                    className="form-control"
-                    value={currentPassword}
-                    onChange={e => setCurrentPassword(e.target.value)}
-                    required
-                    autoFocus
-                  />
-                </div>
-              )}
-              <div className="mb-3">
-                <label className="form-label">Nueva contraseña</label>
-                <input
-                  type="password"
-                  className="form-control"
-                  value={newPassword}
-                  onChange={e => setNewPassword(e.target.value)}
-                  required
-                  autoFocus={isGoogleNoPassword}
-                />
-              </div>
-              <div className="mb-3">
-                <label className="form-label">Confirmar nueva contraseña</label>
-                <input
-                  type="password"
-                  className="form-control"
-                  value={confirmPassword}
-                  onChange={e => setConfirmPassword(e.target.value)}
-                  required
-                />
-              </div>
-            </Modal.Body>
-            <Modal.Footer>
-              <Button variant="secondary" onClick={handleClosePasswordModal} disabled={passwordLoading}>
-                Cancelar
-              </Button>
-              <Button variant="primary" type="submit" disabled={passwordLoading}>
-                {passwordLoading ? (
-                  <span className="spinner-border spinner-border-sm me-2" role="status"></span>
-                ) : null}
-                {isGoogleNoPassword ? 'Establecer contraseña' : 'Cambiar contraseña'}
-              </Button>
-            </Modal.Footer>
-          </form>
-        </Modal>
+        <PasswordModal 
+          show={showPasswordModal} 
+          onHide={handleClosePasswordModal} 
+          isGoogleNoPassword={isGoogleNoPassword} 
+        />
       </div>
     </div>
   );

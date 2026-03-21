@@ -13,6 +13,7 @@ export interface User {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  cedula?: string;
   telefono?: string;
   direccion?: string;
   fechaNacimiento?: string;
@@ -33,6 +34,7 @@ export interface UpdateUserData {
   role?: 'user' | 'admin';
   isActive?: boolean;
   telefono?: string;
+  cedula?: string;
   direccion?: string;
   fechaNacimiento?: string;
   genero?: string;
@@ -53,12 +55,12 @@ class UserService {
       const response = await fetch(`${ENDPOINTS.AUTH}/all`, {
         headers: this.getAuthHeaders(),
       });
-      
+
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.error || 'Error al obtener usuarios');
       }
-      
+
       handle401(response);
       return await response.json();
     } catch (error) {
@@ -74,13 +76,13 @@ class UserService {
         headers: this.getAuthHeaders(),
         body: JSON.stringify(userData),
       });
-      
+
       if (!response.ok) {
         // Manejar errores específicos de rate limiting
         if (response.status === 429) {
           throw new Error('Demasiadas peticiones. Por favor, espera un momento antes de intentar de nuevo.');
         }
-        
+
         // Intentar parsear el error como JSON, si falla usar el texto
         let errorMessage = 'Error al actualizar usuario';
         try {
@@ -91,10 +93,10 @@ class UserService {
           const textError = await response.text();
           errorMessage = textError || errorMessage;
         }
-        
+
         throw new Error(errorMessage);
       }
-      
+
       handle401(response);
       const data = await response.json();
       return data;
@@ -110,13 +112,13 @@ class UserService {
         method: 'DELETE',
         headers: this.getAuthHeaders(),
       });
-      
+
       if (!response.ok) {
         // Manejar errores específicos de rate limiting
         if (response.status === 429) {
           throw new Error('Demasiadas peticiones. Por favor, espera un momento antes de intentar de nuevo.');
         }
-        
+
         // Intentar parsear el error como JSON, si falla usar el texto
         let errorMessage = 'Error al eliminar usuario';
         try {
@@ -127,10 +129,10 @@ class UserService {
           const textError = await response.text();
           errorMessage = textError || errorMessage;
         }
-        
+
         throw new Error(errorMessage);
       }
-      
+
       handle401(response);
       const data = await response.json();
       return data;
@@ -146,13 +148,13 @@ class UserService {
         method: 'PATCH',
         headers: this.getAuthHeaders(),
       });
-      
+
       if (!response.ok) {
         // Manejar errores específicos de rate limiting
         if (response.status === 429) {
           throw new Error('Demasiadas peticiones. Por favor, espera un momento antes de intentar de nuevo.');
         }
-        
+
         // Intentar parsear el error como JSON, si falla usar el texto
         let errorMessage = 'Error al cambiar estado del usuario';
         try {
@@ -163,10 +165,10 @@ class UserService {
           const textError = await response.text();
           errorMessage = textError || errorMessage;
         }
-        
+
         throw new Error(errorMessage);
       }
-      
+
       handle401(response);
       const data = await response.json();
       return data;
@@ -181,12 +183,12 @@ class UserService {
       const response = await fetch(`${ENDPOINTS.AUTH}/profile/${id}`, {
         headers: this.getAuthHeaders(),
       });
-      
+
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.error || 'Error al obtener usuario');
       }
-      
+
       handle401(response);
       return await response.json();
     } catch (error) {

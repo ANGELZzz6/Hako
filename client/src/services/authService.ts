@@ -5,6 +5,7 @@ export interface User {
   nombre: string;
   email: string;
   role: 'user' | 'admin';
+  cedula?: string;
   telefono?: string;
   direccion?: string;
   fechaNacimiento?: string;
@@ -80,7 +81,7 @@ class AuthService {
 
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Error en el registro');
-      
+
       return data;
     } catch (error) {
       console.error('Error:', error);
@@ -97,16 +98,16 @@ class AuthService {
         },
         body: JSON.stringify({ email, code }),
       });
-      
+
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Código incorrecto o expirado');
-      
+
       // Guardar token y usuario solo tras verificación exitosa
       if (data.token && data.user) {
         this.setToken(data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
       }
-      
+
       return data;
     } catch (error) {
       console.error('Error:', error);

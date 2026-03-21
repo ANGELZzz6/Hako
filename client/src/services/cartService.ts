@@ -43,20 +43,20 @@ class CartService {
     try {
       console.log('🛒 Obteniendo carrito desde:', ENDPOINTS.CART);
       console.log('Headers:', this.getHeaders());
-      
+
       const response = await fetch(ENDPOINTS.CART, {
         headers: this.getHeaders(),
       });
       handle401(response);
-      
+
       console.log('Respuesta del servidor:', response.status, response.statusText);
-      
+
       if (!response.ok) {
         const errorText = await response.text();
         console.error('❌ Error en respuesta:', errorText);
         throw new Error('Error al obtener el box');
       }
-      
+
       const cartData = await response.json();
       console.log('✅ Datos del carrito recibidos:', cartData);
       return cartData;
@@ -118,11 +118,12 @@ class CartService {
     }
   }
 
-  async removeFromCart(productId: string): Promise<Cart> {
+  async removeFromCart(productId: string, variants?: Record<string, string>): Promise<Cart> {
     try {
       const response = await fetch(`${ENDPOINTS.CART}/item/${productId}`, {
         method: 'DELETE',
         headers: this.getHeaders(),
+        body: variants ? JSON.stringify({ variants }) : undefined,
       });
       handle401(response);
       if (!response.ok) throw new Error('Error al eliminar del box');

@@ -8,6 +8,7 @@ import gridPackingService from '../services/gridPackingService';
 import productService, { getVariantOrProductDimensions } from '../services/productService';
 import lockerAssignmentService, { type LockerAssignment, type LockerProduct } from '../services/lockerAssignmentService';
 import DateUtils from '../utils/dateUtils';
+import authService from '../services/authService';
 
 import './AdminLockersPage.css';
 import './AdminModalImprovements.css';
@@ -34,7 +35,7 @@ interface FilterOptions {
 const AdminLockersPage: React.FC = () => {
   const { isAuthenticated, isAdmin, isLoading } = useAuth();
   const navigate = useNavigate();
-  
+
   // Estados principales
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [selectedTime, setSelectedTime] = useState<string>('');
@@ -44,21 +45,21 @@ const AdminLockersPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState('');
-  
+
   // Estados para actualización automática
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [refreshInterval, setRefreshInterval] = useState<NodeJS.Timeout | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
   const [selectingTime, setSelectingTime] = useState(false);
-  
+
   // Estados para visualización 3D
   const [show3DView, setShow3DView] = useState(false);
   const [selectedLocker, setSelectedLocker] = useState<number | null>(null);
   const [locker3DData, setLocker3DData] = useState<any>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedReservation, setSelectedReservation] = useState<LockerReservation | null>(null);
-  
+
   // Estados para filtros avanzados
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [filters, setFilters] = useState<FilterOptions>({
@@ -132,7 +133,7 @@ const AdminLockersPage: React.FC = () => {
   useEffect(() => {
     if (autoRefresh && selectedDate && selectedTime && !loading) {
       console.log('🔄 Iniciando actualización automática cada 30 segundos');
-      
+
       const interval = setInterval(async () => {
         try {
           console.log('🔄 Actualización automática ejecutándose...');
@@ -190,22 +191,22 @@ const AdminLockersPage: React.FC = () => {
     try {
       setLoading(true);
       setError('');
-      
+
       console.log('🔍 loadAppointmentsForDate - Fecha solicitada:', date);
-      
+
       // Llamar al servicio real del backend
       const appointmentsData = await appointmentService.getAllAppointments({
         date: date
       });
-      
+
       console.log('🔍 loadAppointmentsForDate - Citas recibidas del backend:', appointmentsData.length);
       console.log('🔍 loadAppointmentsForDate - Primera cita:', appointmentsData[0]);
-      
+
       setAppointments(appointmentsData);
     } catch (err: any) {
       setError('Error al cargar las citas: ' + err.message);
       console.error('Error loading appointments:', err);
-      
+
       // Debug adicional
       console.error('🔍 Error completo:', err);
       console.error('🔍 Error message:', err.message);
@@ -219,13 +220,13 @@ const AdminLockersPage: React.FC = () => {
   const loadCancelledAppointmentsForDate = async (date: string) => {
     try {
       console.log('🔍 loadCancelledAppointmentsForDate - Fecha solicitada:', date);
-      
+
       // Cargar citas canceladas para la fecha
       const cancelledData = await appointmentService.getAllAppointments({
         date: date,
         status: 'cancelled'
       });
-      
+
       console.log('🔍 loadCancelledAppointmentsForDate - Citas canceladas:', cancelledData.length);
       setCancelledAppointments(cancelledData);
     } catch (err: any) {
@@ -254,19 +255,19 @@ const AdminLockersPage: React.FC = () => {
     try {
       setLoading(true);
       setError('');
-      
+
       console.log('🔍 Sincronizando asignaciones de casilleros para fecha:', selectedDate);
-      
+
       const assignments = await lockerAssignmentService.syncFromAppointments(selectedDate);
       console.log('🔍 Asignaciones sincronizadas:', assignments);
-      
+
       // Si hay hora seleccionada, cargar las reservas para esa hora
       if (selectedTime) {
         await loadReservationsForDateTime(selectedDate, selectedTime);
       }
-      
+
       alert(`Sincronización completada. ${assignments.length} asignaciones procesadas.`);
-      
+
     } catch (err: any) {
       setError('Error al sincronizar: ' + err.message);
       console.error('Error syncing locker assignments:', err);
@@ -282,18 +283,18 @@ const AdminLockersPage: React.FC = () => {
         setLoading(true);
       }
       setError('');
-      
+
       console.log('🔍 loadReservationsForDateTime - Fecha seleccionada:', date);
       console.log('🔍 loadReservationsForDateTime - Hora seleccionada:', time);
       console.log('🔍 loadReservationsForDateTime - Es actualización automática:', isAutoRefresh);
       console.log('🔍 loadReservationsForDateTime - Forzar sincronización:', forceSync);
-      
+
       // Obtener asignaciones de casilleros para la fecha y hora específicas
       let assignments = await lockerAssignmentService.getAssignmentsByDateTime(date, time);
       console.log('🔍 Asignaciones de casilleros obtenidas:', assignments);
-      
+
       // Si no hay assignments o se fuerza la sincronización, intentar sincronizar automáticamente
-      if (assignments.length === 0 || forceSync) {
+      if ((assignments.length === 0 || forceSync) && !isAutoRefresh) {
         console.log('⚠️ No se encontraron assignments o se fuerza sincronización, intentando sincronizar...');
         console.log('🔍 Estado antes de sincronización:', {
           assignmentsCount: assignments.length,
@@ -301,7 +302,7 @@ const AdminLockersPage: React.FC = () => {
           date,
           time
         });
-        
+
         if (!isAutoRefresh) {
           setSyncing(true);
         }
@@ -309,7 +310,7 @@ const AdminLockersPage: React.FC = () => {
           console.log('🔄 Iniciando sincronización desde citas...');
           const syncResult = await lockerAssignmentService.syncFromAppointments(date);
           console.log('✅ Sincronización completada, resultado:', syncResult);
-          
+
           // Reintentar obtener assignments después de la sincronización
           console.log('🔄 Obteniendo assignments después de sincronización...');
           assignments = await lockerAssignmentService.getAssignmentsByDateTime(date, time);
@@ -319,7 +320,7 @@ const AdminLockersPage: React.FC = () => {
             productsCount: a.products.length,
             products: a.products.map(p => ({ name: p.productName, quantity: p.quantity }))
           })));
-          
+
           // Si se fuerza la sincronización, siempre actualizar las asignaciones
           if (forceSync) {
             console.log('⚠️ Forzando actualización completa de asignaciones...');
@@ -341,7 +342,7 @@ const AdminLockersPage: React.FC = () => {
           }
         }
       }
-      
+
       // Convertir a formato de reservas
       const reservationsData: LockerReservation[] = assignments.map(assignment => ({
         lockerNumber: assignment.lockerNumber,
@@ -361,26 +362,26 @@ const AdminLockersPage: React.FC = () => {
         itemsCount: r.items.length,
         items: r.items.map(item => ({ name: item.productName, quantity: item.quantity }))
       })));
-      
+
       // Detectar cambios si es una actualización automática
       if (isAutoRefresh) {
         const previousReservationsCount = reservations.length;
         const newReservationsCount = reservationsData.length;
-        
+
         // Verificar si hay cambios en el número de reservas o productos
         const hasReservationChanges = previousReservationsCount !== newReservationsCount;
         const hasProductChanges = reservationsData.some(newReservation => {
           const oldReservation = reservations.find(r => r.lockerNumber === newReservation.lockerNumber);
           if (!oldReservation) return true; // Nueva reserva
-          
+
           // Comparar productos
           const oldProductCount = oldReservation.items.reduce((sum, item) => sum + item.quantity, 0);
           const newProductCount = newReservation.items.reduce((sum, item) => sum + item.quantity, 0);
-          
-          return oldProductCount !== newProductCount || 
-                 oldReservation.items.length !== newReservation.items.length;
+
+          return oldProductCount !== newProductCount ||
+            oldReservation.items.length !== newReservation.items.length;
         });
-        
+
         if (hasReservationChanges || hasProductChanges) {
           console.log('🔄 Cambios detectados en las reservas:', {
             hasReservationChanges,
@@ -389,7 +390,7 @@ const AdminLockersPage: React.FC = () => {
             newCount: newReservationsCount
           });
           setHasChanges(true);
-          
+
           // Limpiar datos obsoletos de visualización 3D y modal
           if (show3DView || showDetailModal) {
             console.log('🧹 Limpiando datos obsoletos de visualización 3D y modal');
@@ -401,23 +402,23 @@ const AdminLockersPage: React.FC = () => {
               setShowDetailModal(false);
             }
           }
-          
+
           // Mostrar notificación de cambios
           if (hasProductChanges) {
             console.log('📦 Nuevos productos detectados en las reservas');
           }
         }
       }
-      
-      
+
+
       setReservations(reservationsData);
       setLockerAssignments(assignments);
-      
+
       // Si aún no hay reservas, mostrar mensaje informativo
       if (reservationsData.length === 0) {
         setError('No se encontraron reservas para esta fecha y hora. Intenta sincronizar manualmente usando los botones de sincronización.');
       }
-      
+
     } catch (err: any) {
       setError('Error al cargar las reservas: ' + err.message);
       console.error('Error loading reservations:', err);
@@ -432,10 +433,10 @@ const AdminLockersPage: React.FC = () => {
   const generate3DDataForLocker = async (lockerNumber: number) => {
     try {
       console.log(`🎯 Generando 3D para casillero ${lockerNumber}`);
-      
+
       // Buscar la asignación del casillero específico
       const assignment = lockerAssignments.find(ass => ass.lockerNumber === lockerNumber);
-      
+
       if (!assignment) {
         console.log(`❌ No se encontró asignación para el casillero ${lockerNumber}`);
         return null;
@@ -452,23 +453,23 @@ const AdminLockersPage: React.FC = () => {
         // ESTRATEGIA ALTERNATIVA: Obtener dimensiones directamente desde IndividualProduct
         let finalDims = product.dimensions; // Fallback por defecto
         let foundCorrectDimensions = false;
-        
+
         console.log(`🔍 Obteniendo dimensiones desde BD para: ${product.productName}`);
-        
+
         // Intentar obtener dimensiones desde IndividualProduct (que tiene las variantes específicas)
         if (product.individualProductId) {
           try {
             console.log(`🔍 Obteniendo IndividualProduct con ID: ${product.individualProductId}`);
             const response = await fetch(`/api/products/individual/${product.individualProductId}`);
-            
+
             if (response.ok) {
               const individualProduct = await response.json();
-              
+
               // Si el IndividualProduct tiene dimensiones calculadas, usarlas
-              if (individualProduct.dimensions && 
-                  individualProduct.dimensions.largo && 
-                  individualProduct.dimensions.ancho && 
-                  individualProduct.dimensions.alto) {
+              if (individualProduct.dimensions &&
+                individualProduct.dimensions.largo &&
+                individualProduct.dimensions.ancho &&
+                individualProduct.dimensions.alto) {
                 finalDims = individualProduct.dimensions;
                 foundCorrectDimensions = true;
                 console.log(`✅ USANDO DIMENSIONES DE INDIVIDUAL PRODUCT:`, finalDims);
@@ -483,33 +484,33 @@ const AdminLockersPage: React.FC = () => {
             console.log(`⚠️ Error obteniendo IndividualProduct:`, err);
           }
         }
-        
+
         // Si no se encontraron dimensiones del IndividualProduct, intentar con variantes
         if (!foundCorrectDimensions && product.variants && Object.keys(product.variants).length > 0) {
           console.log(`🔍 Intentando con variantes de asignación:`, product.variants);
-          
+
           const productIdsToTry = [
             product.originalProductId,
             product.productId
           ].filter(id => id);
-          
+
           for (const productId of productIdsToTry) {
             if (productId) {
               try {
                 const fullProduct = await productService.getProductById(productId);
-                
+
                 let variantsForCalculation = product.variants;
                 if (product.variants instanceof Map) {
                   variantsForCalculation = Object.fromEntries(product.variants);
                 }
-                
+
                 const dimsFromVariants = getVariantOrProductDimensions(fullProduct as any, variantsForCalculation as any);
-                
-                const areVariantDimsValid = dimsFromVariants && 
-                  dimsFromVariants.largo && 
-                  dimsFromVariants.ancho && 
+
+                const areVariantDimsValid = dimsFromVariants &&
+                  dimsFromVariants.largo &&
+                  dimsFromVariants.ancho &&
                   dimsFromVariants.alto;
-                
+
                 if (areVariantDimsValid) {
                   finalDims = dimsFromVariants as any;
                   foundCorrectDimensions = true;
@@ -522,11 +523,11 @@ const AdminLockersPage: React.FC = () => {
             }
           }
         }
-        
+
         if (!foundCorrectDimensions) {
           console.log(`⚠️ Usando dimensiones del producto base`);
         }
-        
+
         const { largo, ancho, alto } = finalDims;
         const product3D = {
           id: product.productId,
@@ -535,13 +536,13 @@ const AdminLockersPage: React.FC = () => {
           quantity: product.quantity,
           volume: (finalDims.largo * finalDims.ancho * finalDims.alto)
         };
-        
+
         // Calcular slots que debería ocupar
         const slotsX = Math.ceil(largo / 15);
         const slotsY = Math.ceil(ancho / 15);
         const slotsZ = Math.ceil(alto / 15);
         const expectedSlots = slotsX * slotsY * slotsZ;
-        
+
         console.log(`📦 RESULTADO FINAL:`, {
           name: product.productName,
           dimensions: { length: largo, width: ancho, height: alto },
@@ -549,7 +550,7 @@ const AdminLockersPage: React.FC = () => {
           volume: product3D.volume,
           usingVariantDims: foundCorrectDimensions
         });
-        
+
         return product3D;
       });
 
@@ -557,12 +558,12 @@ const AdminLockersPage: React.FC = () => {
 
       // Realizar bin packing
       const result = gridPackingService.packProducts3D(products3D);
-      
+
       console.log(`🎯 Bin packing: ${result.lockers.length} casilleros, eficiencia: ${result.totalEfficiency}%`);
 
       if (result.lockers.length > 0) {
         const locker = result.lockers[0];
-        
+
         console.log(`🎯 Casillero final: ${locker.usedSlots}/27 slots usados`);
         locker.packedProducts.forEach((packedItem, index) => {
           console.log(`🎯 Producto ${index + 1}: ${packedItem.product.name} - ${packedItem.slotsUsed} slots`);
@@ -587,7 +588,7 @@ const AdminLockersPage: React.FC = () => {
     return reservations.filter(reservation => {
       // Filtro por estado
       if (filters.status && reservation.status !== filters.status) return false;
-      
+
       // Filtro por usuario
       if (filters.userSearch) {
         const searchLower = filters.userSearch.toLowerCase();
@@ -597,12 +598,12 @@ const AdminLockersPage: React.FC = () => {
           return false;
         }
       }
-      
+
       // Filtro por número de casillero
       if (filters.lockerNumber && reservation.lockerNumber.toString() !== filters.lockerNumber) {
         return false;
       }
-      
+
       return true;
     });
   }, [reservations, filters]);
@@ -619,22 +620,22 @@ const AdminLockersPage: React.FC = () => {
   const handleShow3DView = async (lockerNumber: number) => {
     console.log('🎯 Abriendo visualización 3D para casillero:', lockerNumber);
     setSelectedLocker(lockerNumber);
-    
+
     // Siempre generar datos 3D frescos
     const lockerData = await generate3DDataForLocker(lockerNumber);
     console.log('🎯 Datos 3D generados:', lockerData);
-    
+
     setLocker3DData(lockerData);
     setShow3DView(true);
   };
 
   const handleShowDetails = (reservation: LockerReservation) => {
     console.log('👁️ Abriendo detalles de reserva:', reservation);
-    
+
     // Buscar la reserva más reciente en el estado actual
     const currentReservation = reservations.find(r => r.lockerNumber === reservation.lockerNumber);
     const reservationToShow = currentReservation || reservation;
-    
+
     console.log('👁️ Usando reserva actualizada:', reservationToShow);
     setSelectedReservation(reservationToShow);
     setShowDetailModal(true);
@@ -665,26 +666,26 @@ const AdminLockersPage: React.FC = () => {
   const forceUpdateLockerAssignments = async (date: string, time: string) => {
     try {
       console.log('🔄 Forzando actualización de asignaciones de casilleros...');
-      
+
       // Obtener todas las citas para la fecha
       const allAppointments = await appointmentService.getAllAppointments({ date });
       console.log('🔍 Citas obtenidas para actualización:', allAppointments.length);
-      
+
       // Filtrar citas por hora
       const appointmentsForTime = allAppointments.filter(apt => apt.timeSlot === time);
       console.log('🔍 Citas para la hora', time, ':', appointmentsForTime.length);
-      
+
       // Para cada cita, actualizar o crear la asignación
       for (let i = 0; i < appointmentsForTime.length; i++) {
         const appointment = appointmentsForTime[i];
         console.log(`🔄 Procesando cita ${i + 1}/${appointmentsForTime.length}:`, appointment._id);
-        
+
         // Crear productos desde itemsToPickup
         const products = appointment.itemsToPickup.map(item => {
-          const productName = item.product?.nombre || 
-                             (item.individualProduct as any)?.product?.nombre || 
-                             (item.originalProduct as any)?.nombre || 'Producto sin nombre';
-          
+          const productName = item.product?.nombre ||
+            (item.individualProduct as any)?.product?.nombre ||
+            (item.originalProduct as any)?.nombre || 'Producto sin nombre';
+
           // Extraer variantes del item si existen
           let variants = {};
           if (item.individualProduct && (item.individualProduct as any).variants) {
@@ -709,13 +710,13 @@ const AdminLockersPage: React.FC = () => {
               variants = (item.product as any).variants;
             }
           }
-          
+
           console.log(`🔍 Variantes extraídas para ${productName}:`, variants);
-          
+
           return {
-            productId: item.product?._id || 
-                      (item.individualProduct as any)?._id || 
-                      (item.originalProduct as any)?._id || 'unknown',
+            productId: item.product?._id ||
+              (item.individualProduct as any)?._id ||
+              (item.originalProduct as any)?._id || 'unknown',
             productName: productName,
             individualProductId: (item.individualProduct as any)?._id,
             originalProductId: (item.originalProduct as any)?._id,
@@ -731,19 +732,19 @@ const AdminLockersPage: React.FC = () => {
             volume: item.volumen || (item.dimensiones?.largo || 10) * (item.dimensiones?.ancho || 10) * (item.dimensiones?.alto || 10)
           };
         });
-        
+
         console.log(`🔍 Productos para cita ${appointment._id}:`, products.map(p => ({ name: p.productName, quantity: p.quantity })));
-        
+
         // Buscar asignación existente
         const existingAssignment = await lockerAssignmentService.getAssignmentByLocker(i + 1, date, time);
         console.log(`🔍 Asignación existente para casillero ${i + 1}:`, existingAssignment ? 'SÍ' : 'NO');
-        
+
         if (existingAssignment) {
           // Actualizar asignación existente
           console.log(`🔄 Actualizando asignación existente para casillero ${i + 1}`);
           console.log(`🔍 Productos actuales en asignación:`, existingAssignment.products.map(p => ({ name: p.productName, quantity: p.quantity })));
           console.log(`🔍 Productos nuevos a actualizar:`, products.map(p => ({ name: p.productName, quantity: p.quantity })));
-          
+
           // Log detallado de los datos que se van a enviar
           console.log(`🔍 DATOS DETALLADOS PARA ACTUALIZACIÓN:`, {
             assignmentId: existingAssignment._id,
@@ -760,7 +761,7 @@ const AdminLockersPage: React.FC = () => {
             })),
             totalSlotsUsed: products.reduce((sum, p) => sum + p.calculatedSlots, 0)
           });
-          
+
           const updateResult = await lockerAssignmentService.updateAssignment(existingAssignment._id, {
             products: products,
             totalSlotsUsed: products.reduce((sum, p) => sum + p.calculatedSlots, 0)
@@ -782,7 +783,7 @@ const AdminLockersPage: React.FC = () => {
           console.log(`✅ Asignación creada para casillero ${i + 1}:`, createResult);
         }
       }
-      
+
       console.log('✅ Actualización forzada de asignaciones completada');
     } catch (error) {
       console.error('❌ Error en actualización forzada:', error);
@@ -822,7 +823,7 @@ const AdminLockersPage: React.FC = () => {
     }
 
     const headers = [
-      'Fecha', 'Hora', 'Casillero', 'Usuario', 'Email', 
+      'Fecha', 'Hora', 'Casillero', 'Usuario', 'Email',
       'Estado', 'Productos', 'Cantidad Total'
     ];
 
@@ -835,8 +836,8 @@ const AdminLockersPage: React.FC = () => {
         `"${reservation.user.nombre}"`,
         `"${reservation.user.email}"`,
         reservation.status,
-                 `"${reservation.items.map(item => item.productName).join('; ')}"`,
-         reservation.items.reduce((total, item) => total + item.quantity, 0)
+        `"${reservation.items.map(item => item.productName).join('; ')}"`,
+        reservation.items.reduce((total, item) => total + item.quantity, 0)
       ].join(','))
     ].join('\n');
 
@@ -881,7 +882,7 @@ const AdminLockersPage: React.FC = () => {
   const validateAndUpdateReservationStatus = async (reservation: LockerReservation, newStatus: string) => {
     try {
       console.log(`🔄 Validando cambio de estado para reserva ${reservation.lockerNumber}: ${reservation.status} -> ${newStatus}`);
-      
+
       // Validar transiciones de estado permitidas
       const validTransitions: Record<string, string[]> = {
         'scheduled': ['confirmed', 'cancelled'],
@@ -907,10 +908,12 @@ const AdminLockersPage: React.FC = () => {
       }
 
       // Actualizar estado en el backend
+      const token = authService.getToken();
       const response = await fetch(`/api/locker-assignments/${reservation.assignment._id}/status`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : '',
         },
         body: JSON.stringify({ status: newStatus })
       });
@@ -923,9 +926,9 @@ const AdminLockersPage: React.FC = () => {
       console.log('✅ Estado actualizado exitosamente:', updatedAssignment);
 
       // Actualizar el estado local
-      setReservations(prevReservations => 
-        prevReservations.map(r => 
-          r.lockerNumber === reservation.lockerNumber 
+      setReservations(prevReservations =>
+        prevReservations.map(r =>
+          r.lockerNumber === reservation.lockerNumber
             ? { ...r, status: newStatus, assignment: updatedAssignment }
             : r
         )
@@ -933,7 +936,7 @@ const AdminLockersPage: React.FC = () => {
 
       // Mostrar mensaje de éxito
       alert(`Estado de la reserva actualizado exitosamente a "${getStatusLabel(newStatus)}"`);
-      
+
       return true;
     } catch (error) {
       console.error('Error actualizando estado de reserva:', error);
@@ -991,7 +994,7 @@ const AdminLockersPage: React.FC = () => {
                         onChange={(e) => handleDateChange(e.target.value)}
                         min={DateUtils.getMinAllowedDate()}
                         max={DateUtils.getMaxAllowedDate()}
-                        style={{ 
+                        style={{
                           position: 'relative',
                           zIndex: 1
                         }}
@@ -1042,7 +1045,7 @@ const AdminLockersPage: React.FC = () => {
                       </select>
                     </div>
                   </div>
-                  
+
                   {/* Panel de Debug */}
                   <div className="row mt-3">
                     <div className="col-12">
@@ -1065,21 +1068,21 @@ const AdminLockersPage: React.FC = () => {
                             <small><strong>Reservas:</strong> {reservations.length}</small>
                           </div>
                           <div className="col-md-2">
-                            <small><strong>Auto-refresh:</strong> 
+                            <small><strong>Auto-refresh:</strong>
                               <span className={`ms-1 badge ${autoRefresh ? 'bg-success' : 'bg-secondary'}`}>
                                 {autoRefresh ? 'ON' : 'OFF'}
                               </span>
                             </small>
                           </div>
                           <div className="col-md-2">
-                            <small><strong>Última actualización:</strong> 
+                            <small><strong>Última actualización:</strong>
                               {lastUpdate ? lastUpdate.toLocaleTimeString() : 'Nunca'}
                             </small>
                           </div>
                         </div>
                         <div className="row mt-2">
                           <div className="col-md-4">
-                            <small><strong>Rango de fechas:</strong> 
+                            <small><strong>Rango de fechas:</strong>
                               <span className="badge bg-info ms-1">
                                 <i className="bi bi-infinity me-1"></i>
                                 Infinito (10 años)
@@ -1087,7 +1090,7 @@ const AdminLockersPage: React.FC = () => {
                             </small>
                           </div>
                           <div className="col-md-4">
-                            <small><strong>Tipo de fecha:</strong> 
+                            <small><strong>Tipo de fecha:</strong>
                               {selectedDate && DateUtils.isPast(selectedDate) && (
                                 <span className="badge bg-secondary ms-1">Pasada</span>
                               )}
@@ -1100,7 +1103,7 @@ const AdminLockersPage: React.FC = () => {
                             </small>
                           </div>
                           <div className="col-md-4">
-                            <small><strong>Estado:</strong> 
+                            <small><strong>Estado:</strong>
                               {loading && <span className="badge bg-warning ms-1">Cargando</span>}
                               {error && <span className="badge bg-danger ms-1">Error</span>}
                               {!loading && !error && <span className="badge bg-success ms-1">Listo</span>}
@@ -1123,74 +1126,74 @@ const AdminLockersPage: React.FC = () => {
                             </small>
                           </div>
                         )}
-                                                 <div className="mt-2">
-                           <button
-                             className="btn btn-outline-warning btn-sm me-2"
-                             onClick={testAPI}
-                             title="Probar conexión con la API"
-                           >
-                             <i className="bi bi-wifi me-1"></i>
-                             Probar API
-                           </button>
-                           <button
-                             className="btn btn-outline-success btn-sm me-2"
-                             onClick={syncLockerAssignments}
-                             title="Sincronizar asignaciones de casilleros"
-                             disabled={!selectedDate}
-                           >
-                             <i className="bi bi-arrow-repeat me-1"></i>
-                             Sincronizar
-                           </button>
-                           <button
-                             className={`btn btn-sm me-2 ${autoRefresh ? 'btn-success' : 'btn-outline-success'}`}
-                             onClick={toggleAutoRefresh}
-                             title={autoRefresh ? 'Desactivar actualización automática' : 'Activar actualización automática'}
-                           >
-                             <i className={`bi ${autoRefresh ? 'bi-pause-circle' : 'bi-play-circle'} me-1`}></i>
-                             {autoRefresh ? 'Auto-refresh ON' : 'Auto-refresh OFF'}
-                           </button>
-                           <button
-                             className="btn btn-outline-primary btn-sm me-2"
-                             onClick={handleManualRefresh}
-                             title="Actualizar manualmente las reservas"
-                             disabled={!selectedDate || !selectedTime || loading}
-                           >
-                             <i className="bi bi-arrow-clockwise me-1"></i>
-                             Actualizar Ahora
-                           </button>
-                           <button
-                             className="btn btn-outline-warning btn-sm me-2"
-                             onClick={async () => {
-                               if (selectedDate && selectedTime) {
-                                 try {
-                                   setLoading(true);
-                                   console.log('🔄 Forzando actualización de asignaciones...');
-                                   await forceUpdateLockerAssignments(selectedDate, selectedTime);
-                                   await loadReservationsForDateTime(selectedDate, selectedTime);
-                                   setLastUpdate(new Date());
-                                   setHasChanges(false);
-                                   console.log('✅ Actualización forzada completada');
-                                 } catch (error) {
-                                   console.error('Error en actualización forzada:', error);
-                                   setError('Error al actualizar asignaciones: ' + error);
-                                 } finally {
-                                   setLoading(false);
-                                 }
-                               }
-                             }}
-                             title="Forzar actualización de asignaciones de casilleros con productos actualizados"
-                             disabled={!selectedDate || !selectedTime || loading}
-                           >
-                             <i className="bi bi-arrow-repeat me-1"></i>
-                             Forzar Actualización
-                           </button>
-                           {hasChanges && (
-                             <span className="badge bg-warning text-dark">
-                               <i className="bi bi-exclamation-triangle me-1"></i>
-                               Cambios detectados
-                             </span>
-                           )}
-                         </div>
+                        <div className="mt-2">
+                          <button
+                            className="btn btn-outline-warning btn-sm me-2"
+                            onClick={testAPI}
+                            title="Probar conexión con la API"
+                          >
+                            <i className="bi bi-wifi me-1"></i>
+                            Probar API
+                          </button>
+                          <button
+                            className="btn btn-outline-success btn-sm me-2"
+                            onClick={syncLockerAssignments}
+                            title="Sincronizar asignaciones de casilleros"
+                            disabled={!selectedDate}
+                          >
+                            <i className="bi bi-arrow-repeat me-1"></i>
+                            Sincronizar
+                          </button>
+                          <button
+                            className={`btn btn-sm me-2 ${autoRefresh ? 'btn-success' : 'btn-outline-success'}`}
+                            onClick={toggleAutoRefresh}
+                            title={autoRefresh ? 'Desactivar actualización automática' : 'Activar actualización automática'}
+                          >
+                            <i className={`bi ${autoRefresh ? 'bi-pause-circle' : 'bi-play-circle'} me-1`}></i>
+                            {autoRefresh ? 'Auto-refresh ON' : 'Auto-refresh OFF'}
+                          </button>
+                          <button
+                            className="btn btn-outline-primary btn-sm me-2"
+                            onClick={handleManualRefresh}
+                            title="Actualizar manualmente las reservas"
+                            disabled={!selectedDate || !selectedTime || loading}
+                          >
+                            <i className="bi bi-arrow-clockwise me-1"></i>
+                            Actualizar Ahora
+                          </button>
+                          <button
+                            className="btn btn-outline-warning btn-sm me-2"
+                            onClick={async () => {
+                              if (selectedDate && selectedTime) {
+                                try {
+                                  setLoading(true);
+                                  console.log('🔄 Forzando actualización de asignaciones...');
+                                  await forceUpdateLockerAssignments(selectedDate, selectedTime);
+                                  await loadReservationsForDateTime(selectedDate, selectedTime);
+                                  setLastUpdate(new Date());
+                                  setHasChanges(false);
+                                  console.log('✅ Actualización forzada completada');
+                                } catch (error) {
+                                  console.error('Error en actualización forzada:', error);
+                                  setError('Error al actualizar asignaciones: ' + error);
+                                } finally {
+                                  setLoading(false);
+                                }
+                              }
+                            }}
+                            title="Forzar actualización de asignaciones de casilleros con productos actualizados"
+                            disabled={!selectedDate || !selectedTime || loading}
+                          >
+                            <i className="bi bi-arrow-repeat me-1"></i>
+                            Forzar Actualización
+                          </button>
+                          {hasChanges && (
+                            <span className="badge bg-warning text-dark">
+                              <i className="bi bi-exclamation-triangle me-1"></i>
+                              Cambios detectados
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1203,16 +1206,14 @@ const AdminLockersPage: React.FC = () => {
           {selectedDate && selectedTime && (
             <div className="row mb-4">
               <div className="col-12">
-                <div className={`alert selection-info ${
-                  DateUtils.isPast(selectedDate) ? 'alert-warning' : 
-                  DateUtils.isToday(selectedDate) ? 'alert-info' : 
-                  'alert-success'
-                }`}>
-                  <i className={`bi me-2 ${
-                    DateUtils.isPast(selectedDate) ? 'bi-clock-history' : 
-                    DateUtils.isToday(selectedDate) ? 'bi-info-circle' : 
-                    'bi-calendar-check'
-                  }`}></i>
+                <div className={`alert selection-info ${DateUtils.isPast(selectedDate) ? 'alert-warning' :
+                  DateUtils.isToday(selectedDate) ? 'alert-info' :
+                    'alert-success'
+                  }`}>
+                  <i className={`bi me-2 ${DateUtils.isPast(selectedDate) ? 'bi-clock-history' :
+                    DateUtils.isToday(selectedDate) ? 'bi-info-circle' :
+                      'bi-calendar-check'
+                    }`}></i>
                   <strong>Mostrando reservas para:</strong> {formatDate(selectedDate)} a las {selectedTime}
                   <span className="badge bg-primary ms-2">{filteredReservations.length} reservas</span>
                   {DateUtils.isPast(selectedDate) && (
@@ -1238,7 +1239,7 @@ const AdminLockersPage: React.FC = () => {
               <div className="col-12">
                 <div className="alert alert-warning alert-dismissible fade show">
                   <i className="bi bi-exclamation-triangle me-2"></i>
-                  <strong>¡Cambios detectados!</strong> Se han detectado modificaciones en las reservas. 
+                  <strong>¡Cambios detectados!</strong> Se han detectado modificaciones en las reservas.
                   <button
                     type="button"
                     className="btn btn-warning btn-sm ms-2"
@@ -1267,7 +1268,7 @@ const AdminLockersPage: React.FC = () => {
                   <strong>Citas disponibles para {formatDate(selectedDate)}:</strong> {appointments.length} citas encontradas
                   <br />
                   <small className="text-muted">
-                    Selecciona una hora específica para ver las reservas de casilleros. 
+                    Selecciona una hora específica para ver las reservas de casilleros.
                     <strong>Nota:</strong> Al seleccionar una hora, se sincronizarán automáticamente los datos más recientes.
                   </small>
                   <div className="mt-2">
@@ -1372,14 +1373,14 @@ const AdminLockersPage: React.FC = () => {
                                     {appointment.itemsToPickup.map((item, idx) => (
                                       <div key={idx} className="item-badge">
                                         <div className="d-flex align-items-center">
-                                          <div className="bg-danger rounded me-2 d-flex align-items-center justify-content-center" 
-                                               style={{ width: 20, height: 20 }}>
+                                          <div className="bg-danger rounded me-2 d-flex align-items-center justify-content-center"
+                                            style={{ width: 20, height: 20 }}>
                                             <i className="bi bi-box text-white" style={{ fontSize: '10px' }}></i>
                                           </div>
                                           <span className="item-name">
-                                            {item.product?.nombre || 
-                                             (item.individualProduct as any)?.product?.nombre || 
-                                             (item.originalProduct as any)?.nombre || 'Producto sin nombre'}
+                                            {item.product?.nombre ||
+                                              (item.individualProduct as any)?.product?.nombre ||
+                                              (item.originalProduct as any)?.nombre || 'Producto sin nombre'}
                                           </span>
                                         </div>
                                         <span className="item-quantity">x{item.quantity}</span>
@@ -1543,7 +1544,7 @@ const AdminLockersPage: React.FC = () => {
                       <div className="text-center empty-state">
                         <i className="bi bi-inbox display-1 text-muted"></i>
                         <p className="text-muted mt-3">
-                          {reservations.length === 0 
+                          {reservations.length === 0
                             ? 'No hay reservas para esta fecha y hora'
                             : 'No hay reservas que coincidan con los filtros aplicados'
                           }
@@ -1579,20 +1580,20 @@ const AdminLockersPage: React.FC = () => {
                                   <div className="user-email">{reservation.user.email}</div>
                                 </td>
                                 <td>
-                                                                     <div className="items-list">
-                                     {reservation.items.map((item, idx) => (
-                                       <div key={idx} className="item-badge">
-                                         <div className="d-flex align-items-center">
-                                           <div className="bg-secondary rounded me-2 d-flex align-items-center justify-content-center" 
-                                                style={{ width: 20, height: 20 }}>
-                                             <i className="bi bi-box text-white" style={{ fontSize: '10px' }}></i>
-                                           </div>
-                                           <span className="item-name">{item.productName}</span>
-                                         </div>
-                                         <span className="item-quantity">x{item.quantity}</span>
-                                       </div>
-                                     ))}
-                                   </div>
+                                  <div className="items-list">
+                                    {reservation.items.map((item, idx) => (
+                                      <div key={idx} className="item-badge">
+                                        <div className="d-flex align-items-center">
+                                          <div className="bg-secondary rounded me-2 d-flex align-items-center justify-content-center"
+                                            style={{ width: 20, height: 20 }}>
+                                            <i className="bi bi-box text-white" style={{ fontSize: '10px' }}></i>
+                                          </div>
+                                          <span className="item-name">{item.productName}</span>
+                                        </div>
+                                        <span className="item-quantity">x{item.quantity}</span>
+                                      </div>
+                                    ))}
+                                  </div>
                                 </td>
                                 <td>
                                   <span className={`badge bg-${getStatusColor(reservation.status)}`}>
@@ -1762,24 +1763,24 @@ const AdminLockersPage: React.FC = () => {
                                 <div className="user-email">{appointment.user?.email || 'N/A'}</div>
                               </td>
                               <td>
-                                                                 <div className="items-list">
-                                   {appointment.itemsToPickup.map((item, idx) => (
-                                     <div key={idx} className="item-badge">
-                                       <div className="d-flex align-items-center">
-                                         <div className="bg-secondary rounded me-2 d-flex align-items-center justify-content-center" 
-                                              style={{ width: 20, height: 20 }}>
-                                           <i className="bi bi-box text-white" style={{ fontSize: '10px' }}></i>
-                                         </div>
-                                         <span className="item-name">
-                                           {item.product?.nombre || 
-                                            (item.individualProduct as any)?.product?.nombre || 
+                                <div className="items-list">
+                                  {appointment.itemsToPickup.map((item, idx) => (
+                                    <div key={idx} className="item-badge">
+                                      <div className="d-flex align-items-center">
+                                        <div className="bg-secondary rounded me-2 d-flex align-items-center justify-content-center"
+                                          style={{ width: 20, height: 20 }}>
+                                          <i className="bi bi-box text-white" style={{ fontSize: '10px' }}></i>
+                                        </div>
+                                        <span className="item-name">
+                                          {item.product?.nombre ||
+                                            (item.individualProduct as any)?.product?.nombre ||
                                             (item.originalProduct as any)?.nombre || 'Producto sin nombre'}
-                                         </span>
-                                       </div>
-                                       <span className="item-quantity">x{item.quantity}</span>
-                                     </div>
-                                   ))}
-                                 </div>
+                                        </span>
+                                      </div>
+                                      <span className="item-quantity">x{item.quantity}</span>
+                                    </div>
+                                  ))}
+                                </div>
                               </td>
                               <td>
                                 <span className={`badge bg-${getStatusColor(appointment.status)}`}>
@@ -1857,14 +1858,14 @@ const AdminLockersPage: React.FC = () => {
                   <i className="bi bi-info-circle me-2"></i>
                   Visualización 3D del casillero {selectedLocker} para {formatDate(selectedDate)} a las {selectedTime}
                 </div>
-                
+
                 {/* Componente Locker3DCanvas para visualización 3D real */}
                 <div className="text-center">
-                  <Locker3DCanvas 
+                  <Locker3DCanvas
                     bin={locker3DData}
                   />
                 </div>
-                
+
                 {/* Información adicional del casillero */}
                 <div className="mt-3">
                   <div className="row">
@@ -1890,8 +1891,8 @@ const AdminLockersPage: React.FC = () => {
                 </div>
               </div>
               <div className="modal-footer">
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   className="btn btn-outline-primary me-2"
                   onClick={async () => {
                     if (selectedLocker) {
@@ -1930,9 +1931,9 @@ const AdminLockersPage: React.FC = () => {
                     </span>
                   )}
                 </h5>
-                <button 
-                  type="button" 
-                  className="btn-close" 
+                <button
+                  type="button"
+                  className="btn-close"
                   onClick={() => setShowDetailModal(false)}
                 ></button>
               </div>
@@ -1965,17 +1966,16 @@ const AdminLockersPage: React.FC = () => {
                         <p><strong>Fecha:</strong> {formatDate(selectedDate)}</p>
                         <p><strong>Hora:</strong> {selectedTime}</p>
                         <p><strong>Casillero:</strong> {selectedReservation.lockerNumber}</p>
-                        <p><strong>Estado:</strong> 
-                          <span className={`badge ms-2 ${
-                            selectedReservation.status === 'pending' ? 'bg-warning' :
+                        <p><strong>Estado:</strong>
+                          <span className={`badge ms-2 ${selectedReservation.status === 'pending' ? 'bg-warning' :
                             selectedReservation.status === 'completed' ? 'bg-success' :
-                            selectedReservation.status === 'cancelled' ? 'bg-danger' :
-                            'bg-secondary'
-                          }`}>
+                              selectedReservation.status === 'cancelled' ? 'bg-danger' :
+                                'bg-secondary'
+                            }`}>
                             {selectedReservation.status === 'pending' ? 'Pendiente' :
-                             selectedReservation.status === 'completed' ? 'Completada' :
-                             selectedReservation.status === 'cancelled' ? 'Cancelada' :
-                             selectedReservation.status}
+                              selectedReservation.status === 'completed' ? 'Completada' :
+                                selectedReservation.status === 'cancelled' ? 'Cancelada' :
+                                  selectedReservation.status}
                           </span>
                         </p>
                       </div>
@@ -1992,31 +1992,31 @@ const AdminLockersPage: React.FC = () => {
                     </h6>
                   </div>
                   <div className="card-body">
-                                         <div className="row">
-                       {selectedReservation.items.map((item, index) => (
-                         <div key={index} className="col-md-6 mb-3">
-                           <div className="card border">
-                             <div className="card-body p-3">
-                               <div className="d-flex align-items-center">
-                                 <div className="bg-secondary rounded me-3 d-flex align-items-center justify-content-center" 
-                                      style={{ width: '60px', height: '60px' }}>
-                                   <i className="bi bi-box text-white" style={{ fontSize: '24px' }}></i>
-                                 </div>
-                                 <div className="flex-grow-1">
-                                   <h6 className="mb-1">{item.productName}</h6>
-                                   <p className="mb-0 text-muted">
-                                     <strong>Cantidad:</strong> {item.quantity}
-                                   </p>
-                                   <p className="mb-0 text-muted">
-                                     <strong>Slots:</strong> {item.calculatedSlots}
-                                   </p>
-                                 </div>
-                               </div>
-                             </div>
-                           </div>
-                         </div>
-                       ))}
-                     </div>
+                    <div className="row">
+                      {selectedReservation.items.map((item, index) => (
+                        <div key={index} className="col-md-6 mb-3">
+                          <div className="card border">
+                            <div className="card-body p-3">
+                              <div className="d-flex align-items-center">
+                                <div className="bg-secondary rounded me-3 d-flex align-items-center justify-content-center"
+                                  style={{ width: '60px', height: '60px' }}>
+                                  <i className="bi bi-box text-white" style={{ fontSize: '24px' }}></i>
+                                </div>
+                                <div className="flex-grow-1">
+                                  <h6 className="mb-1">{item.productName}</h6>
+                                  <p className="mb-0 text-muted">
+                                    <strong>Cantidad:</strong> {item.quantity}
+                                  </p>
+                                  <p className="mb-0 text-muted">
+                                    <strong>Slots:</strong> {item.calculatedSlots}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
@@ -2029,23 +2029,23 @@ const AdminLockersPage: React.FC = () => {
                     </h6>
                   </div>
                   <div className="card-body">
-                                         <div className="row">
-                       <div className="col-md-6">
-                         <p><strong>ID de Reserva:</strong> <code>{selectedReservation.assignment._id}</code></p>
-                         <p><strong>Fecha de Creación:</strong> {new Date(selectedReservation.assignment.createdAt || '').toLocaleDateString()}</p>
-                       </div>
-                       <div className="col-md-6">
-                         <p><strong>Total de Productos:</strong> {selectedReservation.items.reduce((sum, item) => sum + item.quantity, 0)}</p>
-                         <p><strong>Tipos de Productos:</strong> {selectedReservation.items.length}</p>
-                         <p><strong>Total de Slots:</strong> {selectedReservation.assignment.totalSlotsUsed}/27</p>
-                       </div>
-                     </div>
+                    <div className="row">
+                      <div className="col-md-6">
+                        <p><strong>ID de Reserva:</strong> <code>{selectedReservation.assignment._id}</code></p>
+                        <p><strong>Fecha de Creación:</strong> {new Date(selectedReservation.assignment.createdAt || '').toLocaleDateString()}</p>
+                      </div>
+                      <div className="col-md-6">
+                        <p><strong>Total de Productos:</strong> {selectedReservation.items.reduce((sum, item) => sum + item.quantity, 0)}</p>
+                        <p><strong>Tipos de Productos:</strong> {selectedReservation.items.length}</p>
+                        <p><strong>Total de Slots:</strong> {selectedReservation.assignment.totalSlotsUsed}/27</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
               <div className="modal-footer">
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   className="btn btn-outline-primary me-2"
                   onClick={() => {
                     // Actualizar los detalles con datos frescos
@@ -2060,8 +2060,8 @@ const AdminLockersPage: React.FC = () => {
                   <i className="bi bi-arrow-clockwise me-1"></i>
                   Actualizar Detalles
                 </button>
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   className="btn btn-primary me-2"
                   onClick={() => {
                     setShowDetailModal(false);
@@ -2071,9 +2071,9 @@ const AdminLockersPage: React.FC = () => {
                   <i className="bi bi-cube me-1"></i>
                   Ver Visualización 3D
                 </button>
-                <button 
-                  type="button" 
-                  className="btn btn-secondary" 
+                <button
+                  type="button"
+                  className="btn btn-secondary"
                   onClick={() => setShowDetailModal(false)}
                 >
                   Cerrar

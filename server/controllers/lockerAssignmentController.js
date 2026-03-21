@@ -54,20 +54,20 @@ const calculateProductDimensions = (item) => {
 // Función auxiliar para obtener dimensiones de variantes
 const getVariantDimensions = (item) => {
   // Buscar variantes en diferentes estructuras
-  const variants = item.variants || 
-                  item.selectedVariants || 
-                  item.productVariants ||
-                  item.individualProduct?.variants ||
-                  item.originalProduct?.variants;
+  const variants = item.variants ||
+    item.selectedVariants ||
+    item.productVariants ||
+    item.individualProduct?.variants ||
+    item.originalProduct?.variants;
 
   if (!variants || Object.keys(variants).length === 0) {
     return null;
   }
 
   // Buscar el producto que tenga variantes habilitadas
-  const productWithVariants = item.product || 
-                             item.individualProduct?.product || 
-                             item.originalProduct;
+  const productWithVariants = item.product ||
+    item.individualProduct?.product ||
+    item.originalProduct;
 
   if (!productWithVariants?.variants?.enabled || !productWithVariants.variants.attributes) {
     return null;
@@ -85,10 +85,10 @@ const getVariantDimensions = (item) => {
   // Procesar cada atributo que define dimensiones
   for (const attr of dimensionAttributes) {
     const selectedValue = variants[attr.name];
-    
+
     if (selectedValue) {
       const option = attr.options.find((opt) => opt.value === selectedValue);
-      
+
       if (option && option.dimensiones && isValidDimensions(option.dimensiones)) {
         console.log(`✅ Usando dimensiones de la variante ${attr.name}: ${selectedValue}`, option.dimensiones);
         return option.dimensiones;
@@ -101,10 +101,10 @@ const getVariantDimensions = (item) => {
 
 // Función auxiliar para validar dimensiones
 const isValidDimensions = (dimensions) => {
-  return dimensions && 
-         typeof dimensions.largo === 'number' && dimensions.largo > 0 &&
-         typeof dimensions.ancho === 'number' && dimensions.ancho > 0 &&
-         typeof dimensions.alto === 'number' && dimensions.alto > 0;
+  return dimensions &&
+    typeof dimensions.largo === 'number' && dimensions.largo > 0 &&
+    typeof dimensions.ancho === 'number' && dimensions.ancho > 0 &&
+    typeof dimensions.alto === 'number' && dimensions.alto > 0;
 };
 
 // Función auxiliar para calcular slots
@@ -113,7 +113,7 @@ const calculateSlots = (dimensions) => {
   const slotsX = Math.ceil(dimensions.largo / SLOT_SIZE);
   const slotsY = Math.ceil(dimensions.ancho / SLOT_SIZE);
   const slotsZ = Math.ceil(dimensions.alto / SLOT_SIZE);
-  
+
   return slotsX * slotsY * slotsZ;
 };
 
@@ -134,23 +134,23 @@ const processAppointmentProducts = async (appointment) => {
       const volume = calculateVolume(dimensions);
 
       // Obtener variantes si existen
-      const variants = item.variants || 
-                      item.selectedVariants || 
-                      item.productVariants ||
-                      item.individualProduct?.variants ||
-                      item.originalProduct?.variants || {};
+      const variants = item.variants ||
+        item.selectedVariants ||
+        item.productVariants ||
+        item.individualProduct?.variants ||
+        item.originalProduct?.variants || {};
 
       // Obtener nombre del producto
-      const productName = item.product?.nombre || 
-                         item.individualProduct?.product?.nombre || 
-                         item.originalProduct?.nombre || 
-                         'Producto sin nombre';
+      const productName = item.product?.nombre ||
+        item.individualProduct?.product?.nombre ||
+        item.originalProduct?.nombre ||
+        'Producto sin nombre';
 
       // Obtener IDs
-      const productId = item.product?._id || 
-                       item.individualProduct?._id || 
-                       item.originalProduct?._id || 
-                       'unknown';
+      const productId = item.product?._id ||
+        item.individualProduct?._id ||
+        item.originalProduct?._id ||
+        'unknown';
 
       const individualProductId = item.individualProduct?._id;
       const originalProductId = item.originalProduct?._id;
@@ -471,7 +471,8 @@ const getAllAssignments = async (req, res) => {
 const createLocalDate = (dateInput) => {
   if (typeof dateInput === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateInput)) {
     const [year, month, day] = dateInput.split('-');
-    return new Date(Number(year), Number(month) - 1, Number(day), 0, 0, 0, 0);
+    // Medianoche Colombia (UTC-5) = 05:00 UTC
+    return new Date(Date.UTC(Number(year), Number(month) - 1, Number(day), 5, 0, 0, 0));
   }
   return new Date(dateInput);
 };
@@ -491,9 +492,7 @@ const syncFromAppointments = async (req, res) => {
 
     // Calcular rango de día [00:00, 23:59:59.999] en horario local
     const dayStart = createLocalDate(date);
-    dayStart.setHours(0, 0, 0, 0);
-    const dayEnd = createLocalDate(date);
-    dayEnd.setHours(23, 59, 59, 999);
+    const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
 
     // Obtener todas las citas dentro del rango del día
     const appointments = await Appointment.find({

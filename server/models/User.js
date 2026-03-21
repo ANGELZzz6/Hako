@@ -8,7 +8,7 @@ const userSchema = new mongoose.Schema({
         minlength: [2, 'El nombre debe tener al menos 2 caracteres'],
         maxlength: [50, 'El nombre no puede exceder 50 caracteres'],
         validate: {
-            validator: function(v) {
+            validator: function (v) {
                 return /^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]+$/.test(v);
             },
             message: 'El nombre solo puede contener letras y espacios'
@@ -21,7 +21,7 @@ const userSchema = new mongoose.Schema({
         trim: true,
         lowercase: true,
         validate: {
-            validator: function(v) {
+            validator: function (v) {
                 return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
             },
             message: 'Formato de email inválido'
@@ -29,10 +29,10 @@ const userSchema = new mongoose.Schema({
     },
     contraseña: {
         type: String,
-        required: [function() { return this.authProvider !== 'google'; }, 'La contraseña es obligatoria'],
+        required: [function () { return this.authProvider !== 'google'; }, 'La contraseña es obligatoria'],
         minlength: [8, 'La contraseña debe tener al menos 8 caracteres'],
         validate: {
-            validator: function(v) {
+            validator: function (v) {
                 if (this.authProvider === 'google' && (!v || v === '')) return true;
                 return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{8,}$/.test(v);
             },
@@ -70,6 +70,17 @@ const userSchema = new mongoose.Schema({
     lockUntil: {
         type: Date,
         default: null
+    },
+    cedula: {
+        type: String,
+        trim: true,
+        default: '',
+        validate: {
+            validator: function (v) {
+                return v === '' || /^\d{6,12}$/.test(v);
+            },
+            message: 'La cédula debe tener entre 6 y 12 dígitos'
+        }
     },
     telefono: {
         type: String,
@@ -137,12 +148,12 @@ userSchema.index({ verificationCode: 1 });
 userSchema.index({ lockUntil: 1 });
 
 // Método para verificar si la cuenta está bloqueada
-userSchema.methods.isLocked = function() {
+userSchema.methods.isLocked = function () {
     return !!(this.lockUntil && this.lockUntil > Date.now());
 };
 
 // Método para incrementar intentos de login
-userSchema.methods.incLoginAttempts = function() {
+userSchema.methods.incLoginAttempts = function () {
     // Si ya está bloqueado y el tiempo de bloqueo ha expirado, resetear
     if (this.lockUntil && this.lockUntil < Date.now()) {
         return this.updateOne({
@@ -150,19 +161,19 @@ userSchema.methods.incLoginAttempts = function() {
             $set: { loginAttempts: 1 }
         });
     }
-    
+
     const updates = { $inc: { loginAttempts: 1 } };
-    
+
     // Bloquear cuenta si excede 5 intentos
     if (this.loginAttempts + 1 >= 5 && !this.isLocked()) {
         updates.$set = { lockUntil: Date.now() + 15 * 60 * 1000 }; // 15 minutos
     }
-    
+
     return this.updateOne(updates);
 };
 
 // Método para resetear intentos de login
-userSchema.methods.resetLoginAttempts = function() {
+userSchema.methods.resetLoginAttempts = function () {
     return this.updateOne({
         $unset: { loginAttempts: 1, lockUntil: 1 },
         $set: { lastLogin: new Date() }
@@ -170,17 +181,17 @@ userSchema.methods.resetLoginAttempts = function() {
 };
 
 // Middleware pre-save para validaciones adicionales
-userSchema.pre('save', function(next) {
+userSchema.pre('save', function (next) {
     // Asegurar que el email esté en minúsculas
     if (this.email) {
         this.email = this.email.toLowerCase();
     }
-    
+
     // Asegurar que el nombre esté correctamente formateado
     if (this.nombre) {
         this.nombre = this.nombre.trim();
     }
-    
+
     next();
 });
 

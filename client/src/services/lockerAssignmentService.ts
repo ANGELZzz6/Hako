@@ -72,7 +72,7 @@ class LockerAssignmentService {
 
       if (!response.ok) {
         if (response.status === 401) {
-          handle401();
+          handle401(response);
           throw new Error('No autorizado');
         }
         const errorData = await response.json();
@@ -97,7 +97,7 @@ class LockerAssignmentService {
 
       if (!response.ok) {
         if (response.status === 401) {
-          handle401();
+          handle401(response);
           throw new Error('No autorizado');
         }
         const errorData = await response.json();
@@ -126,7 +126,7 @@ class LockerAssignmentService {
 
       if (!response.ok) {
         if (response.status === 401) {
-          handle401();
+          handle401(response);
           throw new Error('No autorizado');
         }
         const errorData = await response.json();
@@ -152,7 +152,7 @@ class LockerAssignmentService {
 
       if (!response.ok) {
         if (response.status === 401) {
-          handle401();
+          handle401(response);
           throw new Error('No autorizado');
         }
         const errorData = await response.json();
@@ -178,7 +178,7 @@ class LockerAssignmentService {
 
       if (!response.ok) {
         if (response.status === 401) {
-          handle401();
+          handle401(response);
           throw new Error('No autorizado');
         }
         const errorData = await response.json();
@@ -203,7 +203,7 @@ class LockerAssignmentService {
 
       if (!response.ok) {
         if (response.status === 401) {
-          handle401();
+          handle401(response);
           throw new Error('No autorizado');
         }
         const errorData = await response.json();
@@ -236,7 +236,7 @@ class LockerAssignmentService {
 
       if (!response.ok) {
         if (response.status === 401) {
-          handle401();
+          handle401(response);
           throw new Error('No autorizado');
         }
         const errorData = await response.json();
@@ -262,7 +262,7 @@ class LockerAssignmentService {
 
       if (!response.ok) {
         if (response.status === 401) {
-          handle401();
+          handle401(response);
           throw new Error('No autorizado');
         }
         const errorData = await response.json();

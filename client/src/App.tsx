@@ -49,6 +49,7 @@ import AdminAppointmentsPage from './pages/AdminAppointmentsPage';
 import AdminSupportCompleteFlow from './pages/AdminSupportCompleteFlow';
 import AdminProductTestPage from './pages/AdminProductTestPage';
 import orderService from './services/orderService';
+import { showSuccessToast } from './utils/toast';
 
 // Importar fuente Montserrat
 import '@fontsource/montserrat/300.css';
@@ -67,7 +68,7 @@ const AppContent = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const location = useLocation();
   const navigate = useNavigate();
-  
+
   // Usar el contexto de autenticación
   const { currentUser, isAuthenticated, logout, isAdmin } = useAuth();
 
@@ -85,8 +86,8 @@ const AppContent = () => {
   useEffect(() => {
     const loadProducts = async () => {
       try {
-        const data = await productService.getAllProducts();
-        setProducts(data.filter((p: Product) => p.isActive));
+        const data = await productService.getProducts({ limit: 100 });
+        setProducts(data.products);
       } catch (error) {
         console.error('Error al cargar productos:', error);
       }
@@ -108,22 +109,22 @@ const AppContent = () => {
     // Verificar si viene de Mercado Pago (detectar por referrer o parámetros de URL)
     const referrer = document.referrer;
     const urlParams = new URLSearchParams(window.location.search);
-    
+
     console.log('Referrer:', referrer);
     console.log('URL Params:', Object.fromEntries(urlParams.entries()));
-    
+
     // Si hay parámetros de pago en la URL, redirigir a la página de resultado
-    if (urlParams.get('payment_id') || 
-        urlParams.get('collection_id') || 
-        urlParams.get('status') || 
-        urlParams.get('collection_status')) {
-      
+    if (urlParams.get('payment_id') ||
+      urlParams.get('collection_id') ||
+      urlParams.get('status') ||
+      urlParams.get('collection_status')) {
+
       console.log('Parámetros de pago detectados, redirigiendo a página de resultado');
       // Mantener los parámetros de URL al redirigir
       const currentUrl = window.location.href;
       const baseUrl = currentUrl.split('?')[0];
       const params = currentUrl.split('?')[1];
-      
+
       if (params) {
         navigate(`/payment-result?${params}`);
       } else {
@@ -131,13 +132,13 @@ const AppContent = () => {
       }
       return;
     }
-    
-    if (referrer.includes('mercadopago.com') || 
-        referrer.includes('mercadolibre.com') ||
-        urlParams.get('payment_status') === 'success' ||
-        urlParams.get('status') === 'success' ||
-        urlParams.get('collection_status') === 'approved') {
-      
+
+    if (referrer.includes('mercadopago.com') ||
+      referrer.includes('mercadolibre.com') ||
+      urlParams.get('payment_status') === 'success' ||
+      urlParams.get('status') === 'success' ||
+      urlParams.get('collection_status') === 'approved') {
+
       console.log('Pago exitoso detectado, mostrando página de confirmación');
       setShowPaymentSuccess(true);
       // Limpiar la URL
@@ -236,11 +237,11 @@ const AppContent = () => {
       if ((window as any).mp) {
         delete (window as any).mp;
       }
-      
+
       // Limpiar cualquier script del SDK
       const scripts = document.querySelectorAll('script[src*="mercadopago"]');
       scripts.forEach(script => script.remove());
-      
+
       // Limpiar cualquier contenedor de formularios
       const containers = document.querySelectorAll('#cardFormContainer, #moneyFormContainer');
       containers.forEach(container => {
@@ -248,7 +249,7 @@ const AppContent = () => {
           container.innerHTML = '';
         }
       });
-      
+
       // Limpiar cualquier elemento con clase de Mercado Pago
       const mpElements = document.querySelectorAll('[class*="mercadopago"], [class*="mp-"]');
       mpElements.forEach(element => {
@@ -256,7 +257,7 @@ const AppContent = () => {
           element.parentNode.removeChild(element);
         }
       });
-      
+
       // Limpiar cualquier iframe de Mercado Pago
       const iframes = document.querySelectorAll('iframe[src*="mercadopago"]');
       iframes.forEach(iframe => {
@@ -264,11 +265,11 @@ const AppContent = () => {
           iframe.parentNode.removeChild(iframe);
         }
       });
-      
+
       // Limpiar localStorage relacionado con pagos
       localStorage.removeItem('payment_auto_reload');
       localStorage.removeItem('mp_');
-      
+
       console.log('Estado de pago limpiado exitosamente');
     } catch (error) {
       console.error('Error al limpiar estado de pago:', error);
@@ -301,30 +302,10 @@ const AppContent = () => {
     try {
       await cartService.addToCart(productId, 1);
       await refreshCart(); // Actualiza el carrito global
-      
+
       // Mostrar toast de éxito
-      const toast = document.createElement('div');
-      toast.className = 'toast-success';
-      toast.innerHTML = `
-        <div style="
-          position: fixed; top: 20px; right: 20px; 
-          background: #28a745; color: white; padding: 1rem 1.5rem; 
-          border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-          z-index: 10000; animation: slideInRight 0.3s ease;
-          display: flex; align-items: center; gap: 0.5rem;
-        ">
-          <i class="bi bi-check-circle-fill"></i>
-          ¡Producto agregado al box! 🎉
-        </div>
-      `;
-      document.body.appendChild(toast);
-      
-      // Remover toast después de 3 segundos
-      setTimeout(() => {
-        toast.style.animation = 'slideOutRight 0.3s ease';
-        setTimeout(() => document.body.removeChild(toast), 300);
-      }, 3000);
-      
+      showSuccessToast('¡Producto agregado al box! 🎉');
+
     } catch (error) {
       console.error('Error al agregar al box:', error);
       alert('Error al agregar al box. Intenta de nuevo.');
@@ -374,11 +355,11 @@ const AppContent = () => {
               {/* Columna del Video */}
               <div className="col-md-6">
                 <div className="ratio ratio-16x9">
-                  <video 
+                  <video
                     ref={videoRef}
                     className="rounded shadow"
-                    autoPlay 
-                    muted 
+                    autoPlay
+                    muted
                     playsInline
                     onEnded={handleVideoEnd}
                   >
@@ -448,7 +429,7 @@ const AppContent = () => {
                   </div>
                 </div>
                 <div className="d-flex gap-3 justify-content-center justify-content-md-start mt-4">
-                  <button 
+                  <button
                     onClick={handleOpenGoogleMaps}
                     className="btn btn-danger btn-lg">
                     <i className="bi bi-geo-alt me-2"></i>Consultar zona
@@ -458,7 +439,7 @@ const AppContent = () => {
               {/* Columna de la Imagen (Ahora a la derecha) */}
               <div className="col-md-6">
                 <div className="delivery-image-container">
-                  <img 
+                  <img
                     src={ubicacion}
                     alt="Servicio de envíos"
                     className="img-fluid rounded shadow fade-in"
@@ -473,7 +454,7 @@ const AppContent = () => {
         <section className="hero-section hero-section-productos" id="productos">
           <div className="container">
             <h2>Productos Destacados</h2>
-            <Carousel 
+            <Carousel
               className="productos-carousel"
               indicators={true}
               controls={true}
@@ -485,9 +466,9 @@ const AppContent = () => {
                       {group.map((product) => (
                         <div className="col-6 col-md-3" key={product._id}>
                           <div className="card" style={{ cursor: 'pointer' }} onClick={() => handleProductClick(product._id)}>
-                            <img 
+                            <img
                               src={product.imagen_url}
-                              className="card-img-top" 
+                              className="card-img-top"
                               alt={product.nombre}
                               onError={(e) => {
                                 e.currentTarget.src = 'https://via.placeholder.com/300x200?text=Sin+Imagen';
@@ -497,9 +478,9 @@ const AppContent = () => {
                               <h5 className="card-title">{product.nombre}</h5>
                               <p className="card-text">{product.descripcion}</p>
                               <div className="price-tag">
-                                {product.precio.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 })} <span style={{fontSize: '0.9em', fontWeight: 400}}>COP</span>
+                                {product.precio.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 })} <span style={{ fontSize: '0.9em', fontWeight: 400 }}>COP</span>
                               </div>
-                              <button 
+                              <button
                                 className="btn btn-danger mt-auto"
                                 style={{ pointerEvents: 'none', opacity: 0.85 }}
                               >
@@ -537,8 +518,8 @@ const AppContent = () => {
       {showNavbar && (
         <nav className="navbar navbar-expand-lg navbar-light bg-light sticky-top">
           <div className="container">
-            <a 
-              className="navbar-brand d-flex align-items-center" 
+            <a
+              className="navbar-brand d-flex align-items-center"
               href="/"
               onClick={(e) => {
                 e.preventDefault();
@@ -548,9 +529,9 @@ const AppContent = () => {
             >
               <span>箱</span><span className="brand-text">hako</span>
             </a>
-            <button 
-              className="navbar-toggler" 
-              type="button" 
+            <button
+              className="navbar-toggler"
+              type="button"
               onClick={handleNavCollapse}
               aria-expanded={!isNavCollapsed}
             >
@@ -559,8 +540,8 @@ const AppContent = () => {
             <div className={`${isNavCollapsed ? 'collapse' : ''} navbar-collapse`}>
               <ul className="navbar-nav me-auto">
                 <li className="nav-item">
-                  <a 
-                    className="nav-link" 
+                  <a
+                    className="nav-link"
                     href="/"
                     onClick={(e) => {
                       e.preventDefault();
@@ -602,7 +583,7 @@ const AppContent = () => {
                       <i className="bi bi-clipboard-check me-1"></i>
                       Mi Pedido
                     </Link>
-                    <button 
+                    <button
                       className="btn btn-danger"
                       onClick={handleLogout}
                     >
@@ -641,20 +622,20 @@ const AppContent = () => {
         } />
 
         <Route path="/payment-success" element={
-  <ProtectedRoute>
-    <PaymentSuccessPage />
-  </ProtectedRoute>
-} />
+          <ProtectedRoute>
+            <PaymentSuccessPage />
+          </ProtectedRoute>
+        } />
         <Route path="/payment-result" element={
-  <ProtectedRoute>
-    <PaymentResultPage />
-  </ProtectedRoute>
-} />
+          <ProtectedRoute>
+            <PaymentResultPage />
+          </ProtectedRoute>
+        } />
         <Route path="/payment-test" element={
-  <ProtectedRoute>
-    <PaymentTestPage />
-  </ProtectedRoute>
-} />
+          <ProtectedRoute>
+            <PaymentTestPage />
+          </ProtectedRoute>
+        } />
         <Route path="/admin" element={
           <ProtectedRoute requireAdmin>
             <AdminDashboard />
@@ -700,7 +681,7 @@ const AppContent = () => {
         <Route path="/payment-pending" element={<PaymentPendingPage />} />
         <Route path="/checkout" element={<ProtectedRoute><CheckoutPage /></ProtectedRoute>} />
         <Route path="/mis-pedidos" element={<ProtectedRoute><OrdersPage /></ProtectedRoute>} />
-        
+
       </Routes>
 
       {/* Footer */}
@@ -736,7 +717,7 @@ const AppContent = () => {
           </div>
           <hr className="my-4" />
           <div className="text-center text-muted">
-            <small>&copy; {new Date().getFullYear()} Mi Tienda. Todos los derechos reservados.</small>
+            <small>&copy; {new Date().getFullYear()} Hako. Todos los derechos reservados.</small>
           </div>
         </div>
       </footer>

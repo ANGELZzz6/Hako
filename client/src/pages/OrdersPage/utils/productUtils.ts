@@ -17,35 +17,35 @@ export const getDimensiones = (item: any) => {
     console.log('✅ Usando dimensiones propias del item:', item.dimensiones);
     return item.dimensiones;
   }
-  
+
   // Si el item tiene variantes seleccionadas y el producto tiene variantes, intentar calcular dimensiones de la variante
   if (item.variants && item.product?.variants?.enabled && item.product.variants.attributes) {
     console.log('🔍 Procesando variantes para dimensiones');
-    
+
     // Buscar atributos que definen dimensiones
     const dimensionAttributes = item.product.variants.attributes.filter((a: any) => a.definesDimensions);
     console.log('📏 Atributos que definen dimensiones:', dimensionAttributes);
-    
+
     // Si hay múltiples atributos que definen dimensiones, usar el primero que tenga dimensiones válidas
     for (const attr of dimensionAttributes) {
       const selectedValue = item.variants[attr.name];
       console.log(`🔍 Atributo ${attr.name}, valor seleccionado:`, selectedValue);
-      
+
       if (selectedValue) {
         const option = attr.options.find((opt: any) => opt.value === selectedValue);
         console.log(`🔍 Opción encontrada para ${attr.name}:`, option);
-        
-        if (option && option.dimensiones && 
-            option.dimensiones.largo && 
-            option.dimensiones.ancho && 
-            option.dimensiones.alto) {
+
+        if (option && option.dimensiones &&
+          option.dimensiones.largo &&
+          option.dimensiones.ancho &&
+          option.dimensiones.alto) {
           console.log('✅ Usando dimensiones de la variante:', option.dimensiones);
           return option.dimensiones;
         }
       }
     }
   }
-  
+
   // Si no, usar dimensiones del producto base
   console.log('⚠️ Usando dimensiones del producto base:', item.product?.dimensiones);
   return item.product?.dimensiones;
@@ -84,13 +84,13 @@ export const getLockerUsagePercentage = (lockerNumber: number, lockerAssignments
 };
 
 export const getAvailableLockersForEdit = (
-  date: string, 
-  timeSlot: string, 
-  appointmentId: string, 
+  date: string,
+  timeSlot: string,
+  appointmentId: string,
   myAppointments: any[]
 ) => {
   const allLockers = Array.from({ length: 12 }, (_, i) => i + 1);
-  
+
   // Si no hay fecha o hora seleccionada, mostrar todos los casilleros
   if (!date || !timeSlot) {
     return allLockers;
@@ -101,32 +101,31 @@ export const getAvailableLockersForEdit = (
 
   // Obtener casilleros ocupados por el usuario en la fecha y hora seleccionada
   const occupiedLockers = new Set<number>();
-  
+
   myAppointments.forEach(appointment => {
     // Excluir la reserva actual que se está editando
     if (appointment._id === appointmentId) {
       console.log('⏭️ Excluyendo reserva actual:', appointment._id);
       return;
     }
-    
+
     // Solo considerar reservas activas para la misma fecha y hora
     if (appointment.status === 'scheduled' || appointment.status === 'confirmed') {
       // Usar la función createLocalDate para comparar fechas correctamente
-      const appointmentDateTime = new Date(appointment.scheduledDate);
-      const year = appointmentDateTime.getFullYear();
-      const month = String(appointmentDateTime.getMonth() + 1).padStart(2, '0');
-      const day = String(appointmentDateTime.getDate()).padStart(2, '0');
-      const appointmentDateLocal = `${year}-${month}-${day}`;
-      
+      const dateOnly = appointment.scheduledDate.includes('T')
+        ? appointment.scheduledDate.split('T')[0]
+        : appointment.scheduledDate;
+      const appointmentDateLocal = dateOnly;
+
       console.log('🔍 Comparando reserva:', appointment._id);
       console.log('   Fecha original de la reserva:', appointment.scheduledDate);
       console.log('   Fecha de la reserva (local):', appointmentDateLocal);
-      console.log('   Fecha mostrada de la reserva:', appointmentDateTime.toLocaleDateString('es-CO'));
+      console.log('   Fecha mostrada de la reserva:', appointmentDateLocal);
       console.log('   Hora de la reserva:', appointment.timeSlot);
       console.log('   Fecha seleccionada:', date);
       console.log('   Hora seleccionada:', timeSlot);
       console.log('   ¿Coinciden fecha y hora?', appointmentDateLocal === date && appointment.timeSlot === timeSlot);
-      
+
       if (appointmentDateLocal === date && appointment.timeSlot === timeSlot) {
         console.log('❌ Casillero ocupado por reserva:', appointment._id);
         // Agregar todos los casilleros usados en esta reserva
@@ -139,10 +138,10 @@ export const getAvailableLockersForEdit = (
   });
 
   console.log('🔒 Casilleros ocupados encontrados:', Array.from(occupiedLockers));
-  
+
   // Retornar solo los casilleros que no están ocupados
   const availableLockers = allLockers.filter(locker => !occupiedLockers.has(locker));
   console.log('✅ Casilleros disponibles:', availableLockers);
-  
+
   return availableLockers;
 }; 

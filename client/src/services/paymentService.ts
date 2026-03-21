@@ -45,16 +45,15 @@ export interface PaymentStatusResponse {
 const paymentService = {
   // Crear preferencia de pago (Checkout Pro)
   async createPreference(
-    items: MPItem[], 
-    payer: MPPayer, 
+    items: MPItem[],
+    payer: MPPayer,
     externalReference?: string,
-    userId?: string,
     selectedItems?: MPItem[]
   ): Promise<PreferenceResponse> {
     const token = authService.getToken();
     const response = await fetch(`${API_URL}/payment/create_preference`, {
       method: 'POST',
-      headers: { 
+      headers: {
         'Content-Type': 'application/json',
         ...(token ? { 'Authorization': `Bearer ${token}` } : {})
       },
@@ -62,7 +61,6 @@ const paymentService = {
         items,
         payer,
         external_reference: externalReference,
-        user_id: userId,
         selected_items: selectedItems || items
       })
     });

@@ -18,29 +18,31 @@ router.post('/:id/reviews', auth, productController.addOrEditReview);
 router.put('/:id/reviews', auth, productController.addOrEditReview);
 router.delete('/:id/reviews', auth, productController.deleteReview);
 
+const adminAuth = require('../middleware/adminAuth');
+
 // Rutas de administración
-router.get('/admin/all', productController.getAllProductsAdmin);
-router.post('/admin', productController.createProduct);
-router.put('/admin/:id', productController.updateProduct);
-router.delete('/admin/:id', productController.deleteProduct);
-router.patch('/admin/:id/toggle-status', productController.toggleProductStatus);
-router.patch('/admin/:id/destacado', productController.toggleDestacado);
-router.patch('/admin/:id/oferta', productController.toggleOferta);
+router.get('/admin/all', auth, adminAuth, productController.getAllProductsAdmin);
+router.post('/admin', auth, adminAuth, productController.createProduct);
+router.put('/admin/:id', auth, adminAuth, productController.updateProduct);
+router.delete('/admin/:id', auth, adminAuth, productController.deleteProduct);
+router.patch('/admin/:id/toggle-status', auth, adminAuth, productController.toggleProductStatus);
+router.patch('/admin/:id/destacado', auth, adminAuth, productController.toggleDestacado);
+router.patch('/admin/:id/oferta', auth, adminAuth, productController.toggleOferta);
 
 // Obtener todas las categorías distintas
-router.get('/admin/categorias', productController.getAllCategories);
+router.get('/admin/categorias', auth, adminAuth, productController.getAllCategories);
 
 // Obtener productos por categoría
-router.get('/admin/categorias/:categoria/productos', productController.getProductsByCategory);
+router.get('/admin/categorias/:categoria/productos', auth, adminAuth, productController.getProductsByCategory);
 
 // Subida de imágenes de producto (admin)
-router.post('/admin/upload-image', productController.uploadProductImage);
+router.post('/admin/upload-image', auth, adminAuth, productController.uploadProductImage);
+
+// Obtener IndividualProduct con dimensiones calculadas (ANTES de /:id)
+router.get('/individual/:id', auth, productController.getIndividualProductWithDimensions);
 
 // Ruta de producto por ID (debe ir al final)
 router.get('/:id', productController.getProductById);
-
-// Obtener IndividualProduct con dimensiones calculadas
-router.get('/individual/:id', productController.getIndividualProductWithDimensions);
 
 // Limitar a 3 sugerencias cada 10 minutos por usuario
 const sugerenciaLimiter = rateLimit({
@@ -54,9 +56,9 @@ const sugerenciaLimiter = rateLimit({
 router.post('/sugerencias', auth, sugerenciaLimiter, productController.createSuggestion);
 
 // Obtener todas las sugerencias (admin)
-router.get('/admin/sugerencias', auth, productController.getAllSuggestions);
+router.get('/admin/sugerencias', auth, adminAuth, productController.getAllSuggestions);
 
-// Eliminar una sugerencia (protegido)
-router.delete('/admin/sugerencias/:id', auth, productController.deleteSuggestion);
+// Eliminar una sugerencia (admin)
+router.delete('/admin/sugerencias/:id', auth, adminAuth, productController.deleteSuggestion);
 
 module.exports = router;

@@ -1,18 +1,20 @@
-import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import MercadoPagoCheckout from '../components/MercadoPagoCheckout';
 import './CheckoutPage.css';
 import { useAuth } from '../contexts/AuthContext';
+import React, { useEffect } from 'react';
 
 const CheckoutPage: React.FC = () => {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
 
-  // Verificar autenticación
-  if (!currentUser) {
-    navigate('/login');
-    return null;
-  }
+  useEffect(() => {
+    if (!currentUser) {
+      navigate('/login');
+    }
+  }, [currentUser, navigate]);
+
+  if (!currentUser) return null;
 
   const handlePaymentSuccess = (paymentData: any) => {
     console.log('Pago exitoso:', paymentData);
@@ -29,8 +31,8 @@ const CheckoutPage: React.FC = () => {
       <div className="row">
         <div className="col-12">
           <h2 className="mb-4">Checkout - Mercado Pago</h2>
-          
-          <MercadoPagoCheckout 
+
+          <MercadoPagoCheckout
             onSuccess={handlePaymentSuccess}
             onError={handlePaymentError}
           />

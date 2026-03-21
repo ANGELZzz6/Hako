@@ -7,26 +7,27 @@ import { useMobileViewport } from '../hooks/useMobileViewport';
 import './ProductDetail.css';
 import ProductVariantModal from '../components/ProductVariantModal';
 import { useCart } from '../contexts/CartContext';
+import { showSuccessToast } from '../utils/toast';
 
 const estrellas = (valor: number) => (
   <span className="stars">
-    {[1,2,3,4,5].map(i => (
-      <i key={i} className={`bi ${valor >= i ? 'bi-star-fill' : valor >= i-0.5 ? 'bi-star-half' : 'bi-star'}`} style={{marginRight: '2px'}}></i>
+    {[1, 2, 3, 4, 5].map(i => (
+      <i key={i} className={`bi ${valor >= i ? 'bi-star-fill' : valor >= i - 0.5 ? 'bi-star-half' : 'bi-star'}`} style={{ marginRight: '2px' }}></i>
     ))}
   </span>
 );
 
 const StarSelector: React.FC<{ value: number; onChange: (v: number) => void }> = ({ value, onChange }) => (
   <div className="star-selector">
-    {[1,2,3,4,5].map(i => (
+    {[1, 2, 3, 4, 5].map(i => (
       <i
         key={i}
-        className={`bi ${value >= i ? 'bi-star-fill' : value >= i-0.5 ? 'bi-star-half' : 'bi-star'}`}
+        className={`bi ${value >= i ? 'bi-star-fill' : value >= i - 0.5 ? 'bi-star-half' : 'bi-star'}`}
         style={{ color: '#f7b731', fontSize: '1.5em', cursor: 'pointer', marginRight: 2 }}
         onClick={() => onChange(i)}
         onMouseOver={e => (e.currentTarget.style.color = '#d32f2f')}
         onMouseOut={e => (e.currentTarget.style.color = '#f7b731')}
-        title={`${i} estrella${i>1?'s':''}`}
+        title={`${i} estrella${i > 1 ? 's' : ''}`}
       />
     ))}
   </div>
@@ -108,7 +109,7 @@ const ReseñasPopup: React.FC<{
             <span className="fw-bold">Media de usuarios: </span>
             {estrellas(avg)} <span className="ms-2">{avg.toFixed(1)}</span>
             <br />
-            <span className="text-muted ms-2 reviews-count">({reviews.length} reseña{reviews.length!==1?'s':''})</span>
+            <span className="text-muted ms-2 reviews-count">({reviews.length} reseña{reviews.length !== 1 ? 's' : ''})</span>
           </div>
           {isAuthenticated ? (
             <div className="mb-4">
@@ -174,7 +175,7 @@ const ReseñasPopup: React.FC<{
                   </div>
                   <div className="d-flex justify-content-between align-items-center">
                     <div className="review-comment">{r.comentario}</div>
-                    <span className="text-muted review-date" style={{fontSize:'0.9em', whiteSpace: 'nowrap'}}>{new Date(r.fecha).toLocaleDateString()}</span>
+                    <span className="text-muted review-date" style={{ fontSize: '0.9em', whiteSpace: 'nowrap' }}>{new Date(r.fecha).toLocaleDateString()}</span>
                   </div>
                 </div>
               </div>
@@ -193,7 +194,7 @@ const ProductDetail: React.FC = () => {
   const [addingToBox, setAddingToBox] = useState(false);
   const [mainImg, setMainImg] = useState('');
   const [extraImgs, setExtraImgs] = useState<string[]>([]);
-  const [adminRating, setAdminRating] = useState(4.5); // ejemplo
+  const [adminRating, setAdminRating] = useState<number | null>(null);
   const [showReviews, setShowReviews] = useState(false);
   const [related, setRelated] = useState<Product[]>([]);
   const navigate = useNavigate();
@@ -213,7 +214,7 @@ const ProductDetail: React.FC = () => {
       setProduct(prod);
       setMainImg(prod.images && prod.images.length > 0 ? prod.images[0] : prod.imagen_url);
       setExtraImgs(prod.images && prod.images.length > 0 ? prod.images : [prod.imagen_url]);
-      setAdminRating(prod.adminRating ?? 0);
+      setAdminRating(prod.adminRating ?? null);
     } catch {
       setProduct(null);
     } finally {
@@ -234,7 +235,7 @@ const ProductDetail: React.FC = () => {
       try {
         const res = await productService.getProducts({ limit: 6 });
         setRelated(res.products.filter(p => p._id !== id));
-      } catch {}
+      } catch { }
     };
     fetchRelated();
   }, [id]);
@@ -250,7 +251,7 @@ const ProductDetail: React.FC = () => {
     if (!product) return;
     try {
       setAddingToBox(true);
-      
+
       // Si el producto tiene variantes, usar addToCartWithVariants, sino usar addToCart
       if (product.variants && product.variants.enabled) {
         await cartService.addToCartWithVariants({
@@ -261,29 +262,11 @@ const ProductDetail: React.FC = () => {
       } else {
         await cartService.addToCart(product._id, quantity);
       }
-      
+
       await refreshCart();
       setShowVariantModal(false);
       // Mostrar toast de éxito
-      const toast = document.createElement('div');
-      toast.className = 'toast-success';
-      toast.innerHTML = `
-        <div style="
-          position: fixed; top: 20px; right: 20px; 
-          background: #28a745; color: white; padding: 1rem 1.5rem; 
-          border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-          z-index: 10000; animation: slideInRight 0.3s ease;
-          display: flex; align-items: center; gap: 0.5rem;
-        ">
-          <i class="bi bi-check-circle-fill"></i>
-          ¡Producto agregado al box! 🎉
-        </div>
-      `;
-      document.body.appendChild(toast);
-      setTimeout(() => {
-        toast.style.animation = 'slideOutRight 0.3s ease';
-        setTimeout(() => document.body.removeChild(toast), 3000);
-      }, 3000);
+      showSuccessToast('¡Producto agregado al box! 🎉');
     } catch (error) {
       console.error('Error al agregar al box con variantes:', error);
       alert('Error al agregar al box. Intenta de nuevo.');
@@ -294,22 +277,22 @@ const ProductDetail: React.FC = () => {
 
   if (loading) return (
     <div className="container py-5 text-center">
-      <div className="d-flex flex-column align-items-center justify-content-center" style={{minHeight: '50vh'}}>
-        <div className="spinner-border text-primary mb-3" style={{width: '3rem', height: '3rem'}} role="status">
+      <div className="d-flex flex-column align-items-center justify-content-center" style={{ minHeight: '50vh' }}>
+        <div className="spinner-border text-primary mb-3" style={{ width: '3rem', height: '3rem' }} role="status">
           <span className="visually-hidden">Cargando...</span>
         </div>
         <h5 className="text-muted">Cargando producto...</h5>
-        <div className="progress mt-3" style={{width: '200px'}}>
-          <div className="progress-bar progress-bar-striped progress-bar-animated" style={{width: '100%'}}></div>
+        <div className="progress mt-3" style={{ width: '200px' }}>
+          <div className="progress-bar progress-bar-striped progress-bar-animated" style={{ width: '100%' }}></div>
         </div>
       </div>
     </div>
   );
   if (!product) return (
     <div className="container py-5 text-center">
-      <div className="d-flex flex-column align-items-center justify-content-center" style={{minHeight: '50vh'}}>
+      <div className="d-flex flex-column align-items-center justify-content-center" style={{ minHeight: '50vh' }}>
         <div className="mb-4">
-          <i className="bi bi-exclamation-triangle text-warning" style={{fontSize: '4rem'}}></i>
+          <i className="bi bi-exclamation-triangle text-warning" style={{ fontSize: '4rem' }}></i>
         </div>
         <h3 className="mb-3">Producto no encontrado</h3>
         <p className="text-muted mb-4">El producto que buscas no existe o ha sido removido.</p>
@@ -325,7 +308,7 @@ const ProductDetail: React.FC = () => {
       <div className="container py-5 product-detail-container">
         {/* Flecha para regresar */}
         <div className="mb-4">
-          <button 
+          <button
             className="btn btn-outline-secondary"
             onClick={() => navigate('/productos')}
           >
@@ -333,28 +316,28 @@ const ProductDetail: React.FC = () => {
             Volver a Productos
           </button>
         </div>
-        
+
         <div className="row g-4">
           {/* Imágenes */}
           <div className="col-md-6">
-            <div className="main-img-container mb-3" style={{position: 'relative'}}>
+            <div className="main-img-container mb-3" style={{ position: 'relative' }}>
               {/* Cinta de oferta */}
               {product.isOferta && (
-                <div className="oferta-ribbon" style={{top: 10, left: -10, position: 'absolute'}}>
+                <div className="oferta-ribbon" style={{ top: 10, left: -10, position: 'absolute' }}>
                   <i className="bi bi-tag-fill me-1"></i>¡Oferta!
                 </div>
               )}
               {/* Cinta de destacado */}
               {product.isDestacado && (
-                <div className="destacado-ribbon" style={{top: 50, left: -10, position: 'absolute', background: '#ffd600', color: '#333'}}>
+                <div className="destacado-ribbon" style={{ top: 50, left: -10, position: 'absolute', background: '#ffd600', color: '#333' }}>
                   <i className="bi bi-star-fill me-1"></i>Destacado
                 </div>
               )}
-              <img src={mainImg} alt={product.nombre} className="main-img img-fluid rounded shadow" onError={e => {e.currentTarget.src='https://via.placeholder.com/400x300?text=Sin+Imagen'}} />
+              <img src={mainImg} alt={product.nombre} className="main-img img-fluid rounded shadow" onError={e => { e.currentTarget.src = 'https://via.placeholder.com/400x300?text=Sin+Imagen' }} />
             </div>
             <div className="extra-imgs d-flex gap-2">
               {extraImgs.map((img, idx) => (
-                <img key={idx} src={img} alt={`Extra ${idx+1}`} className={`extra-img rounded ${mainImg===img ? 'selected' : ''}`} style={{width: 64, height: 48, objectFit: 'cover', cursor: 'pointer', border: mainImg===img?'2px solid #d32f2f':'1px solid #ccc'}} onClick={()=>setMainImg(img)} />
+                <img key={idx} src={img} alt={`Extra ${idx + 1}`} className={`extra-img rounded ${mainImg === img ? 'selected' : ''}`} style={{ width: 64, height: 48, objectFit: 'cover', cursor: 'pointer', border: mainImg === img ? '2px solid #d32f2f' : '1px solid #ccc' }} onClick={() => setMainImg(img)} />
               ))}
             </div>
           </div>
@@ -363,7 +346,7 @@ const ProductDetail: React.FC = () => {
             <h2 className="mb-2 product-title">{product.nombre}</h2>
             <div className="d-flex align-items-center mb-2">
               <span className="badge bg-success me-2">Producto comprobado por Hako ✅</span>
-              {estrellas(adminRating)}
+              {adminRating !== null && estrellas(adminRating)}
             </div>
             <button className="btn btn-outline-secondary reviews-btn mb-3" onClick={() => setShowReviews(true)}>
               <i className="bi bi-chat-left-text me-2"></i>Ver reseñas
@@ -371,7 +354,7 @@ const ProductDetail: React.FC = () => {
             <p className="mb-3 product-description">{product.descripcion || 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque euismod, nisi eu consectetur.'}</p>
             <div className="price mb-4">
               <span className="fs-3 fw-bold text-primary">
-                {product.precio.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })} <span style={{fontSize: '1rem', fontWeight: 400}}>COP</span>
+                {product.precio.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })} <span style={{ fontSize: '1rem', fontWeight: 400 }}>COP</span>
               </span>
             </div>
             <div className="secure-section mb-4">
@@ -379,12 +362,12 @@ const ProductDetail: React.FC = () => {
               <ul className="list-unstyled mb-2">
                 <li><i className="bi bi-shield-lock text-primary me-2"></i>Datos personales seguros</li>
                 <li><i className="bi bi-credit-card-2-front text-primary me-2"></i>Pagos seguros</li>
-                <li style={{color:'#2ecc40'}}><i className="bi bi-arrow-repeat me-2"></i>Reembolso por artículo defectuoso</li>
+                <li style={{ color: '#2ecc40' }}><i className="bi bi-arrow-repeat me-2"></i>Reembolso por artículo defectuoso</li>
               </ul>
             </div>
-            <button 
-              className="btn btn-lg btn-danger w-100 mt-3" 
-              disabled={addingToBox || product.stock === 0} 
+            <button
+              className="btn btn-lg btn-danger w-100 mt-3"
+              disabled={addingToBox || product.stock === 0}
               onClick={handleAddToBox}
             >
               {addingToBox ? (
@@ -413,9 +396,9 @@ const ProductDetail: React.FC = () => {
             {related.map(p => (
               <div className="col-6 col-md-4 col-lg-2" key={p._id}>
                 <div className="card h-100 product-card" style={{ cursor: 'pointer' }} onClick={() => navigate(`/productos/${p._id}`)}>
-                  <img src={p.imagen_url} alt={p.nombre} className="card-img-top" style={{height:100,objectFit:'cover'}} onError={e => {e.currentTarget.src='https://via.placeholder.com/100x100?text=Sin+Imagen'}} />
+                  <img src={p.imagen_url} alt={p.nombre} className="card-img-top" style={{ height: 100, objectFit: 'cover' }} onError={e => { e.currentTarget.src = 'https://via.placeholder.com/100x100?text=Sin+Imagen' }} />
                   <div className="card-body p-2">
-                    <div className="card-title mb-1" style={{fontSize:'1rem'}}>{p.nombre}</div>
+                    <div className="card-title mb-1" style={{ fontSize: '1rem' }}>{p.nombre}</div>
                     <div className="price-tag">{p.precio.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</div>
                   </div>
                 </div>

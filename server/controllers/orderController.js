@@ -7,12 +7,12 @@ const mongoose = require('mongoose');
 exports.getMyOrders = async (req, res) => {
   try {
     // Buscar solo el pedido activo (no recogido) del usuario
-    const activeOrder = await Order.findOne({ 
+    const activeOrder = await Order.findOne({
       user: req.user.id,
       status: { $nin: ['picked_up', 'cancelled'] }
     })
-    .populate('items.product')
-    .sort({ createdAt: -1 });
+      .populate('items.product')
+      .sort({ createdAt: -1 });
 
     // Si no hay pedido activo, devolver array vacío
     if (!activeOrder) {
@@ -30,7 +30,7 @@ exports.getMyOrders = async (req, res) => {
 exports.getMyOrderHistory = async (req, res) => {
   try {
     // Solo pedidos que ya terminaron su flujo (recogidos o cancelados)
-    const orders = await Order.find({ 
+    const orders = await Order.find({
       user: req.user.id,
       status: { $in: ['picked_up', 'cancelled'] }
     })
@@ -47,9 +47,9 @@ exports.getMyOrderHistory = async (req, res) => {
 exports.getMyPurchasedProducts = async (req, res) => {
   try {
     console.log('🔍 Buscando productos individuales para usuario:', req.user.id);
-    
+
     // Obtener todos los productos individuales del usuario
-    const individualProducts = await IndividualProduct.find({ 
+    const individualProducts = await IndividualProduct.find({
       user: req.user.id,
       status: { $in: ['available', 'reserved', 'claimed'] }
     }).populate('product order');
@@ -60,23 +60,23 @@ exports.getMyPurchasedProducts = async (req, res) => {
     const allItems = individualProducts.map(individualProduct => {
       try {
         const product = individualProduct.product;
-        
+
         // Verificar que el producto existe
         if (!product) {
           console.log('⚠️ Producto no encontrado para individualProduct:', individualProduct._id);
           return null;
         }
-        
+
         // Usar los métodos del IndividualProduct para dimensiones y volumen
         const tieneDimensiones = individualProduct.tieneDimensiones();
         const volumen = individualProduct.getVolumen();
-        
+
         // Obtener dimensiones considerando variantes si existen
         let dimensiones = individualProduct.dimensiones;
         console.log('🔍 Procesando producto individual:', individualProduct._id);
         console.log('   - Variants:', individualProduct.variants);
         console.log('   - Dimensiones base:', individualProduct.dimensiones);
-        
+
         if (individualProduct.variants && individualProduct.variants.size > 0) {
           console.log('   - Tiene variantes, calculando dimensiones de variante...');
           const variantDimensiones = individualProduct.getVariantOrProductDimensions();
@@ -90,11 +90,11 @@ exports.getMyPurchasedProducts = async (req, res) => {
         } else {
           console.log('   - No tiene variantes, usando dimensiones base');
         }
-        
+
         // Agregar los campos calculados al producto
         product.tieneDimensiones = tieneDimensiones;
         product.volumen = volumen;
-        
+
         return {
           _id: individualProduct._id,
           product: product,
@@ -131,9 +131,9 @@ exports.getUserProducts = async (req, res) => {
   try {
     const { userId } = req.params;
     console.log('🔍 [ADMIN] Buscando productos individuales para usuario:', userId);
-    
+
     // Obtener todos los productos individuales del usuario especificado
-    const individualProducts = await IndividualProduct.find({ 
+    const individualProducts = await IndividualProduct.find({
       user: userId,
       status: { $in: ['available', 'reserved', 'claimed'] }
     }).populate('product order user');
@@ -144,23 +144,23 @@ exports.getUserProducts = async (req, res) => {
     const allItems = individualProducts.map(individualProduct => {
       try {
         const product = individualProduct.product;
-        
+
         // Verificar que el producto existe
         if (!product) {
           console.log('⚠️ [ADMIN] Producto no encontrado para individualProduct:', individualProduct._id);
           return null;
         }
-        
+
         // Usar los métodos del IndividualProduct para dimensiones y volumen
         const tieneDimensiones = individualProduct.tieneDimensiones();
         const volumen = individualProduct.getVolumen();
-        
+
         // Obtener dimensiones considerando variantes si existen
         let dimensiones = individualProduct.dimensiones;
         console.log('🔍 [ADMIN] Procesando producto individual:', individualProduct._id);
         console.log('   - Variants:', individualProduct.variants);
         console.log('   - Dimensiones base:', individualProduct.dimensiones);
-        
+
         if (individualProduct.variants && individualProduct.variants.size > 0) {
           console.log('   - Tiene variantes, calculando dimensiones de variante...');
           const variantDimensiones = individualProduct.getVariantOrProductDimensions();
@@ -174,11 +174,11 @@ exports.getUserProducts = async (req, res) => {
         } else {
           console.log('   - No tiene variantes, usando dimensiones base');
         }
-        
+
         // Agregar los campos calculados al producto
         product.tieneDimensiones = tieneDimensiones;
         product.volumen = volumen;
-        
+
         return {
           _id: individualProduct._id,
           product: product,
@@ -226,12 +226,12 @@ exports.claimProductsFromInventory = async (req, res) => {
       user: req.user.id,
       status: { $in: ['paid', 'ready_for_pickup'] }
     }).populate('items.product');
-    
+
     const ordersMap = new Map(orders.map(o => [o._id.toString(), o]));
 
     for (const selection of selectedItems) {
       const { itemIndex, quantity, lockerNumber, orderId } = selection;
-      
+
       const order = ordersMap.get(orderId.toString());
 
       if (!order) {
@@ -246,7 +246,7 @@ exports.claimProductsFromInventory = async (req, res) => {
 
       const item = order.items[itemIndex];
       const remainingQuantity = item.quantity - (item.claimed_quantity || 0);
-      
+
       if (quantity > remainingQuantity) {
         validationErrors.push(`Cantidad solicitada (${quantity}) excede la cantidad disponible (${remainingQuantity}) para ${item.product.nombre}`);
         continue;
@@ -259,11 +259,11 @@ exports.claimProductsFromInventory = async (req, res) => {
 
       // Validar dimensiones del producto (los métodos se pierden en populate)
       const product = item.product;
-      const tieneDimensiones = product.dimensiones && 
-                               product.dimensiones.largo && 
-                               product.dimensiones.ancho && 
-                               product.dimensiones.alto;
-      
+      const tieneDimensiones = product.dimensiones &&
+        product.dimensiones.largo &&
+        product.dimensiones.ancho &&
+        product.dimensiones.alto;
+
       if (!tieneDimensiones) {
         validationErrors.push(`El producto ${product.nombre} no tiene dimensiones configuradas`);
         continue;
@@ -276,7 +276,7 @@ exports.claimProductsFromInventory = async (req, res) => {
 
       // Verificar que el locker no exceda el límite (asumiendo 50x50x50 cm = 125,000 cm³)
       const LOCKER_MAX_VOLUME = 125000; // 50x50x50 cm
-      
+
       if (newTotalVolume > LOCKER_MAX_VOLUME) {
         validationErrors.push(`Los productos seleccionados para el casillero ${lockerNumber} exceden el espacio disponible`);
         continue;
@@ -286,9 +286,9 @@ exports.claimProductsFromInventory = async (req, res) => {
     }
 
     if (validationErrors.length > 0) {
-      return res.status(400).json({ 
-        error: 'Errores de validación', 
-        details: validationErrors 
+      return res.status(400).json({
+        error: 'Errores de validación',
+        details: validationErrors
       });
     }
 
@@ -309,18 +309,18 @@ exports.claimProductsFromInventory = async (req, res) => {
     }, []);
 
     if (occupiedLockers.length > 0) {
-      return res.status(400).json({ 
-        error: 'Los siguientes casilleros están ocupados', 
+      return res.status(400).json({
+        error: 'Los siguientes casilleros están ocupados',
         occupiedLockers: [...new Set(occupiedLockers)]
       });
     }
 
     // Aplicar las reclamaciones
     const ordersToSave = new Set();
-    
+
     for (const selection of selectedItems) {
       const { itemIndex, quantity, lockerNumber, orderId } = selection;
-      
+
       const order = ordersMap.get(orderId.toString());
       if (!order) continue;
 
@@ -361,10 +361,10 @@ exports.claimIndividualProducts = async (req, res) => {
 
     for (const selection of selectedItems) {
       const { individualProductId, lockerNumber } = selection;
-      
+
       // Obtener el producto individual y validar
-      const individualProduct = await IndividualProduct.findOne({ 
-        _id: individualProductId, 
+      const individualProduct = await IndividualProduct.findOne({
+        _id: individualProductId,
         user: req.user.id,
         status: 'available'
       }).populate('product');
@@ -387,7 +387,7 @@ exports.claimIndividualProducts = async (req, res) => {
 
       // Verificar que el locker no exceda el límite (asumiendo 50x50x50 cm = 125,000 cm³)
       const LOCKER_MAX_VOLUME = 125000; // 50x50x50 cm
-      
+
       if (newTotalVolume > LOCKER_MAX_VOLUME) {
         validationErrors.push(`Los productos seleccionados para el casillero ${lockerNumber} exceden el espacio disponible`);
         continue;
@@ -397,9 +397,9 @@ exports.claimIndividualProducts = async (req, res) => {
     }
 
     if (validationErrors.length > 0) {
-      return res.status(400).json({ 
-        error: 'Errores de validación', 
-        details: validationErrors 
+      return res.status(400).json({
+        error: 'Errores de validación',
+        details: validationErrors
       });
     }
 
@@ -414,8 +414,8 @@ exports.claimIndividualProducts = async (req, res) => {
     const occupiedLockers = occupiedProducts.map(product => product.assignedLocker);
 
     if (occupiedLockers.length > 0) {
-      return res.status(400).json({ 
-        error: 'Los siguientes casilleros están ocupados por otros usuarios', 
+      return res.status(400).json({
+        error: 'Los siguientes casilleros están ocupados por otros usuarios',
         occupiedLockers: [...new Set(occupiedLockers)]
       });
     }
@@ -423,11 +423,11 @@ exports.claimIndividualProducts = async (req, res) => {
     // Aplicar las reclamaciones
     const session = await mongoose.startSession();
     session.startTransaction();
-    
+
     try {
       for (const selection of selectedItems) {
         const { individualProductId, lockerNumber } = selection;
-        
+
         const individualProduct = await IndividualProduct.findById(individualProductId).session(session);
         if (!individualProduct) continue;
 
@@ -441,7 +441,7 @@ exports.claimIndividualProducts = async (req, res) => {
 
         await individualProduct.save({ session });
       }
-      
+
       await session.commitTransaction();
       session.endSession();
     } catch (transactionError) {
@@ -477,8 +477,8 @@ exports.selectLocker = async (req, res) => {
     }
 
     // Verificar que el pedido pertenece al usuario
-    const order = await Order.findOne({ 
-      _id: orderId, 
+    const order = await Order.findOne({
+      _id: orderId,
       user: req.user.id,
       status: { $nin: ['picked_up', 'cancelled'] }
     });
@@ -518,8 +518,8 @@ exports.markAsPickedUp = async (req, res) => {
     const { orderId } = req.params;
 
     // Verificar que el pedido pertenece al usuario
-    const order = await Order.findOne({ 
-      _id: orderId, 
+    const order = await Order.findOne({
+      _id: orderId,
       user: req.user.id,
       status: 'ready_for_pickup'
     });
@@ -589,7 +589,7 @@ exports.getAllOrders = async (req, res) => {
 exports.getAvailableLockers = async (req, res) => {
   try {
     if (req.user.role !== 'admin') return res.status(403).json({ error: 'Solo admin puede ver casilleros' });
-    
+
     // Obtener todos los casilleros ocupados (solo los que tienen número asignado y no están recogidos)
     const occupiedLockers = await Order.find({
       status: { $nin: ['picked_up', 'cancelled'] },
@@ -597,7 +597,7 @@ exports.getAvailableLockers = async (req, res) => {
     }).select('locker.number');
 
     const occupiedNumbers = occupiedLockers.map(order => order.locker.number);
-    
+
     // Generar lista de todos los casilleros (1-12)
     const allLockers = Array.from({ length: 12 }, (_, i) => i + 1);
     const availableLockers = allLockers.filter(num => !occupiedNumbers.includes(num));
@@ -619,8 +619,8 @@ exports.getAvailableProducts = async (req, res) => {
     const { orderId } = req.params;
 
     // Verificar que el pedido pertenece al usuario
-    const order = await Order.findOne({ 
-      _id: orderId, 
+    const order = await Order.findOne({
+      _id: orderId,
       user: req.user.id,
       status: { $in: ['paid', 'ready_for_pickup'] }
     }).populate('items.product');
@@ -631,7 +631,7 @@ exports.getAvailableProducts = async (req, res) => {
 
     // Obtener productos no reclamados
     const availableItems = order.items.filter(item => item.claimed_quantity < item.quantity);
-    
+
     // Calcular información adicional para cada item
     const itemsWithInfo = availableItems.map(item => ({
       ...item.toObject(),
@@ -661,8 +661,8 @@ exports.claimProducts = async (req, res) => {
     const { selectedItems } = req.body; // Array de { itemIndex, quantity, lockerNumber }
 
     // Verificar que el pedido pertenece al usuario
-    const order = await Order.findOne({ 
-      _id: orderId, 
+    const order = await Order.findOne({
+      _id: orderId,
       user: req.user.id,
       status: { $in: ['paid', 'ready_for_pickup'] }
     }).populate('items.product');
@@ -677,7 +677,7 @@ exports.claimProducts = async (req, res) => {
 
     for (const selection of selectedItems) {
       const { itemIndex, quantity, lockerNumber } = selection;
-      
+
       if (itemIndex < 0 || itemIndex >= order.items.length) {
         validationErrors.push(`Índice de item inválido: ${itemIndex}`);
         continue;
@@ -685,7 +685,7 @@ exports.claimProducts = async (req, res) => {
 
       const item = order.items[itemIndex];
       const remainingQuantity = item.quantity - item.claimed_quantity;
-      
+
       if (quantity > remainingQuantity) {
         validationErrors.push(`Cantidad solicitada (${quantity}) excede la cantidad disponible (${remainingQuantity}) para ${item.product.nombre}`);
         continue;
@@ -709,7 +709,7 @@ exports.claimProducts = async (req, res) => {
 
       // Verificar que el locker no exceda el límite (asumiendo 50x50x50 cm = 125,000 cm³)
       const LOCKER_MAX_VOLUME = 125000; // 50x50x50 cm
-      
+
       if (newTotalVolume > LOCKER_MAX_VOLUME) {
         validationErrors.push(`Los productos seleccionados para el casillero ${lockerNumber} exceden el espacio disponible`);
         continue;
@@ -719,9 +719,9 @@ exports.claimProducts = async (req, res) => {
     }
 
     if (validationErrors.length > 0) {
-      return res.status(400).json({ 
-        error: 'Errores de validación', 
-        details: validationErrors 
+      return res.status(400).json({
+        error: 'Errores de validación',
+        details: validationErrors
       });
     }
 
@@ -743,8 +743,8 @@ exports.claimProducts = async (req, res) => {
     }, []);
 
     if (occupiedLockers.length > 0) {
-      return res.status(400).json({ 
-        error: 'Los siguientes casilleros están ocupados', 
+      return res.status(400).json({
+        error: 'Los siguientes casilleros están ocupados',
         occupiedLockers: [...new Set(occupiedLockers)]
       });
     }
@@ -753,7 +753,7 @@ exports.claimProducts = async (req, res) => {
     for (const selection of selectedItems) {
       const { itemIndex, quantity, lockerNumber } = selection;
       const item = order.items[itemIndex];
-      
+
       item.claimed_quantity += quantity;
       item.assigned_locker = lockerNumber;
     }
@@ -785,7 +785,7 @@ exports.claimProducts = async (req, res) => {
 exports.getLockerStatus = async (req, res) => {
   try {
     if (req.user.role !== 'admin') return res.status(403).json({ error: 'Solo admin puede ver estado de casilleros' });
-    
+
     // Obtener todos los pedidos activos con casilleros asignados
     const activeOrders = await Order.find({
       status: { $nin: ['picked_up', 'cancelled'] },
@@ -796,7 +796,7 @@ exports.getLockerStatus = async (req, res) => {
     const lockerStatus = Array.from({ length: 12 }, (_, i) => {
       const lockerNumber = i + 1;
       const order = activeOrders.find(o => o.locker.number === lockerNumber);
-      
+
       return {
         number: lockerNumber,
         status: order ? 'occupied' : 'available',
@@ -827,7 +827,7 @@ exports.getLockerStatus = async (req, res) => {
 exports.releaseLocker = async (req, res) => {
   try {
     if (req.user.role !== 'admin') return res.status(403).json({ error: 'Solo admin puede liberar casilleros' });
-    
+
     const { orderId } = req.params;
 
     const order = await Order.findById(orderId);
@@ -847,9 +847,9 @@ exports.releaseLocker = async (req, res) => {
 
     console.log('✅ Casillero liberado manualmente por admin:', orderId);
 
-    res.json({ 
+    res.json({
       message: 'Casillero liberado exitosamente',
-      order 
+      order
     });
   } catch (error) {
     console.error('Error al liberar casillero:', error);
@@ -861,7 +861,7 @@ exports.releaseLocker = async (req, res) => {
 exports.deleteOrder = async (req, res) => {
   try {
     if (req.user.role !== 'admin') return res.status(403).json({ error: 'Solo admin puede borrar pedidos' });
-    
+
     const { id } = req.params;
 
     const order = await Order.findById(id);
@@ -878,7 +878,7 @@ exports.deleteOrder = async (req, res) => {
 
     console.log('✅ Pedido borrado por admin:', id);
 
-    res.json({ 
+    res.json({
       message: 'Pedido borrado exitosamente',
       deletedOrderId: id
     });
@@ -886,16 +886,16 @@ exports.deleteOrder = async (req, res) => {
     console.error('Error al borrar pedido:', error);
     res.status(500).json({ error: 'Error al borrar pedido' });
   }
-}; 
+};
 
 // Validar si un casillero puede recibir más productos usando Bin Packing 3D
 exports.validateLockerCapacity = async (req, res) => {
   try {
     const { lockerNumber, product } = req.body;
-    
+
     if (!lockerNumber || !product) {
-      return res.status(400).json({ 
-        error: 'Se requiere número de casillero y producto' 
+      return res.status(400).json({
+        error: 'Se requiere número de casillero y producto'
       });
     }
 
@@ -907,10 +907,10 @@ exports.validateLockerCapacity = async (req, res) => {
 
     // Usar Bin Packing para verificar si cabe el producto
     const result = binPackingService.canFitProduct(lockerNumber, orders, product);
-    
+
     // Obtener estadísticas del casillero
     const lockerStatus = binPackingService.calculateLockerStatus(lockerNumber, orders);
-    
+
     res.json({
       lockerNumber,
       currentVolume: lockerStatus.usedVolume,
@@ -948,14 +948,101 @@ exports.getSimpleLockerStats = async (req, res) => {
   }
 };
 
+// Cambiar estado de un producto individual (solo admin)
+exports.changeIndividualProductStatus = async (req, res) => {
+  try {
+    const { productId } = req.params;
+    const { newStatus, assignedLocker } = req.body;
+
+    const validStatuses = ['available', 'reserved', 'claimed', 'picked_up'];
+    if (!validStatuses.includes(newStatus)) {
+      return res.status(400).json({ error: `Estado inválido. Debe ser uno de: ${validStatuses.join(', ')}` });
+    }
+
+    const individualProduct = await IndividualProduct.findById(productId);
+    if (!individualProduct) {
+      return res.status(404).json({ error: 'Producto individual no encontrado' });
+    }
+
+    // Actualizar estado
+    const previousStatus = individualProduct.status;
+    individualProduct.status = newStatus;
+
+    // Actualizar fechas según el nuevo estado
+    if (newStatus === 'reserved') individualProduct.reservedAt = new Date();
+    if (newStatus === 'claimed') individualProduct.claimedAt = new Date();
+    if (newStatus === 'picked_up') individualProduct.pickedUpAt = new Date();
+    if (newStatus === 'available') {
+      individualProduct.reservedAt = undefined;
+      individualProduct.claimedAt = undefined;
+      individualProduct.pickedUpAt = undefined;
+      individualProduct.assignedLocker = undefined;
+    }
+
+    // Actualizar casillero si se provee
+    if (assignedLocker !== undefined) {
+      individualProduct.assignedLocker = assignedLocker || undefined;
+    }
+
+    await individualProduct.save();
+
+    console.log(`✅ [ADMIN] Estado cambiado: ${productId} ${previousStatus} → ${newStatus}`);
+
+    res.json({
+      message: `Estado actualizado de '${previousStatus}' a '${newStatus}'`,
+      product: individualProduct
+    });
+  } catch (error) {
+    console.error('❌ [ADMIN] Error al cambiar estado:', error);
+    res.status(500).json({ error: 'Error al cambiar estado del producto' });
+  }
+};
+
+// Obtener todos los productos individuales de todos los usuarios (solo admin)
+exports.getAllIndividualProducts = async (req, res) => {
+  try {
+    console.log('🔍 [ADMIN] Buscando todos los productos individuales...');
+
+    const individualProducts = await IndividualProduct.find({
+      status: { $in: ['available', 'reserved', 'claimed'] }
+    }).populate('product order user');
+
+    const allItems = individualProducts.map(ip => {
+      try {
+        if (!ip.product) return null;
+        return {
+          _id: ip._id,
+          product: ip.product,
+          status: ip.status,
+          assigned_locker: ip.assignedLocker,
+          unit_price: ip.unitPrice,
+          orderCreatedAt: ip.order?.createdAt,
+          orderId: ip.order?._id,
+          variants: ip.variants ? Object.fromEntries(ip.variants) : undefined,
+          dimensiones: ip.dimensiones,
+          user: ip.user
+        };
+      } catch (err) {
+        console.error('❌ Error procesando producto:', ip._id, err);
+        return null;
+      }
+    }).filter(item => item !== null);
+
+    console.log(`✅ [ADMIN] Total productos: ${allItems.length}`);
+    res.json(allItems);
+  } catch (error) {
+    console.error('❌ [ADMIN] Error al obtener todos los productos:', error);
+    res.status(500).json({ error: 'Error al obtener productos' });
+  }
+};
 // Encontrar el mejor casillero para un producto usando Bin Packing 3D
 exports.findBestLocker = async (req, res) => {
   try {
     const { product } = req.body;
-    
+
     if (!product) {
-      return res.status(400).json({ 
-        error: 'Se requiere el producto' 
+      return res.status(400).json({
+        error: 'Se requiere el producto'
       });
     }
 
@@ -974,4 +1061,3 @@ exports.findBestLocker = async (req, res) => {
   }
 };
 
- 

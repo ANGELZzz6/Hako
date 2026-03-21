@@ -31,25 +31,25 @@ interface Product3D {
 const AdminProductTestPage: React.FC = () => {
   const { isAuthenticated, isAdmin, isLoading } = useAuth();
   const navigate = useNavigate();
-  
+
   // Estados principales
   const [products, setProducts] = useState<Product[]>([]);
   const [testProducts, setTestProducts] = useState<TestProduct[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  
+
   // Estados para visualización 3D
-  const [locker3DData, setLocker3DData] = useState<any>(null);
-  
+  const [locker3DData, setLocker3DData] = useState<any[]>([]);
+
   // Estados para filtros y búsqueda
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [sortBy, setSortBy] = useState('nombre');
-  
+
   // Estados para límites
   const [maxSlots, setMaxSlots] = useState(27); // Límite de slots del casillero
   const [currentSlotsUsed, setCurrentSlotsUsed] = useState(0);
-  
+
   // Estados para selección de variantes
   const [selectedProductForVariants, setSelectedProductForVariants] = useState<Product | null>(null);
   const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
@@ -71,7 +71,7 @@ const AdminProductTestPage: React.FC = () => {
     if (testProducts.length > 0) {
       generate3DData();
     } else {
-      setLocker3DData(null);
+      setLocker3DData([]);
     }
   }, [testProducts]);
 
@@ -79,10 +79,10 @@ const AdminProductTestPage: React.FC = () => {
     try {
       setLoading(true);
       setError('');
-      
+
       console.log('🔍 Cargando productos para pruebas...');
       const productsData = await productService.getAllProducts();
-      
+
       console.log('🔍 Productos cargados:', productsData.length);
       setProducts(productsData);
     } catch (err: any) {
@@ -108,10 +108,10 @@ const AdminProductTestPage: React.FC = () => {
   const addProductToTest = async (product: Product, variants?: Record<string, string>) => {
     try {
       console.log('🔍 Agregando producto a prueba:', product.nombre);
-      
+
       // Obtener dimensiones del producto
       let dimensions = { length: 10, width: 10, height: 10 }; // Valores por defecto
-      
+
       // Si hay variantes seleccionadas, usar esas dimensiones
       if (variants && Object.keys(variants).length > 0) {
         try {
@@ -128,7 +128,7 @@ const AdminProductTestPage: React.FC = () => {
           console.log('⚠️ No se pudieron obtener dimensiones de variantes seleccionadas');
         }
       }
-      
+
       // Si no hay variantes o no se pudieron obtener dimensiones, usar las del producto base
       if (dimensions.length === 10 && dimensions.width === 10 && dimensions.height === 10) {
         if (product.dimensiones) {
@@ -155,7 +155,7 @@ const AdminProductTestPage: React.FC = () => {
       }
 
       const testProduct: TestProduct = {
-        id: product._id,
+        id: `${product._id}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         name: product.nombre,
         dimensions,
         quantity: 1,
@@ -172,15 +172,10 @@ const AdminProductTestPage: React.FC = () => {
       const slotsZ = Math.ceil(dimensions.height / 15);
       const productSlots = slotsX * slotsY * slotsZ;
 
-      // Verificar si excede el límite
-      if (currentSlotsUsed + productSlots > maxSlots) {
-        alert(`No se puede agregar este producto. Excedería el límite de slots (${maxSlots}). Este producto ocupa ${productSlots} slots y actualmente se usan ${currentSlotsUsed} slots.`);
-        return;
-      }
 
       setTestProducts(prev => [...prev, testProduct]);
       console.log('✅ Producto agregado a prueba');
-      
+
       // Limpiar selección de variantes
       setSelectedProductForVariants(null);
       setSelectedVariants({});
@@ -201,26 +196,13 @@ const AdminProductTestPage: React.FC = () => {
       return;
     }
 
-    setTestProducts(prev => {
-      const updated = prev.map(p => {
-        if (p.id === productId) {
-          const slotsX = Math.ceil(p.dimensions.length / 15);
-          const slotsY = Math.ceil(p.dimensions.width / 15);
-          const slotsZ = Math.ceil(p.dimensions.height / 15);
-          const productSlots = slotsX * slotsY * slotsZ;
-          const newTotalSlots = currentSlotsUsed - (p.quantity * productSlots) + (quantity * productSlots);
-          
-          if (newTotalSlots > maxSlots) {
-            alert(`No se puede establecer esta cantidad. Excedería el límite de slots (${maxSlots}).`);
-            return p;
-          }
-          
-          return { ...p, quantity, volume: p.dimensions.length * p.dimensions.width * p.dimensions.height * quantity };
-        }
-        return p;
-      });
-      return updated;
-    });
+    setTestProducts(prev =>
+      prev.map(p =>
+        p.id === productId
+          ? { ...p, quantity, volume: p.dimensions.length * p.dimensions.width * p.dimensions.height * quantity }
+          : p
+      )
+    );
   };
 
   const clearTestProducts = () => {
@@ -254,9 +236,9 @@ const AdminProductTestPage: React.FC = () => {
   const generate3DData = async () => {
     try {
       console.log('🎯 Generando datos 3D para prueba...');
-      
+
       if (testProducts.length === 0) {
-        setLocker3DData(null);
+        setLocker3DData([]);
         return;
       }
 
@@ -264,11 +246,11 @@ const AdminProductTestPage: React.FC = () => {
       const products3D: Product3D[] = testProducts.map(product => {
         // Si el producto tiene variantes seleccionadas, recalcular dimensiones
         let finalDimensions = product.dimensions;
-        
+
         if (product.selectedVariants && Object.keys(product.selectedVariants).length > 0) {
           try {
             const variantDims = getVariantOrProductDimensions(
-              products.find(p => p._id === product.originalProductId) || {} as Product, 
+              products.find(p => p._id === product.originalProductId) || {} as Product,
               product.selectedVariants
             );
             if (variantDims && variantDims.largo && variantDims.ancho && variantDims.alto) {
@@ -283,7 +265,7 @@ const AdminProductTestPage: React.FC = () => {
             console.log(`⚠️ No se pudieron obtener dimensiones de variante para ${product.name}, usando dimensiones guardadas`);
           }
         }
-        
+
         return {
           id: product.id,
           name: product.name,
@@ -297,31 +279,24 @@ const AdminProductTestPage: React.FC = () => {
 
       // Realizar bin packing
       const result = gridPackingService.packProducts3D(products3D);
-      
+
       console.log(`🎯 Bin packing: ${result.lockers.length} casilleros, eficiencia: ${result.totalEfficiency}%`);
 
       if (result.lockers.length > 0) {
-        const locker = result.lockers[0];
-        
-        console.log(`🎯 Casillero final: ${locker.usedSlots}/27 slots usados`);
-        locker.packedProducts.forEach((packedItem, index) => {
-          console.log(`🎯 Producto ${index + 1}: ${packedItem.product.name} - ${packedItem.slotsUsed} slots`);
+        result.lockers.forEach((locker, index) => {
+          console.log(`🎯 Casillero ${index + 1}: ${locker.usedSlots}/27 slots usados`);
+          locker.packedProducts.forEach((packedItem, i) => {
+            console.log(`🎯 Producto ${i + 1}: ${packedItem.product.name} - ${packedItem.slotsUsed} slots`);
+          });
         });
-
-        const lockerData = {
-          ...locker,
-          id: 'test_locker',
-          lockerNumber: 1
-        };
-
-        setLocker3DData(lockerData);
+        setLocker3DData(result.lockers);
       } else {
         console.log('No se pudo generar la visualización 3D. Verifica que los productos tengan dimensiones válidas.');
-        setLocker3DData(null);
+        setLocker3DData([]);
       }
     } catch (error) {
       console.error('Error generando datos 3D:', error);
-      setLocker3DData(null);
+      setLocker3DData([]);
     }
   };
 
@@ -429,49 +404,61 @@ const AdminProductTestPage: React.FC = () => {
                   <h5 className="mb-0">
                     <i className="bi bi-cube me-2"></i>
                     Visualización 3D
-                    {locker3DData && (
+                    {locker3DData && locker3DData.length > 0 && (
                       <span className="badge bg-success ms-2">
-                        {locker3DData.usedSlots}/27 slots usados
+                        {locker3DData.length} casillero{locker3DData.length > 1 ? 's' : ''}
                       </span>
                     )}
                   </h5>
                 </div>
                 <div className="card-body">
-                  {locker3DData ? (
-                    <div className="row">
-                      <div className="col-md-8">
-                        <div className="visualization-container">
-                          <Locker3DCanvas bin={locker3DData} />
+                  {locker3DData && locker3DData.length > 0 ? (
+                    <>
+                      {locker3DData.map((locker: any, lockerIndex: number) => (
+                        <div key={locker.id} className="mb-4">
+                          <h6 className="text-muted mb-3">
+                            <i className="bi bi-box me-1"></i>
+                            Casillero #{lockerIndex + 1}
+                            <span className="badge bg-success ms-2">{locker.usedSlots}/27 slots</span>
+                            {locker.isFull && <span className="badge bg-danger ms-1">Lleno</span>}
+                          </h6>
+                          <div className="row">
+                            <div className="col-md-8">
+                              <div className="visualization-container">
+                                <Locker3DCanvas bin={locker} />
+                              </div>
+                            </div>
+                            <div className="col-md-4">
+                              <div className="visualization-info">
+                                <h6>Información</h6>
+                                <ul className="list-unstyled">
+                                  <li><strong>Slots usados:</strong> {locker.usedSlots}/27</li>
+                                  <li><strong>Productos:</strong> {locker.packedProducts.length}</li>
+                                  <li><strong>Eficiencia:</strong> {Math.round((locker.usedSlots / 27) * 100)}%</li>
+                                </ul>
+                                <h6 className="mt-3">Contenido</h6>
+                                <ul className="list-unstyled">
+                                  {locker.packedProducts.map((item: any, index: number) => (
+                                    <li key={index} className="mb-2">
+                                      <div className="d-flex justify-content-between align-items-center">
+                                        <span><strong>{item.product.name}</strong> x{item.product.quantity}</span>
+                                        <span className="badge bg-info">{item.slotsUsed} slots</span>
+                                      </div>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            </div>
+                          </div>
+                          {lockerIndex < locker3DData.length - 1 && <hr className="my-3" />}
                         </div>
-                      </div>
-                      <div className="col-md-4">
-                        <div className="visualization-info">
-                          <h6>Información del Casillero</h6>
-                          <ul className="list-unstyled">
-                            <li><strong>Slots usados:</strong> {locker3DData.usedSlots}/27</li>
-                            <li><strong>Productos:</strong> {locker3DData.packedProducts.length}</li>
-                            <li><strong>Eficiencia:</strong> {Math.round((locker3DData.usedSlots / 27) * 100)}%</li>
-                          </ul>
-                          
-                          <h6 className="mt-3">Productos en el Casillero</h6>
-                          <ul className="list-unstyled">
-                            {locker3DData.packedProducts.map((item: any, index: number) => (
-                              <li key={index} className="mb-2">
-                                <div className="d-flex justify-content-between align-items-center">
-                                  <span><strong>{item.product.name}</strong> x{item.product.quantity}</span>
-                                  <span className="badge bg-info">{item.slotsUsed} slots</span>
-                                </div>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      </div>
-                    </div>
+                      ))}
+                    </>
                   ) : (
                     <div className="text-center empty-visualization">
                       <i className="bi bi-cube display-1 text-muted"></i>
                       <p className="text-muted mt-3">
-                        {testProducts.length === 0 
+                        {testProducts.length === 0
                           ? 'Agrega productos para ver la visualización 3D'
                           : 'Generando visualización 3D...'
                         }
@@ -501,7 +488,7 @@ const AdminProductTestPage: React.FC = () => {
                         const slotsY = Math.ceil(product.dimensions.width / 15);
                         const slotsZ = Math.ceil(product.dimensions.height / 15);
                         const productSlots = slotsX * slotsY * slotsZ;
-                        
+
                         return (
                           <div key={index} className="col-md-6 col-lg-4 mb-3">
                             <div className="card test-product-item">
@@ -673,7 +660,7 @@ const AdminProductTestPage: React.FC = () => {
                             const slotsZ = Math.ceil(dimensions.alto / 15);
                             const productSlots = slotsX * slotsY * slotsZ;
                             const hasVariants = product.variants && product.variants.enabled && product.variants.attributes.length > 0;
-                            
+
                             return (
                               <tr key={product._id}>
                                 <td>
@@ -700,7 +687,7 @@ const AdminProductTestPage: React.FC = () => {
                                   {hasVariants ? (
                                     <span className="badge bg-warning">
                                       <i className="bi bi-tags me-1"></i>
-                                      {product.variants.attributes.length} variante{product.variants.attributes.length > 1 ? 's' : ''}
+                                      {product.variants?.attributes.length} variante{(product.variants?.attributes.length ?? 0) > 1 ? 's' : ''}
                                     </span>
                                   ) : (
                                     <span className="text-muted">Sin variantes</span>
@@ -711,8 +698,8 @@ const AdminProductTestPage: React.FC = () => {
                                     <button
                                       className="btn btn-outline-primary btn-sm"
                                       onClick={() => addProductToTest(product)}
-                                      disabled={currentSlotsUsed + productSlots > maxSlots}
-                                      title={currentSlotsUsed + productSlots > maxSlots ? 'Excedería el límite de slots' : 'Agregar a prueba'}
+                                      disabled={false}
+                                      title="Agregar a prueba"
                                     >
                                       <i className="bi bi-plus-circle me-1"></i>
                                       Agregar
@@ -826,7 +813,7 @@ const AdminProductTestPage: React.FC = () => {
               </div>
             </div>
           )}
-          
+
           {/* Overlay del modal */}
           {selectedProductForVariants && (
             <div className="modal-backdrop fade show"></div>
