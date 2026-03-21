@@ -1303,21 +1303,19 @@ const OrdersPage: React.FC = () => {
                                                 let productName = '';
                                                 
                                                 // Estrategia 1: Imagen del producto directo
-                                                if ((item.product as any)?.imagenes && (item.product as any).imagenes.length > 0) {
-                                                  productImage = (item.product as any).imagenes[0];
+                                                if (item.product?.imagen_url) {
+                                                  productImage = item.product.imagen_url;
                                                   productName = item.product.nombre;
                                                 }
                                                 // Estrategia 2: Imagen del IndividualProduct
-                                                else if ((item.individualProduct as any)?.product?.imagenes && 
-                                                        (item.individualProduct as any).product.imagenes.length > 0) {
-                                                  productImage = (item.individualProduct as any).product.imagenes[0];
-                                                  productName = (item.individualProduct as any).product.nombre;
+                                                else if (item.individualProduct?.product?.imagen_url) {
+                                                  productImage = item.individualProduct.product.imagen_url;
+                                                  productName = item.individualProduct.product.nombre;
                                                 }
                                                 // Estrategia 3: Imagen del OriginalProduct
-                                                else if ((item.originalProduct as any)?.imagenes && 
-                                                        (item.originalProduct as any).imagenes.length > 0) {
-                                                  productImage = (item.originalProduct as any).imagenes[0];
-                                                  productName = (item.originalProduct as any).nombre;
+                                                else if (item.originalProduct?.imagen_url) {
+                                                  productImage = item.originalProduct.imagen_url;
+                                                  productName = item.originalProduct.nombre;
                                                 }
                                                 // Estrategia 4: Buscar en productos comprados
                                                 else {
@@ -1328,8 +1326,8 @@ const OrdersPage: React.FC = () => {
                                                     const foundProduct = purchasedProducts.find(p => 
                                                       p.product?.nombre === searchName
                                                     );
-                                                    if (foundProduct?.product?.imagenes && foundProduct.product.imagenes.length > 0) {
-                                                      productImage = foundProduct.product.imagenes[0];
+                                                    if (foundProduct?.product?.imagen_url) {
+                                                      productImage = foundProduct.product.imagen_url;
                                                       productName = foundProduct.product.nombre;
                                                     }
                                                   }
