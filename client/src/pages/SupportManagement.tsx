@@ -47,30 +47,6 @@ const SupportPage = () => {
   const replyAttachmentInputRef = useRef<HTMLInputElement>(null);
 
   // Redirigir si no está autenticado (cuando termine de cargar)
-  React.useEffect(() => {
-    if (!isLoading && !currentUser) {
-      navigate('/login', { replace: true });
-    }
-  }, [currentUser, isLoading, navigate]);
-
-  if (isLoading || !currentUser) {
-    return <LoadingSpinner message="Verificando autenticación..." />;
-  }
-
-  // Cargar tickets si es admin
-  useEffect(() => {
-    if (isAdmin) {
-      fetchTickets();
-    }
-  }, [isAdmin]);
-
-  // useEffect para cargar tickets del usuario al montar (para cualquier usuario autenticado)
-  useEffect(() => {
-    if (currentUser) {
-      fetchUserTickets();
-    }
-  }, [currentUser]);
-
   const fetchTickets = async () => {
     try {
       const data = await supportService.getTickets();
@@ -88,6 +64,30 @@ const SupportPage = () => {
       setUserTickets([]);
     }
   };
+
+  // 2. Después los 3 useEffect:
+  React.useEffect(() => {
+    if (!isLoading && !currentUser) {
+      navigate('/login', { replace: true });
+    }
+  }, [currentUser, isLoading, navigate]);
+
+  useEffect(() => {
+    if (isAdmin) {
+      fetchTickets();
+    }
+  }, [isAdmin]);
+
+  useEffect(() => {
+    if (currentUser) {
+      fetchUserTickets();
+    }
+  }, [currentUser]);
+
+  // 3. Return condicional:
+  if (isLoading || !currentUser) {
+    return <LoadingSpinner message="Verificando autenticación..." />;
+  }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -149,6 +149,7 @@ const SupportPage = () => {
   const activeTicketsCount = userTickets.filter(t => t.status !== 'cerrado' && t.status !== 'cerrado por usuario').length;
 
   const handleDeleteUserTicket = async (ticketId: string) => {
+    if (!window.confirm('¿Estás seguro de que quieres eliminar esta solicitud?')) return;
     setClosingTicket(true);
     try {
       await closeByUser(ticketId);

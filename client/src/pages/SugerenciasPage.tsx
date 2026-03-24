@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import authService from '../services/authService';
+import { ENDPOINTS } from '../config/api';
+
 
 const SugerenciasPage: React.FC = () => {
   const [urls, setUrls] = useState('');
@@ -10,12 +13,8 @@ const SugerenciasPage: React.FC = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
 
-  if (!isAuthenticated) {
-    navigate('/login');
-    return null;
-  }
 
-  // Extrae todas las URLs válidas del texto, incluso si están pegadas
+  // Primero la función:
   function extraerURLs(texto: string): string[] {
     const urlRegex = /(https?:\/\/[\w\-\.\/?#&=;%:+,~@!$'*()\[\]]+)/g;
     let matches = [];
@@ -25,6 +24,16 @@ const SugerenciasPage: React.FC = () => {
     }
     return Array.from(new Set(matches));
   }
+
+  // Luego el useEffect:
+  useEffect(() => {
+    if (!isAuthenticated) {
+      navigate('/login', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
+
+  // Luego el guard:
+  if (!isAuthenticated) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,9 +53,12 @@ const SugerenciasPage: React.FC = () => {
       return;
     }
     try {
-      const res = await fetch('/api/products/sugerencias', {
+      const res = await fetch(`${ENDPOINTS.PRODUCTS}/sugerencias`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authService.getToken()}`
+        },
         body: JSON.stringify({ urls: urlsExtraidas })
       });
       if (!res.ok) throw new Error('Error al enviar sugerencia');

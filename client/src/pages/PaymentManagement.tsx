@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import './PaymentManagement.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import SearchBar from '../components/SearchBar';
@@ -8,6 +9,8 @@ import PaymentDetailsModal from '../components/PaymentDetailsModal';
 import paymentManagementService, { type Payment } from '../services/paymentManagementService';
 
 const PaymentManagement = () => {
+  const { isAdmin, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
@@ -26,9 +29,13 @@ const PaymentManagement = () => {
 
   // Cargar pagos al montar el componente
   useEffect(() => {
-    loadPayments();
-    loadStats();
-  }, []);
+    if (!isAuthenticated || !isAdmin) {
+      navigate('/', { replace: true });
+    } else {
+      loadPayments();
+      loadStats();
+    }
+  }, [isAuthenticated, isAdmin, navigate]);
 
   const loadPayments = async () => {
     try {
@@ -66,9 +73,10 @@ const PaymentManagement = () => {
   };
 
   const handleDelete = async (paymentId: string) => {
-    if (!window.confirm('¿Estás seguro de que quieres eliminar este pago? Esta acción no se puede deshacer.')) {
-      return;
-    }
+    const confirmation = window.prompt(
+      '¿Estás seguro de que quieres eliminar este pago? Esta acción no se puede deshacer.\nEscribe CONFIRMAR para continuar:'
+    );
+    if (confirmation !== 'CONFIRMAR') return;
 
     try {
       await paymentManagementService.deletePayment(paymentId);
@@ -83,7 +91,7 @@ const PaymentManagement = () => {
   const handleUpdateStatus = async (paymentId: string, status: string) => {
     try {
       const updatedPayment = await paymentManagementService.updatePaymentStatus(paymentId, status);
-      setPayments(payments.map(payment => 
+      setPayments(payments.map(payment =>
         payment._id === paymentId ? updatedPayment : payment
       ));
       await loadStats(); // Recargar estadísticas
@@ -94,35 +102,25 @@ const PaymentManagement = () => {
   };
 
   const handleDeleteAllPayments = async () => {
-    if (!window.confirm('¿Estás seguro de que quieres eliminar TODOS los pagos? Esta acción es irreversible y eliminará todos los registros de pagos del sistema.')) {
-      return;
-    }
-
-    if (!window.confirm('⚠️ ADVERTENCIA FINAL: Esta acción eliminará permanentemente todos los pagos. ¿Estás completamente seguro?')) {
-      return;
-    }
+    const confirmation = window.prompt(
+      'Esta acción eliminará TODOS los pagos permanentemente.\nEscribe CONFIRMAR para continuar:'
+    );
+    if (confirmation !== 'CONFIRMAR') return;
 
     try {
       setIsDeletingAll(true);
       setError('');
-      
       const result = await paymentManagementService.deleteAllPayments();
-      
-      // Limpiar la lista de pagos
       setPayments([]);
-      
-      // Recargar estadísticas
       await loadStats();
-      
-      // Mostrar mensaje de éxito
       alert(`✅ ${result.message}`);
-      
     } catch (err: any) {
       setError(err.message || 'Error al eliminar todos los pagos');
     } finally {
       setIsDeletingAll(false);
     }
   };
+
 
   const closeModal = () => {
     setIsModalOpen(false);
@@ -162,79 +160,79 @@ const PaymentManagement = () => {
           {/* Estadísticas */}
           <div className="stats-grid">
             <div className="row">
-            <div className="col-md-2">
-              <div className="stat-card">
-                <div className="stat-icon bg-primary">
-                  <i className="bi bi-credit-card"></i>
-                </div>
-                <div className="stat-content">
-                  <h3>{stats.totalPayments}</h3>
-                  <p>Total Pagos</p>
-                </div>
-              </div>
-            </div>
-            <div className="col-md-2">
-              <div className="stat-card">
-                <div className="stat-icon bg-success">
-                  <i className="bi bi-check-circle"></i>
-                </div>
-                <div className="stat-content">
-                  <h3>{stats.approvedPayments}</h3>
-                  <p>Aprobados</p>
+              <div className="col-md-2">
+                <div className="stat-card">
+                  <div className="stat-icon bg-primary">
+                    <i className="bi bi-credit-card"></i>
+                  </div>
+                  <div className="stat-content">
+                    <h3>{stats.totalPayments}</h3>
+                    <p>Total Pagos</p>
+                  </div>
                 </div>
               </div>
-            </div>
-            <div className="col-md-2">
-              <div className="stat-card">
-                <div className="stat-icon bg-warning">
-                  <i className="bi bi-clock"></i>
-                </div>
-                <div className="stat-content">
-                  <h3>{stats.pendingPayments}</h3>
-                  <p>Pendientes</p>
-                </div>
-              </div>
-            </div>
-            <div className="col-md-2">
-              <div className="stat-card">
-                <div className="stat-icon bg-danger">
-                  <i className="bi bi-x-circle"></i>
-                </div>
-                <div className="stat-content">
-                  <h3>{stats.rejectedPayments}</h3>
-                  <p>Rechazados</p>
+              <div className="col-md-2">
+                <div className="stat-card">
+                  <div className="stat-icon bg-success">
+                    <i className="bi bi-check-circle"></i>
+                  </div>
+                  <div className="stat-content">
+                    <h3>{stats.approvedPayments}</h3>
+                    <p>Aprobados</p>
+                  </div>
                 </div>
               </div>
-            </div>
-            <div className="col-md-2">
-              <div className="stat-card">
-                <div className="stat-icon bg-info">
-                  <i className="bi bi-currency-dollar"></i>
-                </div>
-                <div className="stat-content">
-                  <h3>{formatCurrency(stats.totalAmount)}</h3>
-                  <p>Total Recaudado</p>
-                </div>
-              </div>
-            </div>
-            <div className="col-md-2">
-              <div className="stat-card">
-                <div className="stat-icon bg-secondary">
-                  <i className="bi bi-graph-up"></i>
-                </div>
-                <div className="stat-content">
-                  <h3>{formatCurrency(stats.averageAmount)}</h3>
-                  <p>Promedio</p>
+              <div className="col-md-2">
+                <div className="stat-card">
+                  <div className="stat-icon bg-warning">
+                    <i className="bi bi-clock"></i>
+                  </div>
+                  <div className="stat-content">
+                    <h3>{stats.pendingPayments}</h3>
+                    <p>Pendientes</p>
+                  </div>
                 </div>
               </div>
-            </div>
+              <div className="col-md-2">
+                <div className="stat-card">
+                  <div className="stat-icon bg-danger">
+                    <i className="bi bi-x-circle"></i>
+                  </div>
+                  <div className="stat-content">
+                    <h3>{stats.rejectedPayments}</h3>
+                    <p>Rechazados</p>
+                  </div>
+                </div>
+              </div>
+              <div className="col-md-2">
+                <div className="stat-card">
+                  <div className="stat-icon bg-info">
+                    <i className="bi bi-currency-dollar"></i>
+                  </div>
+                  <div className="stat-content">
+                    <h3>{formatCurrency(stats.totalAmount)}</h3>
+                    <p>Total Recaudado</p>
+                  </div>
+                </div>
+              </div>
+              <div className="col-md-2">
+                <div className="stat-card">
+                  <div className="stat-icon bg-secondary">
+                    <i className="bi bi-graph-up"></i>
+                  </div>
+                  <div className="stat-content">
+                    <h3>{formatCurrency(stats.averageAmount)}</h3>
+                    <p>Promedio</p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
           {/* Barra de búsqueda y acciones */}
           <div className="d-flex justify-content-between align-items-center mb-3">
             <div className="flex-grow-1 me-3">
-              <SearchBar 
+              <SearchBar
                 searchTerm={searchTerm}
                 onSearchChange={setSearchTerm}
                 placeholder="Buscar por ID, usuario, email o referencia..."
@@ -279,7 +277,7 @@ const PaymentManagement = () => {
 
           {/* Tabla de pagos */}
           {!loading && (
-            <PaymentTable 
+            <PaymentTable
               payments={filteredPayments}
               onViewDetails={handleViewDetails}
               onDelete={handleDelete}

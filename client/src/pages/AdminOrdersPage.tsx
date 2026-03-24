@@ -88,7 +88,7 @@ const AdminOrdersPage: React.FC = () => {
   // Verificar autenticación y permisos
   useEffect(() => {
     if (!isLoading && (!isAuthenticated || !isAdmin)) {
-      navigate('/');
+      navigate('/', { replace: true });
     }
   }, [isAuthenticated, isAdmin, isLoading, navigate]);
 
@@ -240,9 +240,10 @@ const AdminOrdersPage: React.FC = () => {
   };
 
   const handleDeleteOrder = async (orderId: string) => {
-    if (!confirm('¿Estás seguro de que quieres borrar este pedido? Esta acción no se puede deshacer.')) {
-      return;
-    }
+    const confirmation = window.prompt(
+      'Esta acción es permanente.\nEscribe CONFIRMAR para continuar:'
+    );
+    if (confirmation !== 'CONFIRMAR') return;
 
     try {
       setDeletingId(orderId);
@@ -257,7 +258,10 @@ const AdminOrdersPage: React.FC = () => {
   };
 
   const handleReleaseLocker = async (orderId: string) => {
-    if (!confirm('¿Estás seguro de que quieres liberar el casillero de este pedido?')) {
+    const confirmation = window.prompt(
+      '¿Estás seguro de que quieres liberar el casillero de este pedido?\nEscribe CONFIRMAR para continuar:'
+    );
+    if (confirmation !== 'CONFIRMAR') {
       return;
     }
 
@@ -306,7 +310,10 @@ const AdminOrdersPage: React.FC = () => {
       return;
     }
 
-    if (!confirm(`¿Estás seguro de que quieres cambiar el estado de ${selectedOrders.size} pedidos a "${statusLabels[newStatus]}"?`)) {
+    const confirmation = window.prompt(
+      `¿Estás seguro de que quieres cambiar el estado de ${selectedOrders.size} pedidos a "${statusLabels[newStatus]}"?\nEscribe CONFIRMAR para continuar:`
+    );
+    if (confirmation !== 'CONFIRMAR') {
       return;
     }
 

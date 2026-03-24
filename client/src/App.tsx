@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
+import { Routes, Route, Link, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css'; // Para los íconos como el del carrito
 import { Carousel } from 'react-bootstrap';
@@ -110,16 +110,12 @@ const AppContent = () => {
     const referrer = document.referrer;
     const urlParams = new URLSearchParams(window.location.search);
 
-    console.log('Referrer:', referrer);
-    console.log('URL Params:', Object.fromEntries(urlParams.entries()));
-
     // Si hay parámetros de pago en la URL, redirigir a la página de resultado
     if (urlParams.get('payment_id') ||
       urlParams.get('collection_id') ||
       urlParams.get('status') ||
       urlParams.get('collection_status')) {
 
-      console.log('Parámetros de pago detectados, redirigiendo a página de resultado');
       // Mantener los parámetros de URL al redirigir
       const currentUrl = window.location.href;
       const baseUrl = currentUrl.split('?')[0];
@@ -139,7 +135,6 @@ const AppContent = () => {
       urlParams.get('status') === 'success' ||
       urlParams.get('collection_status') === 'approved') {
 
-      console.log('Pago exitoso detectado, mostrando página de confirmación');
       setShowPaymentSuccess(true);
       // Limpiar la URL
       window.history.replaceState({}, document.title, window.location.pathname);
@@ -270,9 +265,8 @@ const AppContent = () => {
       localStorage.removeItem('payment_auto_reload');
       localStorage.removeItem('mp_');
 
-      console.log('Estado de pago limpiado exitosamente');
     } catch (error) {
-      console.error('Error al limpiar estado de pago:', error);
+      // Error silencioso en producción
     }
   };
 
@@ -677,8 +671,8 @@ const AppContent = () => {
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
         <Route path="/sugerencias" element={<SugerenciasPage />} />
-        <Route path="/payment-failure" element={<PaymentFailurePage />} />
-        <Route path="/payment-pending" element={<PaymentPendingPage />} />
+        <Route path="/payment-failure" element={<Navigate to="/payment-result" replace />} />
+        <Route path="/payment-pending" element={<Navigate to="/payment-result" replace />} />
         <Route path="/checkout" element={<ProtectedRoute><CheckoutPage /></ProtectedRoute>} />
         <Route path="/mis-pedidos" element={<ProtectedRoute><OrdersPage /></ProtectedRoute>} />
 

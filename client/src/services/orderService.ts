@@ -26,7 +26,6 @@ class OrderService {
 
       return await response.json();
     } catch (error) {
-      console.error('Error:', error);
       throw error;
     }
   }
@@ -45,7 +44,6 @@ class OrderService {
       }
       return await response.json();
     } catch (error) {
-      console.error('Error:', error);
       throw error;
     }
   }
@@ -59,7 +57,6 @@ class OrderService {
       if (!response.ok) throw new Error('Error al obtener todos los productos');
       return await response.json();
     } catch (error) {
-      console.error('Error:', error);
       throw error;
     }
   }
@@ -78,7 +75,6 @@ class OrderService {
 
       return await response.json();
     } catch (error) {
-      console.error('Error:', error);
       throw error;
     }
   }
@@ -97,7 +93,6 @@ class OrderService {
 
       return await response.json();
     } catch (error) {
-      console.error('Error:', error);
       throw error;
     }
   }
@@ -116,7 +111,6 @@ class OrderService {
 
       return await response.json();
     } catch (error) {
-      console.error('Error:', error);
       throw error;
     }
   }
@@ -138,7 +132,6 @@ class OrderService {
 
       return await response.json();
     } catch (error) {
-      console.error('Error:', error);
       throw error;
     }
   }
@@ -159,7 +152,6 @@ class OrderService {
 
       return await response.json();
     } catch (error) {
-      console.error('Error:', error);
       throw error;
     }
   }
@@ -183,7 +175,6 @@ class OrderService {
 
       return await response.json();
     } catch (error) {
-      console.error('Error:', error);
       throw error;
     }
   }
@@ -217,7 +208,6 @@ class OrderService {
 
       return await response.json();
     } catch (error) {
-      console.error('Error:', error);
       throw error;
     }
   }
@@ -250,7 +240,6 @@ class OrderService {
 
       return await response.json();
     } catch (error) {
-      console.error('Error:', error);
       throw error;
     }
   }
@@ -282,7 +271,6 @@ class OrderService {
 
       return await response.json();
     } catch (error) {
-      console.error('Error:', error);
       throw error;
     }
   }
@@ -301,7 +289,6 @@ class OrderService {
 
       return await response.json();
     } catch (error) {
-      console.error('Error:', error);
       throw error;
     }
   }
@@ -320,7 +307,6 @@ class OrderService {
 
       return await response.json();
     } catch (error) {
-      console.error('Error:', error);
       throw error;
     }
   }
@@ -343,7 +329,6 @@ class OrderService {
 
       return await response.json();
     } catch (error) {
-      console.error('Error:', error);
       throw error;
     }
   }
@@ -378,7 +363,6 @@ class OrderService {
 
       return await response.json();
     } catch (error) {
-      console.error('Error:', error);
       throw error;
     }
   }
@@ -402,7 +386,6 @@ class OrderService {
 
       return await response.json();
     } catch (error) {
-      console.error('Error:', error);
       throw error;
     }
   }
@@ -426,7 +409,6 @@ class OrderService {
 
       return await response.json();
     } catch (error) {
-      console.error('Error:', error);
       throw error;
     }
   }
@@ -447,7 +429,6 @@ class OrderService {
 
       return await response.json();
     } catch (error) {
-      console.error('Error:', error);
       throw error;
     }
   }
@@ -480,7 +461,6 @@ class OrderService {
 
       return await response.json();
     } catch (error) {
-      console.error('Error:', error);
       throw error;
     }
   }
@@ -523,7 +503,6 @@ class OrderService {
 
       return await response.json();
     } catch (error) {
-      console.error('Error:', error);
       throw error;
     }
   }
@@ -560,7 +539,6 @@ class OrderService {
 
       return await response.json();
     } catch (error) {
-      console.error('Error:', error);
       throw error;
     }
   }

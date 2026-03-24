@@ -902,8 +902,10 @@ const AdminLockersPage: React.FC = () => {
       }
 
       // Confirmar cambio de estado
-      const confirmMessage = `¿Está seguro de cambiar el estado de la reserva del casillero ${reservation.lockerNumber} de "${getStatusLabel(currentStatus)}" a "${getStatusLabel(newStatus)}"?`;
-      if (!window.confirm(confirmMessage)) {
+      const confirmation = window.prompt(
+        `¿Estás seguro de que quieres cambiar el estado de la reserva del casillero ${reservation.lockerNumber} a "${getStatusLabel(newStatus)}"?\nEscribe CONFIRMAR para continuar:`
+      );
+      if (confirmation !== 'CONFIRMAR') {
         return false;
       }
 

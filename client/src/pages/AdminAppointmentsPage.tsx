@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import appointmentService, { type Appointment } from '../services/appointmentService';
 
 const statusLabels: Record<string, string> = {
@@ -43,7 +43,7 @@ const AdminAppointmentsPage: React.FC = () => {
 
   useEffect(() => {
     if (!isLoading && (!isAuthenticated || !isAdmin)) {
-      navigate('/');
+      navigate('/', { replace: true });
     }
   }, [isAuthenticated, isAdmin, isLoading, navigate]);
 
@@ -62,7 +62,6 @@ const AdminAppointmentsPage: React.FC = () => {
         setStats(statsData);
       } catch (err: any) {
         setError('Error al cargar las citas');
-        console.error('Error fetching appointments:', err);
       } finally {
         setLoading(false);
       }
@@ -95,9 +94,10 @@ const AdminAppointmentsPage: React.FC = () => {
   };
 
   const handleDeleteAppointment = async (appointmentId: string) => {
-    if (!confirm('¿Estás seguro de que quieres eliminar esta reserva? Esta acción no se puede deshacer.')) {
-      return;
-    }
+    const confirmation = window.prompt(
+      'Esta acción es permanente.\nEscribe CONFIRMAR para continuar:'
+    );
+    if (confirmation !== 'CONFIRMAR') return;
 
     try {
       setDeletingId(appointmentId);
@@ -171,9 +171,9 @@ const AdminAppointmentsPage: React.FC = () => {
             <span className="logo-japanese">箱</span><span className="brand-text">hako</span>
           </div>
           <div className="header-right">
-            <a href="/admin" className="back-link">
+            <Link to="/admin" className="back-link">
               <i className="bi bi-arrow-left-circle header-icon"></i>
-            </a>
+            </Link>
           </div>
         </div>
       </header>

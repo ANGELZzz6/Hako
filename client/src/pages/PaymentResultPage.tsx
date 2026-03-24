@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import './PaymentResultPage.css';
 
 // Función para limpiar el estado del SDK de Mercado Pago
@@ -9,11 +9,11 @@ const cleanupMercadoPagoSDK = () => {
     if ((window as any).mp) {
       delete (window as any).mp;
     }
-    
+
     // Limpiar cualquier script del SDK
     const scripts = document.querySelectorAll('script[src*="mercadopago"]');
     scripts.forEach(script => script.remove());
-    
+
     // Limpiar cualquier contenedor de formularios
     const containers = document.querySelectorAll('#cardFormContainer, #moneyFormContainer');
     containers.forEach(container => {
@@ -21,7 +21,7 @@ const cleanupMercadoPagoSDK = () => {
         container.innerHTML = '';
       }
     });
-    
+
     // Limpiar cualquier elemento con clase de Mercado Pago
     const mpElements = document.querySelectorAll('[class*="mercadopago"], [class*="mp-"]');
     mpElements.forEach(element => {
@@ -29,7 +29,7 @@ const cleanupMercadoPagoSDK = () => {
         element.parentNode.removeChild(element);
       }
     });
-    
+
     // Limpiar cualquier iframe de Mercado Pago
     const iframes = document.querySelectorAll('iframe[src*="mercadopago"]');
     iframes.forEach(iframe => {
@@ -37,14 +37,12 @@ const cleanupMercadoPagoSDK = () => {
         iframe.parentNode.removeChild(iframe);
       }
     });
-    
+
     // Limpiar localStorage relacionado con pagos
     localStorage.removeItem('payment_auto_reload');
     localStorage.removeItem('mp_');
-    
-    console.log('SDK de Mercado Pago limpiado exitosamente');
+
   } catch (error) {
-    console.error('Error al limpiar SDK de Mercado Pago:', error);
   }
 };
 
@@ -60,16 +58,10 @@ interface PaymentResult {
 
 const PaymentResultPage = () => {
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
   const [paymentResult, setPaymentResult] = useState<PaymentResult | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    console.log('=== PAYMENT RESULT PAGE LOADED ===');
-    console.log('URL Search Params:', searchParams.toString());
-    console.log('All URL Params:', Object.fromEntries(searchParams.entries()));
-    
-    // Extraer parámetros de la URL
     const result: PaymentResult = {
       status: searchParams.get('status') || '',
       payment_id: searchParams.get('payment_id') || undefined,
@@ -80,37 +72,10 @@ const PaymentResultPage = () => {
       status_detail: searchParams.get('status_detail') || undefined,
     };
 
-    console.log('Payment Result parsed:', result);
     setPaymentResult(result);
     setLoading(false);
-
-    // Verificar si es un pago de prueba (no recargar automáticamente)
-    const isTestPayment = result.payment_id && result.payment_id.startsWith('TEST_');
-    
-    // Verificar si ya se recargó automáticamente
-    const hasAutoReloaded = localStorage.getItem('payment_auto_reload');
-    
-    console.log('Payment info:', {
-      isTestPayment,
-      hasAutoReloaded,
-      status: result.status,
-      status_detail: result.status_detail
-    });
-    
-    // Solo recargar UNA vez para pagos reales (no pruebas)
-    if (!hasAutoReloaded && !isTestPayment) {
-      console.log('Configurando recarga automática en 3 segundos...');
-      const timer = setTimeout(() => {
-        console.log('Ejecutando recarga automática...');
-        cleanupMercadoPagoSDK();
-        // Marcar que ya se recargó automáticamente
-        localStorage.setItem('payment_auto_reload', 'true');
-        // Recargar la página para limpiar completamente el estado
-        window.location.reload();
-      }, 3000); // 3 segundos para que el usuario pueda ver el resultado
-
-      return () => clearTimeout(timer);
-    }
+    cleanupMercadoPagoSDK();
+    localStorage.removeItem('payment_auto_reload');
   }, [searchParams]);
 
   const getStatusInfo = (status: string, statusDetail?: string) => {
@@ -266,7 +231,7 @@ const PaymentResultPage = () => {
     // Limpiar cualquier estado de pago
     localStorage.removeItem('payment_auto_reload');
     // Recargar la página para limpiar completamente el estado
-    window.location.href = '/profile';
+    window.location.href = '/orders';
   };
 
   const handleReloadPage = () => {
@@ -281,8 +246,8 @@ const PaymentResultPage = () => {
     return (
       <div className="payment-result-page container py-5">
         <div className="text-center">
-                <div className="spinner-border text-primary" role="status">
-                  <span className="visually-hidden">Cargando...</span>
+          <div className="spinner-border text-primary" role="status">
+            <span className="visually-hidden">Cargando...</span>
           </div>
           <p className="mt-3">Procesando resultado del pago...</p>
         </div>
@@ -305,17 +270,12 @@ const PaymentResultPage = () => {
   }
 
   // Logs de depuración
-  console.log('PaymentResult recibido:', paymentResult);
-  console.log('Status:', paymentResult.status);
-  console.log('Status Detail:', paymentResult.status_detail);
-  
-  const statusInfo = getStatusInfo(paymentResult.status, paymentResult.status_detail);
-  
-  console.log('StatusInfo calculado:', statusInfo);
 
-    return (
+  const statusInfo = getStatusInfo(paymentResult.status, paymentResult.status_detail);
+
+  return (
     <div className="payment-result-page container py-5">
-          <div className="row justify-content-center">
+      <div className="row justify-content-center">
         <div className="col-md-8 col-lg-6">
           <div className={`card border-${statusInfo.color}`}>
             <div className={`card-header ${statusInfo.bgColor} text-white text-center`}>
@@ -324,44 +284,44 @@ const PaymentResultPage = () => {
             </div>
             <div className="card-body text-center">
               <p className="lead">{statusInfo.message}</p>
-              
+
               {paymentResult.payment_id?.startsWith('TEST_') && (
                 <div className="alert alert-warning mt-3">
                   <i className="bi bi-exclamation-triangle me-2"></i>
                   <strong>Pago de Prueba:</strong> Este es un pago simulado para probar los diferentes estados.
                 </div>
               )}
-              
+
               {!paymentResult.payment_id?.startsWith('TEST_') && (
                 <div className="alert alert-info mt-3">
                   <i className="bi bi-info-circle me-2"></i>
-                  <strong>Nota:</strong> La página se recargará automáticamente en 3 segundos para limpiar el estado del sistema de pagos y permitir nuevos pagos.
+                  <strong>Nota:</strong> El estado del sistema de pagos ha sido limpiado. Ya puedes realizar una nueva compra.
                 </div>
               )}
-              
+
               {paymentResult.payment_id && (
                 <div className="alert alert-info">
                   <strong>ID de Pago:</strong> {paymentResult.payment_id}
                 </div>
               )}
-              
+
               {paymentResult.payment_method_id && (
                 <div className="mb-3">
                   <strong>Método de Pago:</strong> {paymentResult.payment_method_id.toUpperCase()}
-                                {paymentResult.payment_method_id === 'pse' && (
-                <div className="mt-2">
-                  <small className="text-muted">
-                    <i className="bi bi-bank me-1"></i>
-                    Pagos Seguros en Línea - Transferencia bancaria
-                  </small>
-                  {paymentResult.status === 'pending' && (
-                    <div className="alert alert-info mt-2">
-                      <i className="bi bi-info-circle me-2"></i>
-                      <strong>Próximo paso:</strong> Serás redirigido a tu banco para completar la transferencia.
+                  {paymentResult.payment_method_id === 'pse' && (
+                    <div className="mt-2">
+                      <small className="text-muted">
+                        <i className="bi bi-bank me-1"></i>
+                        Pagos Seguros en Línea - Transferencia bancaria
+                      </small>
+                      {paymentResult.status === 'pending' && (
+                        <div className="alert alert-info mt-2">
+                          <i className="bi bi-info-circle me-2"></i>
+                          <strong>Próximo paso:</strong> Serás redirigido a tu banco para completar la transferencia.
+                        </div>
+                      )}
                     </div>
                   )}
-                </div>
-              )}
                 </div>
               )}
 
@@ -374,26 +334,26 @@ const PaymentResultPage = () => {
               {paymentResult.status_detail && (
                 <div className="alert alert-secondary">
                   <strong>Detalle:</strong> {paymentResult.status_detail}
-                  </div>
-                )}
+                </div>
+              )}
 
               <div className="d-grid gap-2 d-md-flex justify-content-md-center mt-4">
-                <button 
-                  className="btn btn-primary me-md-2" 
+                <button
+                  className="btn btn-primary me-md-2"
                   onClick={handleContinueShopping}
                 >
                   <i className="bi bi-cart-plus me-2"></i>
                   Continuar Comprando
                 </button>
-                <button 
-                  className="btn btn-outline-secondary me-md-2" 
+                <button
+                  className="btn btn-outline-secondary me-md-2"
                   onClick={handleViewOrders}
                 >
-                      <i className="bi bi-person me-2"></i>
+                  <i className="bi bi-person me-2"></i>
                   Ver Mis Pedidos
                 </button>
-                <button 
-                  className="btn btn-outline-warning" 
+                <button
+                  className="btn btn-outline-warning"
                   onClick={handleReloadPage}
                 >
                   <i className="bi bi-arrow-clockwise me-2"></i>
@@ -401,16 +361,6 @@ const PaymentResultPage = () => {
                 </button>
               </div>
             </div>
-          </div>
-
-          {/* Información de depuración */}
-          <div className="mt-4">
-            <details>
-              <summary className="text-muted">Información Técnica</summary>
-              <pre className="mt-2 p-3 bg-light rounded" style={{fontSize: '0.8em'}}>
-                {JSON.stringify(paymentResult, null, 2)}
-              </pre>
-            </details>
           </div>
         </div>
       </div>

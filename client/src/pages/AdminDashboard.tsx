@@ -1,9 +1,19 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import './AdminDashboard.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 
 const AdminDashboard: React.FC = () => {
+  const { isAdmin, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!isAuthenticated || !isAdmin) {
+      navigate('/', { replace: true });
+    }
+  }, [isAuthenticated, isAdmin, navigate]);
+
   return (
     <div className="admin-dashboard" data-theme="light">
       <header className="admin-header-bar">

@@ -19,6 +19,12 @@ const ResetPasswordPage: React.FC = () => {
     }
   }, [isAuthenticated, navigate]);
 
+  useEffect(() => {
+    if (!token) {
+      navigate('/', { replace: true });
+    }
+  }, [token, navigate]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -27,11 +33,18 @@ const ResetPasswordPage: React.FC = () => {
       setError('Las contraseñas no coinciden');
       return;
     }
+
+    const passwordRegex = /^(?=.*[a-zA-Z])(?=.*\d).{8,}$/;
+    if (!passwordRegex.test(nueva)) {
+      setError('La contraseña debe tener al menos 8 caracteres, una letra y un número.');
+      return;
+    }
+
     setLoading(true);
     try {
       await AuthService.resetPassword(token || '', nueva);
-      setMessage('¡Contraseña restablecida correctamente! Ahora puedes iniciar sesión.');
-      setTimeout(() => navigate('/login'), 2500);
+      setMessage('¡Contraseña restablecida correctamente! Redirigiendo...');
+      navigate('/login', { replace: true });
     } catch (err: any) {
       setError(err.message || 'Error al restablecer la contraseña');
     } finally {

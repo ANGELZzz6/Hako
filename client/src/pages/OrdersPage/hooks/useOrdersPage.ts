@@ -12,6 +12,8 @@ import type { Appointment } from '../../../services/appointmentService';
 import { getDimensiones, getVolumen, calculateSlotsNeeded } from '../utils/productUtils';
 import { createLocalDate } from '../utils/dateUtils';
 
+const isDev = import.meta.env.DEV;
+
 export const useOrdersPage = () => {
   const { isAuthenticated, isLoading } = useAuth();
   const navigate = useNavigate();
@@ -51,7 +53,7 @@ export const useOrdersPage = () => {
 
   // Función para limpiar completamente todos los estados
   const forceCleanupStates = () => {
-    console.log('🧹 Limpiando todos los estados...');
+    if (isDev) console.log('🧹 Limpiando todos los estados...');
     setSelectedProducts(new Map());
     setLockerAssignments(new Map());
     setPackingResult(null);
@@ -79,15 +81,17 @@ export const useOrdersPage = () => {
 
         // Obtener todos los productos comprados por el usuario
         const products = await orderService.getMyPurchasedProducts();
-        console.log('Productos comprados:', products);
-        console.log('🔍 Verificando orderId en productos:');
-        products.forEach((product, index) => {
-          console.log(`Producto ${index}:`, {
-            _id: product._id,
-            orderId: product.orderId,
-            productName: product.product?.nombre
+        if (isDev) {
+          console.log('Productos comprados:', products);
+          console.log('🔍 Verificando orderId en productos:');
+          products.forEach((product, index) => {
+            console.log(`Producto ${index}:`, {
+              _id: product._id,
+              orderId: product.orderId,
+              productName: product.product?.nombre
+            });
           });
-        });
+        }
         setPurchasedProducts(products);
 
         // Seleccionar automáticamente todos los productos disponibles después de cargar
@@ -157,11 +161,13 @@ export const useOrdersPage = () => {
 
             if (hoursSincePenalty < 24) {
               activePenalties.push(penaltyDate);
-              console.log(`🔍 Penalización activa para ${penaltyDate} (${hoursSincePenalty.toFixed(2)}h transcurridas)`);
-              console.log(`📋 Contexto: Reserva vencida del ${penaltyDate}, penalización creada el ${penalty.createdAt}`);
+              if (isDev) {
+                console.log(`🔍 Penalización activa para ${penaltyDate} (${hoursSincePenalty.toFixed(2)}h transcurridas)`);
+                console.log(`📋 Contexto: Reserva vencida del ${penaltyDate}, penalización creada el ${penalty.createdAt}`);
+              }
             } else {
               expiredPenalties.push(penaltyDate);
-              console.log(`✅ Penalización expirada para ${penaltyDate} (${hoursSincePenalty.toFixed(2)}h transcurridas)`);
+              if (isDev) console.log(`✅ Penalización expirada para ${penaltyDate} (${hoursSincePenalty.toFixed(2)}h transcurridas)`);
             }
           });
 
@@ -197,7 +203,7 @@ export const useOrdersPage = () => {
       }
     });
 
-    console.log('📋 Productos ya en reservas:', Array.from(productosEnReservas));
+    if (isDev) console.log('📋 Productos ya en reservas:', Array.from(productosEnReservas));
 
     // Obtener productos disponibles para selección
     const availableProducts: Product3D[] = [];
@@ -225,7 +231,7 @@ export const useOrdersPage = () => {
       }
     });
 
-    console.log('🔄 Productos disponibles para selección:', availableProducts.length);
+    if (isDev) console.log('🔄 Productos disponibles para selección:', availableProducts.length);
 
     // Seleccionar automáticamente todos los productos disponibles
     availableProducts.forEach((product, idx) => {
@@ -240,7 +246,7 @@ export const useOrdersPage = () => {
       }
     });
 
-    console.log('🔄 Seleccionando automáticamente productos disponibles:', newSelectedProducts.size);
+    if (isDev) console.log('🔄 Seleccionando automáticamente productos disponibles:', newSelectedProducts.size);
     setSelectedProducts(newSelectedProducts);
 
     // Llamar a updateLockerAssignments para optimizar con casilleros existentes
@@ -249,12 +255,14 @@ export const useOrdersPage = () => {
 
   // Función para actualizar asignaciones de lockers con optimización inteligente
   const updateLockerAssignments = (newSelectedProducts: Map<number, { quantity: number; lockerNumber: number }>) => {
-    console.log('🔄 Actualizando asignaciones de lockers con optimización inteligente...');
-    console.log('Productos seleccionados:', newSelectedProducts);
-    console.log('Reservas existentes:', myAppointments);
+    if (isDev) {
+      console.log('🔄 Actualizando asignaciones de lockers con optimización inteligente...');
+      console.log('Productos seleccionados:', newSelectedProducts);
+      console.log('Reservas existentes:', myAppointments);
+    }
 
     if (newSelectedProducts.size === 0) {
-      console.log('❌ No hay productos seleccionados');
+      if (isDev) console.log('❌ No hay productos seleccionados');
       setPackingResult(null);
       setLockerAssignments(new Map());
       return;
@@ -291,7 +299,7 @@ export const useOrdersPage = () => {
       };
     });
 
-    console.log('📋 Items a optimizar:', selectedItems);
+    if (isDev) console.log('📋 Items a optimizar:', selectedItems);
 
     // Analizar reservas existentes para optimizar el uso de casilleros
     const existingLockers = new Map<number, { usedVolume: number; items: Product3D[]; usedSlots: number }>();
@@ -350,7 +358,7 @@ export const useOrdersPage = () => {
       }
     });
 
-    console.log('🏪 Casilleros existentes:', existingLockers);
+    if (isDev) console.log('🏪 Casilleros existentes:', existingLockers);
 
     // Intentar agregar productos nuevos a casilleros existentes
     const optimizedItems = [...selectedItems];
@@ -365,9 +373,11 @@ export const useOrdersPage = () => {
       const availableVolume = LOCKER_MAX_VOLUME - existingLocker.usedVolume;
       const availableSlots = LOCKER_MAX_SLOTS - existingLocker.usedSlots;
 
-      console.log(`🔍 Analizando casillero ${lockerNumber}:`);
-      console.log(`   Espacio disponible: ${availableVolume.toLocaleString()} cm³`);
-      console.log(`   Slots disponibles: ${availableSlots}/27`);
+      if (isDev) {
+        console.log(`🔍 Analizando casillero ${lockerNumber}:`);
+        console.log(`   Espacio disponible: ${availableVolume.toLocaleString()} cm³`);
+        console.log(`   Slots disponibles: ${availableSlots}/27`);
+      }
 
       if (availableVolume > 0 && availableSlots > 0) {
         // Ordenar productos por volumen (más grandes primero) para optimizar mejor
@@ -392,7 +402,7 @@ export const useOrdersPage = () => {
           }
         }
 
-        console.log(`   Productos que caben en casillero ${lockerNumber}: ${itemsThatFit.length}`);
+        if (isDev) console.log(`   Productos que caben en casillero ${lockerNumber}: ${itemsThatFit.length}`);
 
         if (itemsThatFit.length > 0) {
           // Agregar productos que quepan al casillero existente
@@ -403,7 +413,7 @@ export const useOrdersPage = () => {
               alto: bestFit.dimensions.height
             });
 
-            console.log(`   ✅ Agregando "${bestFit.name}" (${bestFit.volume.toLocaleString()} cm³, ${itemSlots} slots) al casillero ${lockerNumber}`);
+            if (isDev) console.log(`   ✅ Agregando "${bestFit.name}" (${bestFit.volume.toLocaleString()} cm³, ${itemSlots} slots) al casillero ${lockerNumber}`);
 
             // Agregar a casillero existente
             const currentAssignment = newLockerAssignments.get(lockerNumber) || {
@@ -445,7 +455,7 @@ export const useOrdersPage = () => {
           });
         }
       } else {
-        console.log(`   ❌ Casillero ${lockerNumber} está lleno (volumen: ${availableVolume <= 0 ? 'SÍ' : 'NO'}, slots: ${availableSlots <= 0 ? 'SÍ' : 'NO'})`);
+        if (isDev) console.log(`   ❌ Casillero ${lockerNumber} está lleno (volumen: ${availableVolume <= 0 ? 'SÍ' : 'NO'}, slots: ${availableSlots <= 0 ? 'SÍ' : 'NO'})`);
       }
     });
 
@@ -461,7 +471,7 @@ export const useOrdersPage = () => {
             .map((item: any) => selectedItems[item.itemIndex])
         ];
 
-        console.log(`🎨 Generando visualización combinada para casillero ${lockerNumber}:`, allProductsForLocker);
+        if (isDev) console.log(`🎨 Generando visualización combinada para casillero ${lockerNumber}:`, allProductsForLocker);
 
         // Usar grid packing para generar la visualización real
         const lockerPackingResult = gridPackingService.packProducts3D(allProductsForLocker);
@@ -488,9 +498,9 @@ export const useOrdersPage = () => {
 
     // Para los productos restantes, usar Grid Packing para crear nuevos casilleros
     if (optimizedItems.length > 0) {
-      console.log('📦 Productos restantes para nuevos casilleros:', optimizedItems);
+      if (isDev) console.log('📦 Productos restantes para nuevos casilleros:', optimizedItems);
       const result = gridPackingService.packProducts3D(optimizedItems);
-      console.log('📊 Resultado Grid Packing para productos restantes:', result);
+      if (isDev) console.log('📊 Resultado Grid Packing para productos restantes:', result);
 
       // Obtener todos los lockerNumbers ocupados por cualquier reserva activa
       const allOccupiedLockerNumbers = new Set<number>();
@@ -556,7 +566,7 @@ export const useOrdersPage = () => {
       totalLockers: combinedLockers.length,
     };
 
-    console.log('🎯 Resultado final combinado:', combinedResult);
+    if (isDev) console.log('🎯 Resultado final combinado:', combinedResult);
     setPackingResult(combinedResult);
     setLockerAssignments(newLockerAssignments);
     setSelectedProducts(updatedSelectedProducts);

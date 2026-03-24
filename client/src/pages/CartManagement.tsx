@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Row, Col, Card, Table, Badge, Button, Modal } from 'react-bootstrap';
-import { Link } from 'react-router-dom';
+import { Container, Row, Col, Card, Table, Badge, Modal } from 'react-bootstrap';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import cartService, { type Cart } from '../services/cartService';
 import './CartManagement.css';
@@ -25,15 +25,17 @@ const CartManagement: React.FC = () => {
   }>>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [activeTab, setActiveTab] = useState<'details' | 'history'>('details');
-  const { isAdmin } = useAuth();
+  const { isAdmin, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
-    if (!isAdmin) {
-      return;
+    if (!isAuthenticated || !isAdmin) {
+      navigate('/', { replace: true });
+    } else {
+      loadCarts();
+      loadStats();
     }
-    loadCarts();
-    loadStats();
-  }, [isAdmin]);
+  }, [isAuthenticated, isAdmin, navigate]);
 
   const loadCarts = async () => {
     try {
@@ -41,7 +43,7 @@ const CartManagement: React.FC = () => {
       const cartsData = await cartService.getAllCarts();
       setCarts(cartsData);
     } catch (error) {
-      console.error('Error al cargar carritos:', error);
+
     } finally {
       setLoading(false);
     }
@@ -52,7 +54,7 @@ const CartManagement: React.FC = () => {
       const statsData = await cartService.getCartStats();
       setStats(statsData);
     } catch (error) {
-      console.error('Error al cargar estadísticas:', error);
+
     }
   };
 
@@ -61,14 +63,14 @@ const CartManagement: React.FC = () => {
     setShowModal(true);
     setActiveTab('details');
     setCartHistory([]);
-    
+
     // Cargar historial del carrito
     try {
       setLoadingHistory(true);
       const history = await cartService.getCartHistory(cart._id);
       setCartHistory(history);
     } catch (error) {
-      console.error('Error al cargar historial:', error);
+
     } finally {
       setLoadingHistory(false);
     }
@@ -108,15 +110,8 @@ const CartManagement: React.FC = () => {
     setShowModal(false);
   };
 
-  if (!isAdmin) {
-    return (
-      <Container className="py-5">
-        <div className="text-center">
-          <h3>Acceso Denegado</h3>
-          <p>No tienes permisos para acceder a esta página.</p>
-        </div>
-      </Container>
-    );
+  if (!isAuthenticated || !isAdmin) {
+    return null;
   }
 
   if (loading) {
@@ -174,7 +169,7 @@ const CartManagement: React.FC = () => {
       <main className="admin-main-content">
         <Container className="py-5">
           <h2 className="mb-4">Gestión de Boxes</h2>
-          
+
           {/* Estadísticas */}
           <Row className="mb-4">
             <Col md={3}>
@@ -266,14 +261,10 @@ const CartManagement: React.FC = () => {
                         <small>{formatDate(cart.creado_en)}</small>
                       </td>
                       <td>
-                        <Button
-                          variant="outline-primary"
-                          size="sm"
-                          onClick={() => handleViewCart(cart)}
-                        >
+                        <button className="btn btn-outline-primary btn-sm" onClick={() => handleViewCart(cart)}>
                           <i className="bi bi-eye me-1"></i>
                           Ver
-                        </Button>
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -336,7 +327,7 @@ const CartManagement: React.FC = () => {
                       <div className="mb-3">
                         <strong>Actualizado:</strong> {formatDate(selectedCart.actualizado_en)}
                       </div>
-                      
+
                       <h6>Productos en el Box:</h6>
                       {selectedCart.items.length > 0 ? (
                         <div className="table-responsive">
@@ -427,9 +418,9 @@ const CartManagement: React.FC = () => {
               )}
             </Modal.Body>
             <Modal.Footer>
-              <Button variant="secondary" onClick={handleCloseModal}>
+              <button className="btn btn-secondary" onClick={handleCloseModal}>
                 Cerrar
-              </Button>
+              </button>
             </Modal.Footer>
           </Modal>
         </Container>

@@ -6,6 +6,8 @@ import SearchBar from '../components/SearchBar';
 import ProductTable from '../components/ProductTable';
 import EditProductModal from '../components/EditProductModal';
 import productService, { type Product, type UpdateProductData } from '../services/productService';
+import { useAuth } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 type FilterType = 'all' | 'destacados' | 'ofertas' | 'destacados-ofertas';
 
@@ -19,10 +21,16 @@ const InventoryManagement = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
 
-  // Cargar productos al montar el componente
+  const { isAdmin, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+
   useEffect(() => {
-    loadProducts();
-  }, []);
+    if (!isAuthenticated || !isAdmin) {
+      navigate('/', { replace: true });
+    } else {
+      loadProducts();
+    }
+  }, [isAuthenticated, isAdmin, navigate]);
 
   const loadProducts = async () => {
     try {
@@ -40,8 +48,8 @@ const InventoryManagement = () => {
   // Filtrar productos por término de búsqueda y filtro activo
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         product.descripcion.toLowerCase().includes(searchTerm.toLowerCase());
-    
+      product.descripcion.toLowerCase().includes(searchTerm.toLowerCase());
+
     if (!matchesSearch) return false;
 
     switch (activeFilter) {
@@ -107,9 +115,9 @@ const InventoryManagement = () => {
 
   // Manejar eliminación de producto
   const handleDelete = async (productId: string) => {
-    if (!window.confirm('¿Estás seguro de que quieres eliminar este producto? Esta acción no se puede deshacer.')) {
-      return;
-    }
+    const confirmation = window.prompt(
+      'Esta acción eliminará el producto permanentemente.\nEscribe CONFIRMAR para continuar:');
+    if (confirmation !== 'CONFIRMAR') return;
 
     try {
       await productService.deleteProduct(productId);
@@ -195,7 +203,7 @@ const InventoryManagement = () => {
               />
             </div>
             <div className="add-section">
-              <button 
+              <button
                 className="btn btn-primary add-product-btn"
                 onClick={handleAddProduct}
               >
@@ -224,9 +232,9 @@ const InventoryManagement = () => {
                   <div className="stat-info">
                     <span className="stat-number">{filteredStats.total}</span>
                     <span className="stat-label">
-                      {activeFilter === 'all' ? 'Total Productos' : 
-                       activeFilter === 'destacados' ? 'Destacados' :
-                       activeFilter === 'ofertas' ? 'Ofertas' : 'Destacados + Ofertas'}
+                      {activeFilter === 'all' ? 'Total Productos' :
+                        activeFilter === 'destacados' ? 'Destacados' :
+                          activeFilter === 'ofertas' ? 'Ofertas' : 'Destacados + Ofertas'}
                     </span>
                   </div>
                 </div>
@@ -271,7 +279,7 @@ const InventoryManagement = () => {
                 </div>
               </div>
 
-              <ProductTable 
+              <ProductTable
                 products={filteredProducts}
                 onEdit={handleEdit}
                 onDelete={handleDelete}

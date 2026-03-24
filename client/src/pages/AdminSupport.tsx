@@ -8,6 +8,8 @@ import Tooltip from 'react-bootstrap/Tooltip';
 // @ts-ignore
 import { saveAs } from 'file-saver'; // Recuerda instalarlo: npm install file-saver
 import productService from '../services/productService';
+import { Link, useNavigate } from 'react-router-dom';
+import { showSuccessToast, showErrorToast } from '../utils/toast';
 
 interface Ticket {
   _id: string;
@@ -28,7 +30,8 @@ interface Admin {
 }
 
 const AdminSupportPage = () => {
-  const { currentUser, isAdmin } = useAuth();
+  const { currentUser, isAdmin, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [filter, setFilter] = useState('todos');
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
@@ -45,12 +48,14 @@ const AdminSupportPage = () => {
   const [sugerencias, setSugerencias] = useState<any[]>([]);
 
   useEffect(() => {
-    if (isAdmin) {
-      fetchTickets();
-      getAdmins().then(setAdmins).catch(() => setAdmins([]));
+    if (!isAuthenticated || !isAdmin) {
+      if (isAuthenticated !== undefined) navigate('/', { replace: true });
+      return;
     }
+    fetchTickets();
+    getAdmins().then(setAdmins).catch(() => setAdmins([]));
     productService.getAllSuggestions().then(setSugerencias).catch(() => setSugerencias([]));
-  }, [isAdmin]);
+  }, [isAuthenticated, isAdmin, navigate]);
 
   const fetchTickets = async () => {
     try {
@@ -147,38 +152,20 @@ const AdminSupportPage = () => {
     }
   };
 
-  const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
-    const toast = document.createElement('div');
-    toast.className = `toast-${type}`;
-    toast.innerHTML = `
-      <div style="
-        position: fixed; top: 20px; right: 20px;
-        background: ${type === 'success' ? '#28a745' : '#d32f2f'}; color: white; padding: 1rem 1.5rem;
-        border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        z-index: 10000; animation: slideInRight 0.3s ease;
-        display: flex; align-items: center; gap: 0.5rem;
-      ">
-        <i class="bi bi-${type === 'success' ? 'check-circle-fill' : 'x-octagon-fill'}"></i>
-        ${msg}
-      </div>
-    `;
-    document.body.appendChild(toast);
-    setTimeout(() => {
-      toast.style.animation = 'slideOutRight 0.3s ease';
-      setTimeout(() => document.body.removeChild(toast), 300);
-    }, 2500);
-  };
 
   const handleDeleteTicket = async (id: string) => {
-    if (!window.confirm('¿Estás seguro de que quieres eliminar esta solicitud de soporte?')) return;
+    const confirmation = window.prompt(
+      '¿Estás seguro de que quieres eliminar esta solicitud de soporte?\nEscribe CONFIRMAR para continuar:'
+    );
+    if (confirmation !== 'CONFIRMAR') return;
     setDeletingId(id);
     setStatusLoading(true);
     try {
       await deleteTicket(id);
       await fetchTickets();
-      showToast('Solicitud eliminada correctamente.', 'success');
+      showSuccessToast('Solicitud eliminada correctamente.');
     } catch (err: any) {
-      showToast(err.message || 'Error al eliminar la solicitud.', 'error');
+      showErrorToast(err.message || 'Error al eliminar la solicitud.');
     } finally {
       setDeletingId(null);
       setStatusLoading(false);
@@ -192,7 +179,7 @@ const AdminSupportPage = () => {
     else if (status === 'en proceso') { color = 'warning'; icon = 'clock-fill'; }
     else if (status === 'cerrado') { color = 'dark'; icon = 'lock-fill'; }
     return (
-      <span className={`badge bg-${color} d-inline-flex align-items-center gap-1 px-2 py-2`} style={{fontSize:'1em', minWidth: 90, justifyContent:'center'}}>
+      <span className={`badge bg-${color} d-inline-flex align-items-center gap-1 px-2 py-2`} style={{ fontSize: '1em', minWidth: 90, justifyContent: 'center' }}>
         <i className={`bi bi-${icon}`}></i> {status.charAt(0).toUpperCase() + status.slice(1)}
       </span>
     );
@@ -212,17 +199,20 @@ const AdminSupportPage = () => {
     ]);
     const csvContent = [header, ...rows].map((r: string[]) => r.map((field: string) => '"' + String(field).replace(/"/g, '""') + '"').join(',')).join('\r\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    saveAs(blob, `tickets_soporte_${new Date().toISOString().slice(0,10)}.csv`);
+    saveAs(blob, `tickets_soporte_${new Date().toISOString().slice(0, 10)}.csv`);
   }
 
   const handleDeleteSuggestion = async (id: string) => {
-    if (!window.confirm('¿Eliminar esta sugerencia?')) return;
+    const confirmation = window.prompt(
+      '¿Eliminar esta sugerencia?\nEscribe CONFIRMAR para continuar:'
+    );
+    if (confirmation !== 'CONFIRMAR') return;
     try {
       await productService.deleteSuggestion(id);
       setSugerencias(sugerencias => sugerencias.filter(s => s._id !== id));
-      showToast('Sugerencia eliminada.', 'success');
+      showSuccessToast('Sugerencia eliminada.');
     } catch (err: any) {
-      showToast(err.message || 'Error al eliminar sugerencia.', 'error');
+      showErrorToast(err.message || 'Error al eliminar sugerencia.');
     }
   };
 
@@ -243,9 +233,6 @@ const AdminSupportPage = () => {
     return urls.filter(Boolean);
   }
 
-  if (!isAdmin) {
-    return <div className="container py-5 text-center">Acceso restringido solo para administradores.</div>;
-  }
 
   return (
     <div className="support-management" data-theme="light">
@@ -260,9 +247,9 @@ const AdminSupportPage = () => {
             <span className="logo-japanese">箱</span><span className="brand-text">hako</span>
           </div>
           <div className="header-right">
-            <a href="/admin" className="back-link">
+            <Link to="/admin" className="back-link">
               <i className="bi bi-arrow-left-circle header-icon"></i>
-            </a>
+            </Link>
           </div>
         </div>
       </header>
@@ -291,7 +278,7 @@ const AdminSupportPage = () => {
               onChange={e => setSearch(e.target.value)}
             />
             <div className="d-flex flex-column">
-              <label style={{fontSize:12}}>Desde</label>
+              <label style={{ fontSize: 12 }}>Desde</label>
               <input
                 type="date"
                 className="form-control form-control-sm"
@@ -301,7 +288,7 @@ const AdminSupportPage = () => {
               />
             </div>
             <div className="d-flex flex-column">
-              <label style={{fontSize:12}}>Hasta</label>
+              <label style={{ fontSize: 12 }}>Hasta</label>
               <input
                 type="date"
                 className="form-control form-control-sm"
@@ -333,17 +320,17 @@ const AdminSupportPage = () => {
               <tbody>
                 {filteredTickets.map((ticket, idx) => (
                   <tr key={ticket._id} className={selectedTicket?._id === ticket._id ? 'table-active' : idx % 2 === 0 ? 'table-light' : ''}>
-                    <td style={{fontWeight:600}}>{ticket.user?.nombre}</td>
+                    <td style={{ fontWeight: 600 }}>{ticket.user?.nombre}</td>
                     <td>{ticket.user?.email}</td>
                     <td>
                       <OverlayTrigger placement="top" overlay={<Tooltip id={`asunto-tooltip-${ticket._id}`}>{ticket.message}</Tooltip>}>
-                        <span style={{fontWeight:500, cursor:'pointer'}}>{ticket.subject}</span>
+                        <span style={{ fontWeight: 500, cursor: 'pointer' }}>{ticket.subject}</span>
                       </OverlayTrigger>
                     </td>
                     <td>{getStatusBadge(ticket.status)}</td>
                     <td>{admins.find(a => a._id === ticket.responsable)?.nombre || <span className="text-muted">Sin asignar</span>}</td>
                     <td>{new Date(ticket.createdAt).toLocaleString('es-CO')}</td>
-                    <td className="d-flex gap-1 flex-wrap" style={{minWidth:180}}>
+                    <td className="d-flex gap-1 flex-wrap" style={{ minWidth: 180 }}>
                       <OverlayTrigger placement="top" overlay={<Tooltip id={`ver-tooltip-${ticket._id}`}>Ver/Responder</Tooltip>}>
                         <button className="btn btn-sm btn-primary" onClick={() => setSelectedTicket(ticket)}>
                           <i className="bi bi-chat-dots"></i>

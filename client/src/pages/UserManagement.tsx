@@ -6,6 +6,9 @@ import SearchBar from '../components/SearchBar';
 import UserTable from '../components/UserTable';
 import EditUserModal from '../components/EditUserModal';
 import userService, { type User, type UpdateUserData } from '../services/userService';
+import { useAuth } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
+
 
 const UserManagement = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -14,11 +17,17 @@ const UserManagement = () => {
   const [error, setError] = useState('');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const { isAdmin, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
 
   // Cargar usuarios al montar el componente
   useEffect(() => {
-    loadUsers();
-  }, []);
+    if (!isAuthenticated || !isAdmin) {
+      navigate('/', { replace: true });
+    } else {
+      loadUsers();
+    }
+  }, [isAuthenticated, isAdmin, navigate]);
 
   const loadUsers = async () => {
     try {
@@ -44,9 +53,10 @@ const UserManagement = () => {
   };
 
   const handleDelete = async (userId: string) => {
-    if (!window.confirm('¿Estás seguro de que quieres eliminar este usuario?')) {
-      return;
-    }
+    const confirmation = window.prompt(
+      'Esta acción eliminará el usuario permanentemente.\nEscribe CONFIRMAR para continuar:'
+    );
+    if (confirmation !== 'CONFIRMAR') return;
 
     try {
       await userService.deleteUser(userId);
@@ -60,7 +70,7 @@ const UserManagement = () => {
   const handleToggleStatus = async (userId: string) => {
     try {
       const result = await userService.toggleUserStatus(userId);
-      setUsers(users.map(user => 
+      setUsers(users.map(user =>
         user._id === userId ? { ...user, isActive: result.user.isActive } : user
       ));
       setError('');
@@ -74,7 +84,7 @@ const UserManagement = () => {
 
     try {
       const result = await userService.updateUser(selectedUser._id, userData);
-      setUsers(users.map(user => 
+      setUsers(users.map(user =>
         user._id === selectedUser._id ? result.user : user
       ));
       setError('');
@@ -112,7 +122,7 @@ const UserManagement = () => {
       <main className="user-main-content">
         <div className="container">
           {/* Barra de búsqueda */}
-          <SearchBar 
+          <SearchBar
             searchTerm={searchTerm}
             onSearchChange={setSearchTerm}
           />
@@ -136,7 +146,7 @@ const UserManagement = () => {
 
           {/* Tabla de usuarios */}
           {!loading && (
-            <UserTable 
+            <UserTable
               users={filteredUsers}
               onEdit={handleEdit}
               onDelete={handleDelete}
