@@ -1,13 +1,19 @@
-const { MercadoPagoConfig } = require('mercadopago');
+const { MercadoPagoConfig, Payment: MercadoPagoPayment, Preference } = require('mercadopago');
 const transporter = require('../config/nodemailer');
 const User = require('../models/User');
+const Order = require('../models/Order');
+const Payment = require('../models/Payment');
+const IndividualProduct = require('../models/IndividualProduct');
+const Product = require('../models/Product');
+const Cart = require('../models/Cart');
+const axios = require('axios');
 
 const isDev = process.env.NODE_ENV === 'development';
-
-// Configuración de Mercado Pago
 const mp = new MercadoPagoConfig({
   accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN
 });
+
+const processingWebhooks = new Set();
 
 // Función para crear preferencias de pago (Checkout Pro)
 exports.createPreference = async (req, res) => {
@@ -43,7 +49,6 @@ exports.createPreference = async (req, res) => {
 
 
     // Buscar si el usuario tiene un pedido activo en estado 'paid' sin casillero confirmado
-    const Order = require('../models/Order');
     let activeOrder = await Order.findOne({
       user: user_id,
       status: 'paid' // Solo pedidos pagados pero sin casillero confirmado
@@ -142,8 +147,7 @@ exports.getPaymentStatus = async (req, res) => {
   try {
     const { payment_id } = req.params;
 
-    const { Payment } = require('mercadopago');
-    const paymentClient = new Payment(mp);
+    const paymentClient = new MercadoPagoPayment(mp);
 
     const payment = await paymentClient.get({ id: payment_id });
 
@@ -163,121 +167,7 @@ exports.getPaymentStatus = async (req, res) => {
   }
 };
 
-// Función para procesar webhooks de Mercado Pago
-exports.webhook = async (req, res) => {
-  try {
 
-    const { type, data } = req.query;
-
-    if (type === 'payment') {
-      const paymentId = data.id;
-
-      // Obtener información completa del pago
-      const { Payment } = require('mercadopago');
-      const paymentClient = new Payment(mp);
-      const payment = await paymentClient.get({ id: paymentId });
-
-
-
-      // Aquí puedes agregar lógica adicional según el estado del pago
-      if (payment.status === 'approved') {
-        // Lógica para pago exitoso
-      } else if (payment.status === 'pending') {
-        // Lógica para pago pendiente
-      } else if (payment.status === 'rejected') {
-        // Lógica para pago rechazado
-      }
-    }
-
-    res.status(200).send('OK');
-  } catch (error) {
-    console.error('Error en webhook:', error);
-    res.status(500).send('Error');
-  }
-};
-
-// Función de prueba para verificar configuración
-exports.testConfig = async (req, res) => {
-  try {
-
-    // Verificar configuración
-    if (!mp.accessToken) {
-      return res.status(500).json({
-        error: 'Access Token de Mercado Pago no configurado'
-      });
-    }
-
-    // Crear una preferencia de prueba
-    const testPreferenceData = {
-      items: [
-        {
-          title: 'Prueba Checkout Pro',
-          unit_price: 1000,
-          currency_id: 'COP',
-          quantity: 1
-        }
-      ],
-      payer: {
-        email: 'test@test.com',
-        name: 'Usuario Test',
-        identification: {
-          type: 'CC',
-          number: '12345678'
-        }
-      },
-      back_urls: {
-        success: 'https://httpbin.org/status/200',
-        failure: 'https://httpbin.org/status/200',
-        pending: 'https://httpbin.org/status/200'
-      },
-      notification_url: process.env.WEBHOOK_URL,
-      external_reference: `TEST_${Date.now()}`,
-      expires: true,
-      expiration_date_to: new Date(Date.now() + 30 * 60 * 1000).toISOString()
-    };
-
-    const { Preference } = require('mercadopago');
-    const preferenceClient = new Preference(mp);
-
-    const preference = await preferenceClient.create({ body: testPreferenceData });
-
-    res.json({
-      success: true,
-      message: 'Configuración correcta',
-      preference_id: preference.id,
-      init_point: preference.init_point,
-      sandbox_init_point: preference.sandbox_init_point,
-      test_url: preference.sandbox_init_point || preference.init_point
-    });
-
-  } catch (error) {
-    console.error('❌ Error probando configuración:', error);
-
-    if (error.error === 'bad_request' && error.cause && error.cause[0]) {
-      const errorCode = error.cause[0].code;
-      const errorDesc = error.cause[0].description;
-
-      console.error(`Error específico: ${errorCode} - ${errorDesc}`);
-
-      res.status(400).json({
-        success: false,
-        message: `Error en Mercado Pago: ${errorDesc}`,
-        error_code: errorCode,
-        error_description: errorDesc
-      });
-    } else {
-      res.status(500).json({
-        success: false,
-        message: 'Error interno del servidor',
-        error: error.message
-      });
-    }
-  }
-};
-
-// Webhook de Mercado Pago
-// Set para rastrear webhooks en proceso
-const processingWebhooks = new Set();
 
 exports.mercadoPagoWebhook = async (req, res) => {
   // Declarar paymentId al inicio para que esté disponible en todo el scope
@@ -292,7 +182,7 @@ exports.mercadoPagoWebhook = async (req, res) => {
     // Validar que tenemos el access token
     const { MERCADOPAGO_ACCESS_TOKEN } = process.env;
     if (!MERCADOPAGO_ACCESS_TOKEN) {
-      console.error('❌ Error: MERCADOPAGO_ACCESS_TOKEN no está configurado');
+      if (isDev) console.error('❌ Error: MERCADOPAGO_ACCESS_TOKEN no está configurado');
       return res.status(500).send('Error de configuración');
     }
 
@@ -306,7 +196,7 @@ exports.mercadoPagoWebhook = async (req, res) => {
     if (topic === 'payment' && paymentId) {
       // Verificar si este webhook ya está siendo procesado
       if (processingWebhooks.has(paymentId)) {
-        console.log(`⏳ Webhook para pago ${paymentId} ya está siendo procesado. Saltando.`);
+        if (isDev) console.log(`⏳ Webhook para pago ${paymentId} ya está siendo procesado. Saltando.`);
         return res.status(200).send('OK');
       }
 
@@ -315,7 +205,6 @@ exports.mercadoPagoWebhook = async (req, res) => {
 
       try {
         // Consultar el estado real del pago usando la API de Mercado Pago
-        const axios = require('axios');
         const url = `https://api.mercadopago.com/v1/payments/${paymentId}`;
         const response = await axios.get(url, {
           headers: {
@@ -326,7 +215,6 @@ exports.mercadoPagoWebhook = async (req, res) => {
 
 
         // Guardar información del pago en la base de datos
-        const Order = require('../models/Order');
 
         try {
           // Extraer información del usuario y productos desde metadata
@@ -334,7 +222,6 @@ exports.mercadoPagoWebhook = async (req, res) => {
           const selected_items = paymentInfo.metadata?.selected_items || [];
 
           // Verificar si el pago ya fue procesado y usar findOneAndUpdate para evitar condiciones de carrera
-          const Payment = require('../models/Payment');
 
           const paymentData = {
             user_id: user_id,
@@ -391,7 +278,6 @@ exports.mercadoPagoWebhook = async (req, res) => {
           if (paymentInfo.status === 'approved' && user_id && selected_items.length > 0) {
 
             try {
-              const Cart = require('../models/Cart');
 
               // Obtener IDs de productos comprados
               const purchasedProductIds = selected_items.map(item => {
@@ -416,7 +302,7 @@ exports.mercadoPagoWebhook = async (req, res) => {
               if (isDev) console.log(`🧹 Carrito limpiado: ${result.modifiedCount} carritos actualizados`);
 
             } catch (cartError) {
-              console.error('❌ Error limpiando carrito:', cartError);
+              if (isDev) console.error('❌ Error limpiando carrito:', cartError);
             }
           }
 
@@ -613,28 +499,28 @@ exports.mercadoPagoWebhook = async (req, res) => {
                             `
                           });
                         } catch (mailErr2) {
-                          console.error('❌ Error enviando correo de aviso de reserva:', mailErr2);
+                          if (isDev) console.error('❌ Error enviando correo de aviso de reserva:', mailErr2);
                         }
                       }
                     } catch (mailErr) {
-                      console.error('❌ Error enviando correo post compra:', mailErr);
+                      if (isDev) console.error('❌ Error enviando correo post compra:', mailErr);
                     }
                   }
                 } catch (orderCreateError) {
-                  console.error('❌ Error creando la orden:', orderCreateError);
+                  if (isDev) console.error('❌ Error creando la orden:', orderCreateError);
                 }
               }
             }
           }
 
         } catch (dbError) {
-          console.error('❌ Error guardando en base de datos:', dbError);
+          if (isDev) console.error('❌ Error guardando en base de datos:', dbError);
         }
 
         if (isDev) console.log('✅ Webhook procesado correctamente');
 
       } catch (apiError) {
-        console.error('❌ Error al consultar API de Mercado Pago:', apiError.response ? apiError.response.data : apiError.message);
+        if (isDev) console.error('❌ Error al consultar API de Mercado Pago:', apiError.response ? apiError.response.data : apiError.message);
         // No enviar 500 para no reintentar el webhook, ya que el error es de nuestra parte al consultar MP
         return res.status(200).send('OK');
       }
@@ -642,7 +528,7 @@ exports.mercadoPagoWebhook = async (req, res) => {
 
     res.status(200).send('OK');
   } catch (error) {
-    console.error('❌ Error general en webhook Mercado Pago:', error);
+    if (isDev) console.error('❌ Error general en webhook Mercado Pago:', error);
     res.status(500).send('Error');
   } finally {
     // Siempre remover el pago del set de procesamiento, incluso si hay error
@@ -655,7 +541,6 @@ exports.mercadoPagoWebhook = async (req, res) => {
 // Obtener todos los pagos (para admin)
 exports.getAllPayments = async (req, res) => {
   try {
-    const Payment = require('../models/Payment');
 
 
 
@@ -706,8 +591,6 @@ exports.getPaymentById = async (req, res) => {
       return res.status(400).json({ message: 'ID de pago inválido' });
     }
 
-    const Payment = require('../models/Payment');
-
     const payment = await Payment.findById(paymentId)
       .populate('user_id', 'nombre email')
       .populate('purchased_items.product_id', 'title picture_url')
@@ -745,7 +628,6 @@ exports.getPaymentById = async (req, res) => {
 // Obtener estadísticas de pagos (para admin)
 exports.getPaymentStats = async (req, res) => {
   try {
-    const Payment = require('../models/Payment');
 
     const totalPayments = await Payment.countDocuments();
     const approvedPayments = await Payment.countDocuments({ status: 'approved' });
@@ -787,8 +669,6 @@ exports.updatePaymentStatus = async (req, res) => {
     const { paymentId } = req.params;
     const { status } = req.body;
 
-    const Payment = require('../models/Payment');
-
     const payment = await Payment.findById(paymentId);
     if (!payment) {
       return res.status(404).json({ message: 'Pago no encontrado' });
@@ -817,7 +697,6 @@ exports.updatePaymentStatus = async (req, res) => {
 exports.deletePayment = async (req, res) => {
   try {
     const { paymentId } = req.params;
-    const Payment = require('../models/Payment');
 
     const payment = await Payment.findById(paymentId);
     if (!payment) {
@@ -833,59 +712,27 @@ exports.deletePayment = async (req, res) => {
   }
 };
 
-// Eliminar todos los pagos (para admin)
-exports.deleteAllPayments = async (req, res) => {
-  try {
-    const Payment = require('../models/Payment');
-
-    // Contar cuántos pagos se van a eliminar
-    const count = await Payment.countDocuments();
-
-    if (count === 0) {
-      return res.status(404).json({ message: 'No hay pagos para eliminar' });
-    }
-
-    // Eliminar todos los pagos
-    await Payment.deleteMany({});
-
-    if (isDev) console.log(`🗑️ Eliminados ${count} pagos del sistema`);
-
-    res.json({
-      message: `${count} pagos eliminados correctamente`,
-      deletedCount: count
-    });
-  } catch (error) {
-    console.error('Error al eliminar todos los pagos:', error);
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-};
-
-// Función auxiliar para crear productos individuales para un pago
-// Set para rastrear pagos en proceso
-const processingPayments = new Set();
 
 async function createIndividualProductsForPayment(paymentInfo, payment) {
   const paymentId = paymentInfo.id.toString();
 
   // Verificar si este pago ya está siendo procesado
-  if (processingPayments.has(paymentId)) {
-    console.log(`⏳ Pago ${paymentId} ya está siendo procesado. Saltando creación duplicada.`);
+  if (processingWebhooks.has(paymentId)) {
+    if (isDev) console.log(`⏳ Pago ${paymentId} ya está siendo procesado. Saltando creación duplicada.`);
     return;
   }
 
   // Marcar este pago como en proceso
-  processingPayments.add(paymentId);
+  processingWebhooks.add(paymentId);
 
   try {
-    const Order = require('../models/Order');
-    const IndividualProduct = require('../models/IndividualProduct');
 
     // Extraer información del usuario y productos desde metadata
     const user_id = paymentInfo.metadata?.user_id;
     const selected_items = paymentInfo.metadata?.selected_items || [];
 
     if (!user_id || selected_items.length === 0) {
-      console.log('⚠️ No se pueden crear productos individuales: faltan datos del usuario o productos');
+      if (isDev) console.log('⚠️ No se pueden crear productos individuales: faltan datos del usuario o productos');
       return;
     }
 
@@ -895,7 +742,7 @@ async function createIndividualProductsForPayment(paymentInfo, payment) {
     });
 
     if (!order) {
-      console.log('⚠️ No se encontró orden asociada al pago:', paymentId);
+      if (isDev) console.log('⚠️ No se encontró orden asociada al pago:', paymentId);
       return;
     }
 
@@ -906,10 +753,9 @@ async function createIndividualProductsForPayment(paymentInfo, payment) {
       const selectedVariants = selectedItem.variants || {};
 
       // Busca el producto original para dimensiones
-      const Product = require('../models/Product');
       const originalProduct = await Product.findById(productId);
       if (!originalProduct) {
-        console.log(`❌ Producto original no encontrado: ${productId}`);
+        if (isDev) console.log(`❌ Producto original no encontrado: ${productId}`);
         continue;
       }
 
@@ -935,8 +781,8 @@ async function createIndividualProductsForPayment(paymentInfo, payment) {
         return sKeys.every(key => selectedVariants[key] === pVariants[key]);
       });
       if (yaExiste) {
-        console.log(`⚠️ Ya existe un producto individual para este producto y variantes:`, selectedVariants);
-        // Si quieres evitar duplicados, puedes continuar aquí, pero por ahora seguimos para forzar la creación
+        if (isDev) console.log(`⚠️ Producto individual duplicado omitido para variantes:`, selectedVariants);
+        continue;
       }
 
       const individualProduct = new IndividualProduct({
@@ -955,20 +801,19 @@ async function createIndividualProductsForPayment(paymentInfo, payment) {
       });
       await individualProduct.save();
       nuevosCreados++;
-      console.log(`✅ Producto individual creado para "${originalProduct.nombre}" con variantes:`, selectedVariants);
+      if (isDev) console.log(`✅ Producto individual creado para "${originalProduct.nombre}" con variantes:`, selectedVariants);
     }
     if (nuevosCreados === 0) {
-      console.log('ℹ️ No se crearon productos individuales nuevos.');
+      if (isDev) console.log('ℹ️ No se crearon productos individuales nuevos.');
     } else {
-      console.log(`🎉 Total de productos individuales nuevos creados: ${nuevosCreados}`);
+      if (isDev) console.log(`🎉 Total de productos individuales nuevos creados: ${nuevosCreados}`);
     }
-    console.log('✅ Proceso de creación de productos individuales finalizado para el pago:', paymentId);
-
+    if (isDev) console.log('✅ Proceso de creación de productos individuales finalizado para el pago:', paymentId);
   } catch (error) {
-    console.error('❌ Error creando productos individuales:', error);
+    if (isDev) console.error('❌ Error creando productos individuales:', error);
   } finally {
     // Siempre remover el pago del set de procesamiento, incluso si hay error
-    processingPayments.delete(paymentId);
+    processingWebhooks.delete(paymentId);
   }
 }
 
@@ -976,13 +821,10 @@ async function createIndividualProductsForPayment(paymentInfo, payment) {
 module.exports = {
   createPreference: exports.createPreference,
   getPaymentStatus: exports.getPaymentStatus,
-  webhook: exports.webhook,
-  testConfig: exports.testConfig,
   mercadoPagoWebhook: exports.mercadoPagoWebhook,
   getAllPayments: exports.getAllPayments,
   getPaymentById: exports.getPaymentById,
   getPaymentStats: exports.getPaymentStats,
   updatePaymentStatus: exports.updatePaymentStatus,
-  deletePayment: exports.deletePayment,
-  deleteAllPayments: exports.deleteAllPayments
-}; 
+  deletePayment: exports.deletePayment
+};

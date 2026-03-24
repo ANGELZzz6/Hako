@@ -1,4 +1,7 @@
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
+
+const isDev = process.env.NODE_ENV === 'development';
 
 const REQUIRED_ENV_VARS = [
   'MONGODB_URI',
@@ -19,12 +22,12 @@ if (missing.length > 0) {
   process.exit(1);
 }
 
-console.log('✅ Todas las variables de entorno están configuradas.');
+if (isDev) console.log('✅ Todas las variables de entorno están configuradas.');
 
 // Configurar zona horaria para el servidor
 process.env.TZ = 'America/Bogota'; // Zona horaria de Colombia
-console.log('🕐 Zona horaria del servidor configurada:', process.env.TZ);
-console.log('🕐 Hora actual del servidor:', new Date().toLocaleString());
+if (isDev) console.log('🕐 Zona horaria del servidor configurada:', process.env.TZ);
+if (isDev) console.log('🕐 Hora actual del servidor:', new Date().toLocaleString());
 
 const express = require('express');
 const cors = require('cors');
@@ -41,11 +44,11 @@ const lockerAssignmentRoutes = require('./routes/lockerAssignmentRoutes');
 const debugRoutes = require('./routes/debugRoutes');
 const qrRoutes = require('./routes/qrRoutes');
 const healthRoutes = require('./routes/healthRoutes');
+const { scheduleTasks } = require('./scheduledTasks');
 
 // Importar el modelo IndividualProduct para asegurar que esté disponible
 require('./models/IndividualProduct');
 const { connectDB } = require('./config/db');
-const path = require('path');
 
 const app = express();
 
@@ -94,6 +97,15 @@ const limiter = rateLimit({
   validate: { xForwardedForHeader: false }
 });
 
+// Rate limiting específico para login y registro (max 10 cada 15 min)
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: 'Demasiados intentos de autenticación, intenta de nuevo en 15 minutos.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 app.use(limiter);
 app.use(express.json({ limit: '10mb' }));
 
@@ -110,10 +122,12 @@ app.use('/api/debug', debugRoutes);
 app.use('/api/qr', qrRoutes);
 app.use('/api/health', healthRoutes);
 
-console.log('✅ Rutas de pago montadas en /api/payment');
-console.log('✅ Rutas de pedidos montadas en /api/orders');
-console.log('✅ Rutas de citas montadas en /api/appointments');
-console.log('✅ Rutas de casilleros montadas en /api/locker-assignments');
+if (isDev) {
+  console.log('✅ Rutas de pago montadas en /api/payment');
+  console.log('✅ Rutas de pedidos montadas en /api/orders');
+  console.log('✅ Rutas de citas montadas en /api/appointments');
+  console.log('✅ Rutas de casilleros montadas en /api/locker-assignments');
+}
 
 // Ruta de prueba
 app.get('/', (req, res) => {
@@ -128,4 +142,12 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Servidor escuchando en el puerto ${PORT}`);
   console.log(`Configurado para Google OAuth con headers de seguridad`);
-}); 
+
+  // Iniciar tareas programadas después de que el servidor esté funcionando
+  try {
+    scheduleTasks();
+    console.log('✅ Tareas programadas iniciadas correctamente');
+  } catch (error) {
+    console.error('❌ Error al iniciar tareas programadas:', error);
+  }
+});

@@ -13,6 +13,8 @@ interface EditProductModalProps {
   onSave: (productData: UpdateProductData) => Promise<void>;
 }
 
+const isDev = import.meta.env.DEV;
+
 const MAX_IMAGES = 6;
 
 const StarSelector: React.FC<{ value: number; onChange: (v: number) => void }> = ({ value, onChange }) => (
@@ -141,7 +143,7 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ product, isOpen, is
           throw new Error('Hay más de un atributo con stock definido. Solo un atributo debe concentrar el stock (por ejemplo, Talla). Ajusta los valores para continuar.');
         }
         stockTotal = drivers.length === 1 ? drivers[0].total : 0;
-        console.log(`📊 Stock total calculado de variantes: ${stockTotal}`);
+        if (isDev) console.log(`📊 Stock total calculado de variantes: ${stockTotal}`);
       }
       
       const dataToSend = { 
@@ -153,42 +155,44 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ product, isOpen, is
       };
       
       // Logs detallados para debugging
-      console.log('=== [ADMIN] GUARDANDO PRODUCTO ===');
-      console.log('📦 Datos básicos:', {
-        nombre: dataToSend.nombre,
-        precio: dataToSend.precio,
-        stock: dataToSend.stock,
-        categoria: dataToSend.categoria,
-        dimensiones: dataToSend.dimensiones
-      });
-      
-      console.log('🔧 Variantes configuradas:', {
-        enabled: variants.enabled,
-        attributesCount: variants.attributes.length
-      });
-      
-      if (variants.enabled && variants.attributes.length > 0) {
-        console.log('📋 Detalle de atributos de variantes:');
-        variants.attributes.forEach((attr, attrIndex) => {
-          console.log(`   Atributo ${attrIndex + 1}: ${attr.name}`);
-          console.log(`     - Required: ${attr.required}`);
-          console.log(`     - DefinesDimensions: ${attr.definesDimensions}`);
-          console.log(`     - Opciones: ${attr.options.length}`);
-          
-          attr.options.forEach((option, optIndex) => {
-            console.log(`       Opción ${optIndex + 1}: ${option.value}`);
-            console.log(`         - Precio: ${option.price}`);
-            console.log(`         - Stock: ${option.stock}`);
-            console.log(`         - IsActive: ${option.isActive}`);
-            console.log(`         - Dimensiones:`, option.dimensiones);
-          });
+      if (isDev) {
+        console.log('=== [ADMIN] GUARDANDO PRODUCTO ===');
+        console.log('📦 Datos básicos:', {
+          nombre: dataToSend.nombre,
+          precio: dataToSend.precio,
+          stock: dataToSend.stock,
+          categoria: dataToSend.categoria,
+          dimensiones: dataToSend.dimensiones
         });
+        
+        console.log('🔧 Variantes configuradas:', {
+          enabled: variants.enabled,
+          attributesCount: variants.attributes.length
+        });
+        
+        if (variants.enabled && variants.attributes.length > 0) {
+          console.log('📋 Detalle de atributos de variantes:');
+          variants.attributes.forEach((attr, attrIndex) => {
+            console.log(`   Atributo ${attrIndex + 1}: ${attr.name}`);
+            console.log(`     - Required: ${attr.required}`);
+            console.log(`     - DefinesDimensions: ${attr.definesDimensions}`);
+            console.log(`     - Opciones: ${attr.options.length}`);
+            
+            attr.options.forEach((option, optIndex) => {
+              console.log(`       Opción ${optIndex + 1}: ${option.value}`);
+              console.log(`         - Precio: ${option.price}`);
+              console.log(`         - Stock: ${option.stock}`);
+              console.log(`         - IsActive: ${option.isActive}`);
+              console.log(`         - Dimensiones:`, option.dimensiones);
+            });
+          });
+        }
+        
+        console.log('📤 Datos completos a enviar:', JSON.stringify(dataToSend, null, 2));
       }
       
-      console.log('📤 Datos completos a enviar:', JSON.stringify(dataToSend, null, 2));
-      
       await onSave(dataToSend);
-      console.log('✅ Producto guardado exitosamente');
+      if (isDev) console.log('✅ Producto guardado exitosamente');
       onClose();
     } catch (err: any) {
       console.error('❌ Error guardando producto:', err);

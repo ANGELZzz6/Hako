@@ -3,6 +3,9 @@ const IndividualProduct = require('../models/IndividualProduct');
 const binPackingService = require('../services/binPackingService');
 const mongoose = require('mongoose');
 
+const isDev = process.env.NODE_ENV === 'development';
+const LOCKER_MAX_VOLUME = 125000; // 50x50x50 cm
+
 // Obtener el pedido activo del usuario (solo uno por usuario)
 exports.getMyOrders = async (req, res) => {
   try {
@@ -46,7 +49,7 @@ exports.getMyOrderHistory = async (req, res) => {
 // Obtener productos comprados por el usuario
 exports.getMyPurchasedProducts = async (req, res) => {
   try {
-    console.log('🔍 Buscando productos individuales para usuario:', req.user.id);
+    if (isDev) console.log('🔍 Buscando productos individuales para usuario:', req.user.id);
 
     // Obtener todos los productos individuales del usuario
     const individualProducts = await IndividualProduct.find({
@@ -54,7 +57,7 @@ exports.getMyPurchasedProducts = async (req, res) => {
       status: { $in: ['available', 'reserved', 'claimed'] }
     }).populate('product order');
 
-    console.log(`📊 Productos individuales encontrados: ${individualProducts.length}`);
+    if (isDev) console.log(`📊 Productos individuales encontrados: ${individualProducts.length}`);
 
     // Transformar los productos individuales al formato esperado
     const allItems = individualProducts.map(individualProduct => {
@@ -63,7 +66,7 @@ exports.getMyPurchasedProducts = async (req, res) => {
 
         // Verificar que el producto existe
         if (!product) {
-          console.log('⚠️ Producto no encontrado para individualProduct:', individualProduct._id);
+          if (isDev) console.log('⚠️ Producto no encontrado para individualProduct:', individualProduct._id);
           return null;
         }
 
@@ -73,7 +76,7 @@ exports.getMyPurchasedProducts = async (req, res) => {
 
         // Obtener dimensiones considerando variantes si existen
         let dimensiones = individualProduct.dimensiones;
-        console.log('🔍 Procesando producto individual:', individualProduct._id);
+        if (isDev) console.log('🔍 Procesando producto individual:', individualProduct._id);
         console.log('   - Variants:', individualProduct.variants);
         console.log('   - Dimensiones base:', individualProduct.dimensiones);
 
@@ -113,15 +116,15 @@ exports.getMyPurchasedProducts = async (req, res) => {
           dimensiones: dimensiones
         };
       } catch (itemError) {
-        console.error('❌ Error procesando producto individual:', individualProduct._id, itemError);
+        if (isDev) console.error('❌ Error procesando producto individual:', individualProduct._id, itemError);
         return null;
       }
     }).filter(item => item !== null); // Filtrar items nulos
 
-    console.log(`✅ Productos transformados exitosamente: ${allItems.length}`);
+    if (isDev) console.log(`✅ Productos transformados exitosamente: ${allItems.length}`);
     res.json(allItems);
   } catch (error) {
-    console.error('❌ Error al obtener productos comprados:', error);
+    if (isDev) console.error('❌ Error al obtener productos comprados:', error);
     res.status(500).json({ error: 'Error al obtener tus productos comprados' });
   }
 };
@@ -130,7 +133,7 @@ exports.getMyPurchasedProducts = async (req, res) => {
 exports.getUserProducts = async (req, res) => {
   try {
     const { userId } = req.params;
-    console.log('🔍 [ADMIN] Buscando productos individuales para usuario:', userId);
+    if (isDev) console.log('🔍 [ADMIN] Buscando productos individuales para usuario:', userId);
 
     // Obtener todos los productos individuales del usuario especificado
     const individualProducts = await IndividualProduct.find({
@@ -138,7 +141,7 @@ exports.getUserProducts = async (req, res) => {
       status: { $in: ['available', 'reserved', 'claimed'] }
     }).populate('product order user');
 
-    console.log(`📊 [ADMIN] Productos individuales encontrados: ${individualProducts.length}`);
+    if (isDev) console.log(`📊 [ADMIN] Productos individuales encontrados: ${individualProducts.length}`);
 
     // Transformar los productos individuales al formato esperado
     const allItems = individualProducts.map(individualProduct => {
@@ -147,7 +150,7 @@ exports.getUserProducts = async (req, res) => {
 
         // Verificar que el producto existe
         if (!product) {
-          console.log('⚠️ [ADMIN] Producto no encontrado para individualProduct:', individualProduct._id);
+          if (isDev) console.log('⚠️ [ADMIN] Producto no encontrado para individualProduct:', individualProduct._id);
           return null;
         }
 
@@ -157,7 +160,7 @@ exports.getUserProducts = async (req, res) => {
 
         // Obtener dimensiones considerando variantes si existen
         let dimensiones = individualProduct.dimensiones;
-        console.log('🔍 [ADMIN] Procesando producto individual:', individualProduct._id);
+        if (isDev) console.log('🔍 [ADMIN] Procesando producto individual:', individualProduct._id);
         console.log('   - Variants:', individualProduct.variants);
         console.log('   - Dimensiones base:', individualProduct.dimensiones);
 
@@ -198,15 +201,15 @@ exports.getUserProducts = async (req, res) => {
           user: individualProduct.user // Incluir información del usuario
         };
       } catch (itemError) {
-        console.error('❌ [ADMIN] Error procesando producto individual:', individualProduct._id, itemError);
+        if (isDev) console.error('❌ [ADMIN] Error procesando producto individual:', individualProduct._id, itemError);
         return null;
       }
     }).filter(item => item !== null); // Filtrar items nulos
 
-    console.log(`✅ [ADMIN] Productos transformados exitosamente: ${allItems.length}`);
+    if (isDev) console.log(`✅ [ADMIN] Productos transformados exitosamente: ${allItems.length}`);
     res.json(allItems);
   } catch (error) {
-    console.error('❌ [ADMIN] Error al obtener productos del usuario:', error);
+    if (isDev) console.error('❌ [ADMIN] Error al obtener productos del usuario:', error);
     res.status(500).json({ error: 'Error al obtener productos del usuario' });
   }
 };
@@ -275,7 +278,6 @@ exports.claimProductsFromInventory = async (req, res) => {
       const newTotalVolume = currentLockerVolume + itemVolume;
 
       // Verificar que el locker no exceda el límite (asumiendo 50x50x50 cm = 125,000 cm³)
-      const LOCKER_MAX_VOLUME = 125000; // 50x50x50 cm
 
       if (newTotalVolume > LOCKER_MAX_VOLUME) {
         validationErrors.push(`Los productos seleccionados para el casillero ${lockerNumber} exceden el espacio disponible`);
@@ -340,7 +342,7 @@ exports.claimProductsFromInventory = async (req, res) => {
       lockerAssignments: Array.from(lockerAssignments.entries()).map(([locker, volume]) => ({
         locker: locker,
         volume: volume,
-        volumePercentage: Math.round((volume / 125000) * 100)
+        volumePercentage: Math.round((volume / LOCKER_MAX_VOLUME) * 100)
       }))
     });
 
@@ -386,7 +388,6 @@ exports.claimIndividualProducts = async (req, res) => {
       const newTotalVolume = currentLockerVolume + itemVolume;
 
       // Verificar que el locker no exceda el límite (asumiendo 50x50x50 cm = 125,000 cm³)
-      const LOCKER_MAX_VOLUME = 125000; // 50x50x50 cm
 
       if (newTotalVolume > LOCKER_MAX_VOLUME) {
         validationErrors.push(`Los productos seleccionados para el casillero ${lockerNumber} exceden el espacio disponible`);
@@ -455,7 +456,7 @@ exports.claimIndividualProducts = async (req, res) => {
       lockerAssignments: Array.from(lockerAssignments.entries()).map(([locker, volume]) => ({
         locker: locker,
         volume: volume,
-        volumePercentage: Math.round((volume / 125000) * 100)
+        volumePercentage: Math.round((volume / LOCKER_MAX_VOLUME) * 100)
       }))
     });
 
@@ -534,7 +535,7 @@ exports.markAsPickedUp = async (req, res) => {
     order.locker.number = null; // Liberar el casillero
     await order.save();
 
-    console.log('✅ Pedido marcado como recogido y casillero liberado:', orderId);
+    if (isDev) console.log('✅ Pedido marcado como recogido y casillero liberado:', orderId);
 
     res.json(order);
   } catch (error) {
@@ -708,7 +709,6 @@ exports.claimProducts = async (req, res) => {
       const newTotalVolume = currentLockerVolume + itemVolume;
 
       // Verificar que el locker no exceda el límite (asumiendo 50x50x50 cm = 125,000 cm³)
-      const LOCKER_MAX_VOLUME = 125000; // 50x50x50 cm
 
       if (newTotalVolume > LOCKER_MAX_VOLUME) {
         validationErrors.push(`Los productos seleccionados para el casillero ${lockerNumber} exceden el espacio disponible`);
@@ -771,7 +771,7 @@ exports.claimProducts = async (req, res) => {
       lockerAssignments: Array.from(lockerAssignments.entries()).map(([locker, volume]) => ({
         locker: locker,
         volume: volume,
-        volumePercentage: Math.round((volume / 125000) * 100)
+        volumePercentage: Math.round((volume / LOCKER_MAX_VOLUME) * 100)
       }))
     });
 
@@ -845,7 +845,7 @@ exports.releaseLocker = async (req, res) => {
     order.locker.number = null;
     await order.save();
 
-    console.log('✅ Casillero liberado manualmente por admin:', orderId);
+    if (isDev) console.log('✅ Casillero liberado manualmente por admin:', orderId);
 
     res.json({
       message: 'Casillero liberado exitosamente',
@@ -871,12 +871,12 @@ exports.deleteOrder = async (req, res) => {
 
     // Si el pedido tiene casillero asignado, liberarlo
     if (order.locker && order.locker.number) {
-      console.log('🔓 Liberando casillero antes de borrar pedido:', order.locker.number);
+      if (isDev) console.log('🔓 Liberando casillero antes de borrar pedido:', order.locker.number);
     }
 
     await Order.findByIdAndDelete(id);
 
-    console.log('✅ Pedido borrado por admin:', id);
+    if (isDev) console.log('✅ Pedido borrado por admin:', id);
 
     res.json({
       message: 'Pedido borrado exitosamente',
@@ -986,14 +986,14 @@ exports.changeIndividualProductStatus = async (req, res) => {
 
     await individualProduct.save();
 
-    console.log(`✅ [ADMIN] Estado cambiado: ${productId} ${previousStatus} → ${newStatus}`);
+    if (isDev) console.log(`✅ [ADMIN] Estado cambiado: ${productId} ${previousStatus} → ${newStatus}`);
 
     res.json({
       message: `Estado actualizado de '${previousStatus}' a '${newStatus}'`,
       product: individualProduct
     });
   } catch (error) {
-    console.error('❌ [ADMIN] Error al cambiar estado:', error);
+    if (isDev) console.error('❌ [ADMIN] Error al cambiar estado:', error);
     res.status(500).json({ error: 'Error al cambiar estado del producto' });
   }
 };
@@ -1001,7 +1001,7 @@ exports.changeIndividualProductStatus = async (req, res) => {
 // Obtener todos los productos individuales de todos los usuarios (solo admin)
 exports.getAllIndividualProducts = async (req, res) => {
   try {
-    console.log('🔍 [ADMIN] Buscando todos los productos individuales...');
+    if (isDev) console.log('🔍 [ADMIN] Buscando todos los productos individuales...');
 
     const individualProducts = await IndividualProduct.find({
       status: { $in: ['available', 'reserved', 'claimed'] }
@@ -1023,15 +1023,15 @@ exports.getAllIndividualProducts = async (req, res) => {
           user: ip.user
         };
       } catch (err) {
-        console.error('❌ Error procesando producto:', ip._id, err);
+        if (isDev) console.error('❌ Error procesando producto:', ip._id, err);
         return null;
       }
     }).filter(item => item !== null);
 
-    console.log(`✅ [ADMIN] Total productos: ${allItems.length}`);
+    if (isDev) console.log(`✅ [ADMIN] Total productos: ${allItems.length}`);
     res.json(allItems);
   } catch (error) {
-    console.error('❌ [ADMIN] Error al obtener todos los productos:', error);
+    if (isDev) console.error('❌ [ADMIN] Error al obtener todos los productos:', error);
     res.status(500).json({ error: 'Error al obtener productos' });
   }
 };

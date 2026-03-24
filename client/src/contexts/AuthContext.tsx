@@ -3,6 +3,8 @@ import type { ReactNode } from 'react';
 import authService from '../services/authService';
 import type { User, AuthResponse } from '../services/authService';
 
+const isDev = import.meta.env.DEV;
+
 interface AuthContextType {
   currentUser: User | null;
   isAuthenticated: boolean;
@@ -39,18 +41,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       try {
         const user = authService.getCurrentUser();
         const token = authService.getToken();
-        console.log('AuthContext: usuario recuperado de localStorage:', user);
-        console.log('AuthContext: token recuperado de localStorage:', token);
+        if (isDev) {
+          console.log('AuthContext: usuario recuperado de localStorage:', user);
+          console.log('AuthContext: token recuperado de localStorage:', token);
+        }
         if (user && authService.isAuthenticated()) {
           // Validar token con el servidor
           const isValid = await authService.validateToken();
           if (isValid) {
             setCurrentUser(user);
-            console.log('AuthContext: usuario autenticado y válido:', user);
+            if (isDev) console.log('AuthContext: usuario autenticado y válido:', user);
           } else {
             authService.logout();
             setCurrentUser(null);
-            console.log('AuthContext: token inválido, usuario deslogueado');
+            if (isDev) console.log('AuthContext: token inválido, usuario deslogueado');
           }
         }
       } catch (error) {
@@ -76,7 +80,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       if (response.token && response.user) {
         setCurrentUser(response.user);
-        console.log('AuthContext: usuario logueado:', response.user);
+        if (isDev) console.log('AuthContext: usuario logueado:', response.user);
       }
     } catch (error) {
       throw error;

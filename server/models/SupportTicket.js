@@ -30,4 +30,7 @@ const supportTicketSchema = new mongoose.Schema({
   hiddenForUser: { type: Boolean, default: false }
 }, { timestamps: true });
 
+supportTicketSchema.index({ user: 1 });
+supportTicketSchema.index({ status: 1 });
+
 module.exports = mongoose.model('SupportTicket', supportTicketSchema); 

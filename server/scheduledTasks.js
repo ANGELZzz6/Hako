@@ -6,20 +6,14 @@ async function updateExpiredQRs() {
   try {
     const now = new Date();
     
-    // Buscar QRs vencidos que aún estén en estado 'disponible'
-    const expiredQRs = await Qr.find({
-      status: 'disponible',
-      vencimiento: { $lt: now }
-    });
+    // Actualizar QRs vencidos a estado 'vencido'
+    const result = await Qr.updateMany(
+      { status: 'disponible', vencimiento: { $lt: now } },
+      { $set: { status: 'vencido' } }
+    );
 
-    // Actualizar estado a 'vencido'
-    for (const qr of expiredQRs) {
-      qr.status = 'vencido';
-      await qr.save();
-    }
-
-    if (expiredQRs.length > 0) {
-      console.log(`[${new Date().toISOString()}] Se actualizaron ${expiredQRs.length} QRs vencidos`);
+    if (result.modifiedCount > 0) {
+      console.log(`[${new Date().toISOString()}] Se actualizaron ${result.modifiedCount} QRs vencidos`);
     }
     
   } catch (error) {
@@ -51,15 +45,15 @@ async function cleanupOldQRs() {
 // Programar tareas
 function scheduleTasks() {
   // Actualizar QRs vencidos cada hora
-  cron.schedule('0 * * * *', () => {
+  cron.schedule('0 * * * *', async () => {
     console.log('Ejecutando tarea programada: Actualizar QRs vencidos');
-    updateExpiredQRs();
+    await updateExpiredQRs();
   });
 
   // Limpiar QRs antiguos cada día a las 2:00 AM
-  cron.schedule('0 2 * * *', () => {
+  cron.schedule('0 2 * * *', async () => {
     console.log('Ejecutando tarea programada: Limpiar QRs antiguos');
-    cleanupOldQRs();
+    await cleanupOldQRs();
   });
 
   console.log('Tareas programadas configuradas correctamente');

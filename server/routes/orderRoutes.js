@@ -10,9 +10,6 @@ router.get('/', auth, adminAuth, orderController.getAllOrders);
 // Obtener casilleros disponibles (solo admin)
 router.get('/admin/lockers', auth, adminAuth, orderController.getAvailableLockers);
 
-// Obtener casilleros disponibles para usuarios
-router.get('/lockers', auth, orderController.getAvailableLockers);
-
 // Obtener estado detallado de casilleros (solo admin)
 router.get('/admin/lockers/status', auth, adminAuth, orderController.getLockerStatus);
 

@@ -48,10 +48,18 @@ exports.sendDebugLogs = async (req, res) => {
       return res.status(400).json({ error: 'Se requiere un array de logs válido' });
     }
 
-    // Procesar cada log
-    const debugLogs = logs.map(log => ({
+    // Filtrar solo logs con severidad permitida (error o warning)
+    const ALLOWED_SEVERITIES = ['error', 'warning'];
+    const validLogs = logs.filter(log => ALLOWED_SEVERITIES.includes(log.severity));
+    
+    if (validLogs.length === 0) {
+      return res.status(400).json({ error: 'No valid logs to insert (only error/warning allowed)' });
+    }
+
+    // Procesar cada log válido
+    const debugLogs = validLogs.map(log => ({
       message: log.message,
-      severity: log.severity || 'info',
+      severity: log.severity,
       details: log.details,
       userId,
       userAgent: log.userAgent || req.headers['user-agent'],
@@ -74,10 +82,12 @@ exports.sendDebugLogs = async (req, res) => {
   }
 };
 
-// Obtener logs de debug (solo admin)
 exports.getDebugLogs = async (req, res) => {
   try {
     const { page = 1, limit = 100, severity, userId, startDate, endDate } = req.query;
+    
+    // Capar el límite a 500 para evitar sobrecarga
+    const safeLimit = Math.min(parseInt(limit), 500);
     
     // Construir filtros
     const filters = {};
@@ -90,13 +100,13 @@ exports.getDebugLogs = async (req, res) => {
     }
 
     // Paginación
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const skip = (parseInt(page) - 1) * safeLimit;
     
     const [logs, total] = await Promise.all([
       DebugLog.find(filters)
         .sort({ timestamp: -1 })
         .skip(skip)
-        .limit(parseInt(limit))
+        .limit(safeLimit)
         .populate('userId', 'nombre email'),
       DebugLog.countDocuments(filters)
     ]);
@@ -105,9 +115,9 @@ exports.getDebugLogs = async (req, res) => {
       logs,
       pagination: {
         page: parseInt(page),
-        limit: parseInt(limit),
+        limit: safeLimit,
         total,
-        pages: Math.ceil(total / parseInt(limit))
+        pages: Math.ceil(total / safeLimit)
       }
     });
   } catch (error) {
@@ -204,7 +214,7 @@ exports.resolveDebugLog = async (req, res) => {
     const log = await DebugLog.findByIdAndUpdate(
       logId,
       { 
-        resolved: resolved || true,
+        resolved: resolved !== undefined ? resolved : true,
         adminNote,
         resolvedAt: new Date(),
         resolvedBy: req.user.id

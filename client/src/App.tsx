@@ -465,7 +465,8 @@ const AppContent = () => {
                               className="card-img-top"
                               alt={product.nombre}
                               onError={(e) => {
-                                e.currentTarget.src = 'https://via.placeholder.com/300x200?text=Sin+Imagen';
+                                e.currentTarget.onerror = null;
+                                e.currentTarget.src = 'data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2Fsvg%22%20width%3D%22300%22%20height%3D%22200%22%3E%3Crect%20width%3D%22300%22%20height%3D%22200%22%20fill%3D%22%23e9ecef%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20dominant-baseline%3D%22middle%22%20text-anchor%3D%22middle%22%20font-family%3D%22Arial%22%20font-size%3D%2214%22%20fill%3D%22%236c757d%22%3ESin%20imagen%3C%2Ftext%3E%3C%2Fsvg%3E';
                               }}
                             />
                             <div className="card-body d-flex flex-column">

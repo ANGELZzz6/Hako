@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Proyecto completo de tienda online",
   "scripts": {
-    "start": "node server/index.js",
+    "start": "node server/server.js",
     "dev": "node server/server.js",
     "server": "node server/server.js",
     "cleanup-penalties": "node server/cleanup-expired-penalties.js"

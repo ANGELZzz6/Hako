@@ -7,7 +7,7 @@ import { useMobileViewport } from '../hooks/useMobileViewport';
 import './ProductDetail.css';
 import ProductVariantModal from '../components/ProductVariantModal';
 import { useCart } from '../contexts/CartContext';
-import { showSuccessToast } from '../utils/toast';
+import { showSuccessToast } from '../utils/toast.ts';
 
 const estrellas = (valor: number) => (
   <span className="stars">

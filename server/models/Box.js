@@ -22,7 +22,8 @@ const boxSchema = new mongoose.Schema({
     total: {
         type: Number,
         required: true,
-        default: 0
+        default: 0,
+        min: 0
     },
     status: {
         type: String,
@@ -32,5 +33,7 @@ const boxSchema = new mongoose.Schema({
 }, {
     timestamps: true
 });
+
+boxSchema.index({ user: 1 });
 
 module.exports = mongoose.model('Box', boxSchema); 

@@ -108,6 +108,7 @@ const paymentSchema = new mongoose.Schema({
 
 // Índices para búsquedas eficientes
 paymentSchema.index({ external_reference: 1 });
+paymentSchema.index({ user_id: 1 });
 paymentSchema.index({ status: 1 });
 paymentSchema.index({ date_created: -1 });
 

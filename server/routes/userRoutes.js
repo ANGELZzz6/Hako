@@ -3,7 +3,6 @@ const router = express.Router();
 const rateLimit = require('express-rate-limit');
 const userController = require('../controllers/userController');
 const { auth, requireAdmin } = require('../middleware/auth');
-const { requireAdmin: adminAuth } = require('../middleware/auth');
 
 // Rate limiting específico para autenticación
 const authLimiter = rateLimit({
@@ -34,7 +33,7 @@ router.patch('/:id/toggle-status', auth, requireAdmin, userController.toggleUser
 router.get('/profile/:id', auth, userController.getProfile);
 
 // Obtener todos los admins
-router.get('/admins', auth, adminAuth, userController.getAdmins);
+router.get('/admins', auth, requireAdmin, userController.getAdmins);
 
 // Nueva ruta para cambiar la contraseña
 router.post('/change-password', auth, userController.changePassword);

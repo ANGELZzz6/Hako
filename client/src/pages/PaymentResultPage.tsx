@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import './PaymentResultPage.css';
+import { Navigate } from 'react-router-dom';
 
 // Función para limpiar el estado del SDK de Mercado Pago
 const cleanupMercadoPagoSDK = () => {

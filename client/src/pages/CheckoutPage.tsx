@@ -4,6 +4,8 @@ import './CheckoutPage.css';
 import { useAuth } from '../contexts/AuthContext';
 import React, { useEffect } from 'react';
 
+const isDev = import.meta.env.DEV;
+
 const CheckoutPage: React.FC = () => {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
@@ -17,12 +19,12 @@ const CheckoutPage: React.FC = () => {
   if (!currentUser) return null;
 
   const handlePaymentSuccess = (paymentData: any) => {
-    console.log('Pago exitoso:', paymentData);
+    if (isDev) console.log('Pago exitoso:', paymentData);
     // El componente MercadoPagoCheckout maneja la redirección
   };
 
   const handlePaymentError = (error: string) => {
-    console.error('Error en el pago:', error);
+    if (isDev) console.error('Error en el pago:', error);
     // El componente MercadoPagoCheckout maneja los errores
   };
 

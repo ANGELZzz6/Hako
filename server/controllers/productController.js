@@ -8,6 +8,8 @@ const Suggestion = require('../models/Suggestion');
 const transporter = require('../config/nodemailer');
 const User = require('../models/User');
 
+const isDev = process.env.NODE_ENV === 'development';
+
 // Obtener todos los productos
 exports.getAllProducts = async (req, res) => {
   try {
@@ -90,35 +92,41 @@ exports.createProduct = async (req, res) => {
   try {
     const { nombre, descripcion, precio, stock, imagen_url, variants, categoria, dimensiones } = req.body;
 
-    console.log('=== [SERVER] CREANDO PRODUCTO ===');
-    console.log('📦 Datos recibidos:', {
-      nombre,
-      precio,
-      stock,
-      categoria,
-      dimensiones
-    });
+    if (isDev) {
+      console.log('=== [SERVER] CREANDO PRODUCTO ===');
+      console.log('📦 Datos recibidos:', {
+        nombre,
+        precio,
+        stock,
+        categoria,
+        dimensiones
+      });
 
-    console.log('🔧 Variantes recibidas:', {
-      enabled: variants?.enabled,
-      attributesCount: variants?.attributes?.length || 0
-    });
+      console.log('🔧 Variantes recibidas:', {
+        enabled: variants?.enabled,
+        attributesCount: variants?.attributes?.length || 0
+      });
+    }
 
     if (variants && variants.enabled && variants.attributes) {
-      console.log('📋 Detalle de variantes recibidas:');
+      if (isDev) console.log('📋 Detalle de variantes recibidas:');
       variants.attributes.forEach((attr, attrIndex) => {
-        console.log(`   Atributo ${attrIndex + 1}: ${attr.name}`);
-        console.log(`     - Required: ${attr.required}`);
-        console.log(`     - DefinesDimensions: ${attr.definesDimensions}`);
-        console.log(`     - Opciones: ${attr.options?.length || 0}`);
+        if (isDev) {
+          console.log(`   Atributo ${attrIndex + 1}: ${attr.name}`);
+          console.log(`     - Required: ${attr.required}`);
+          console.log(`     - DefinesDimensions: ${attr.definesDimensions}`);
+          console.log(`     - Opciones: ${attr.options?.length || 0}`);
+        }
 
         if (attr.options) {
           attr.options.forEach((option, optIndex) => {
-            console.log(`       Opción ${optIndex + 1}: ${option.value}`);
-            console.log(`         - Precio: ${option.price}`);
-            console.log(`         - Stock: ${option.stock}`);
-            console.log(`         - IsActive: ${option.isActive}`);
-            console.log(`         - Dimensiones:`, option.dimensiones);
+            if (isDev) {
+              console.log(`       Opción ${optIndex + 1}: ${option.value}`);
+              console.log(`         - Precio: ${option.price}`);
+              console.log(`         - Stock: ${option.stock}`);
+              console.log(`         - IsActive: ${option.isActive}`);
+              console.log(`         - Dimensiones:`, option.dimensiones);
+            }
           });
         }
       });
@@ -181,31 +189,37 @@ exports.createProduct = async (req, res) => {
 
     await product.save();
 
-    console.log('✅ [SERVER] Producto creado exitosamente');
-    console.log('📦 Producto guardado:', {
-      id: product._id,
-      nombre: product.nombre,
-      variantsEnabled: product.variants?.enabled,
-      attributesCount: product.variants?.attributes?.length || 0
-    });
+    if (isDev) {
+      console.log('✅ [SERVER] Producto creado exitosamente');
+      console.log('📦 Producto guardado:', {
+        id: product._id,
+        nombre: product.nombre,
+        variantsEnabled: product.variants?.enabled,
+        attributesCount: product.variants?.attributes?.length || 0
+      });
+    }
 
     if (product.variants && product.variants.enabled) {
-      console.log('🔧 Variantes guardadas en DB:');
+      if (isDev) console.log('🔧 Variantes guardadas en DB:');
       product.variants.attributes.forEach((attr, attrIndex) => {
-        console.log(`   Atributo ${attrIndex + 1}: ${attr.name}`);
-        console.log(`     - DefinesDimensions: ${attr.definesDimensions}`);
-        console.log(`     - Opciones: ${attr.options?.length || 0}`);
+        if (isDev) {
+          console.log(`   Atributo ${attrIndex + 1}: ${attr.name}`);
+          console.log(`     - DefinesDimensions: ${attr.definesDimensions}`);
+          console.log(`     - Opciones: ${attr.options?.length || 0}`);
+        }
 
         if (attr.options) {
           attr.options.forEach((option, optIndex) => {
-            console.log(`       Opción ${optIndex + 1}: ${option.value}`);
-            console.log(`         - Dimensiones guardadas:`, option.dimensiones);
+            if (isDev) {
+              console.log(`       Opción ${optIndex + 1}: ${option.value}`);
+              console.log(`         - Dimensiones guardadas:`, option.dimensiones);
+            }
           });
         }
       });
     }
 
-    console.log(`Nuevo producto creado: ${nombre} por admin desde IP: ${req.ip}`);
+    if (isDev) console.log(`Nuevo producto creado: ${nombre} por admin desde IP: ${req.ip}`);
     res.status(201).json({
       message: 'Producto creado correctamente',
       product
@@ -226,32 +240,38 @@ exports.updateProduct = async (req, res) => {
     const { id } = req.params;
     const { nombre, descripcion, precio, stock, imagen_url, isActive, adminRating, images, variants, categoria, dimensiones } = req.body;
 
-    console.log('=== [SERVER] ACTUALIZANDO PRODUCTO ===');
-    console.log('📦 Datos recibidos:', {
-      id,
-      nombre,
-      precio,
-      stock,
-      categoria,
-      dimensiones
-    });
+    if (isDev) {
+      console.log('=== [SERVER] ACTUALIZANDO PRODUCTO ===');
+      console.log('📦 Datos recibidos:', {
+        id,
+        nombre,
+        precio,
+        stock,
+        categoria,
+        dimensiones
+      });
 
-    console.log('🔧 Variantes recibidas:', {
-      enabled: variants?.enabled,
-      attributesCount: variants?.attributes?.length || 0
-    });
+      console.log('🔧 Variantes recibidas:', {
+        enabled: variants?.enabled,
+        attributesCount: variants?.attributes?.length || 0
+      });
+    }
 
     if (variants && variants.enabled && variants.attributes) {
-      console.log('📋 Detalle de variantes recibidas:');
+      if (isDev) console.log('📋 Detalle de variantes recibidas:');
       variants.attributes.forEach((attr, attrIndex) => {
-        console.log(`   Atributo ${attrIndex + 1}: ${attr.name}`);
-        console.log(`     - DefinesDimensions: ${attr.definesDimensions}`);
-        console.log(`     - Opciones: ${attr.options?.length || 0}`);
+        if (isDev) {
+          console.log(`   Atributo ${attrIndex + 1}: ${attr.name}`);
+          console.log(`     - DefinesDimensions: ${attr.definesDimensions}`);
+          console.log(`     - Opciones: ${attr.options?.length || 0}`);
+        }
 
         if (attr.options) {
           attr.options.forEach((option, optIndex) => {
-            console.log(`       Opción ${optIndex + 1}: ${option.value}`);
-            console.log(`         - Dimensiones guardadas:`, option.dimensiones);
+            if (isDev) {
+              console.log(`       Opción ${optIndex + 1}: ${option.value}`);
+              console.log(`         - Dimensiones guardadas:`, option.dimensiones);
+            }
           });
         }
       });
@@ -353,31 +373,37 @@ exports.updateProduct = async (req, res) => {
       return res.status(404).json({ error: 'Producto no encontrado' });
     }
 
-    console.log('✅ [SERVER] Producto actualizado exitosamente');
-    console.log('📦 Producto guardado:', {
-      id: product._id,
-      nombre: product.nombre,
-      variantsEnabled: product.variants?.enabled,
-      attributesCount: product.variants?.attributes?.length || 0
-    });
+    if (isDev) {
+      console.log('✅ [SERVER] Producto actualizado exitosamente');
+      console.log('📦 Producto guardado:', {
+        id: product._id,
+        nombre: product.nombre,
+        variantsEnabled: product.variants?.enabled,
+        attributesCount: product.variants?.attributes?.length || 0
+      });
+    }
 
     if (product.variants && product.variants.enabled) {
-      console.log('🔧 Variantes guardadas en DB:');
+      if (isDev) console.log('🔧 Variantes guardadas en DB:');
       product.variants.attributes.forEach((attr, attrIndex) => {
-        console.log(`   Atributo ${attrIndex + 1}: ${attr.name}`);
-        console.log(`     - DefinesDimensions: ${attr.definesDimensions}`);
-        console.log(`     - Opciones: ${attr.options?.length || 0}`);
+        if (isDev) {
+          console.log(`   Atributo ${attrIndex + 1}: ${attr.name}`);
+          console.log(`     - DefinesDimensions: ${attr.definesDimensions}`);
+          console.log(`     - Opciones: ${attr.options?.length || 0}`);
+        }
 
         if (attr.options) {
           attr.options.forEach((option, optIndex) => {
-            console.log(`       Opción ${optIndex + 1}: ${option.value}`);
-            console.log(`         - Dimensiones guardadas:`, option.dimensiones);
+            if (isDev) {
+              console.log(`       Opción ${optIndex + 1}: ${option.value}`);
+              console.log(`         - Dimensiones guardadas:`, option.dimensiones);
+            }
           });
         }
       });
     }
 
-    console.log(`Producto actualizado: ${product.nombre} por admin desde IP: ${req.ip}`);
+    if (isDev) console.log(`Producto actualizado: ${product.nombre} por admin desde IP: ${req.ip}`);
     res.json({ message: 'Producto actualizado correctamente', product });
   } catch (error) {
     console.error('Error actualizando producto:', error);
@@ -739,6 +765,9 @@ exports.createSuggestion = async (req, res) => {
       email: user.email
     });
 
+    // Sanitización de URLs para el correo
+    const sanitizedUrls = matches.map(url => url.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'));
+
     // Enviar correo de agradecimiento al usuario
     try {
       await transporter.sendMail({
@@ -755,7 +784,7 @@ exports.createSuggestion = async (req, res) => {
             <div style="background: #fff; border-radius: 8px; padding: 16px 20px; margin: 24px 0; border-left: 4px solid #d32f2f;">
               <p style="margin: 0 0 8px 0; font-size: 15px;"><b>Productos sugeridos:</b></p>
               <ul style="margin: 0; padding-left: 18px; color: #555;">
-                ${matches.map(url => `<li>${url}</li>`).join('')}
+                ${sanitizedUrls.map(url => `<li>${url}</li>`).join('')}
               </ul>
             </div>
             <p style="font-size: 15px; color: #444;">¡Gracias por ayudarnos a mejorar Hako!</p>

@@ -153,7 +153,6 @@ export function getVariantOrProductDimensions(product: Product, selectedVariants
             option.dimensiones.largo && 
             option.dimensiones.ancho && 
             option.dimensiones.alto) {
-          console.log(`✅ Dimensiones de variante encontradas para ${product.nombre}:`, option.dimensiones);
           return option.dimensiones;
         }
       }
@@ -546,14 +545,18 @@ class ProductService {
   }
 
   async getAllCategories(): Promise<string[]> {
-    const response = await fetch(`${ENDPOINTS.PRODUCTS}/admin/categorias`);
+    const response = await fetch(`${ENDPOINTS.PRODUCTS}/admin/categorias`, {
+      headers: this.getAuthHeaders(),
+    });
     if (!response.ok) throw new Error('Error al obtener categorías');
     handle401(response);
     return await response.json();
   }
 
   async getProductsByCategory(categoria: string): Promise<Product[]> {
-    const response = await fetch(`${ENDPOINTS.PRODUCTS}/admin/categorias/${encodeURIComponent(categoria)}/productos`);
+    const response = await fetch(`${ENDPOINTS.PRODUCTS}/admin/categorias/${encodeURIComponent(categoria)}/productos`, {
+      headers: this.getAuthHeaders(),
+    });
     if (!response.ok) throw new Error('Error al obtener productos de la categoría');
     handle401(response);
     return await response.json();

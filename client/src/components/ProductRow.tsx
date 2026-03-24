@@ -14,7 +14,7 @@ const ProductRow: React.FC<ProductRowProps> = ({ product, onEdit, onDelete, onTo
   const getStatusBadge = (isActive: boolean) => {
     const statusClass = isActive ? 'status-active' : 'status-inactive';
     const statusText = isActive ? 'Activo' : 'Inactivo';
-    
+
     return (
       <span className={`status-badge ${statusClass}`}>
         {statusText}
@@ -24,7 +24,7 @@ const ProductRow: React.FC<ProductRowProps> = ({ product, onEdit, onDelete, onTo
 
   const getDestacadoBadge = () => {
     if (!product.isDestacado) return null;
-    
+
     return (
       <span className="badge destacado-badge">
         <i className="bi bi-star-fill"></i>
@@ -35,7 +35,7 @@ const ProductRow: React.FC<ProductRowProps> = ({ product, onEdit, onDelete, onTo
 
   const getOfertaBadge = () => {
     if (!product.isOferta) return null;
-    
+
     return (
       <span className="badge oferta-badge">
         <i className="bi bi-tag-fill"></i>
@@ -76,12 +76,13 @@ const ProductRow: React.FC<ProductRowProps> = ({ product, onEdit, onDelete, onTo
     <tr className={`product-row ${product.isDestacado ? 'destacado-row' : ''} ${product.isOferta ? 'oferta-row' : ''}`}>
       <td>
         <div className="product-info">
-          <img 
-            src={product.imagen_url} 
+          <img
+            src={product.imagen_url}
             alt={product.nombre}
             className="product-image"
             onError={(e) => {
-              e.currentTarget.src = 'https://via.placeholder.com/50x50?text=Sin+Imagen';
+              e.currentTarget.onerror = null;
+              e.currentTarget.src = 'data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2Fsvg%22%20width%3D%2250%22%20height%3D%2250%22%3E%3Crect%20width%3D%2250%22%20height%3D%2250%22%20fill%3D%22%23e9ecef%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20dominant-baseline%3D%22middle%22%20text-anchor%3D%22middle%22%20font-family%3D%22Arial%22%20font-size%3D%228%22%20fill%3D%22%236c757d%22%3ESin%20img%3C%2Ftext%3E%3C%2Fsvg%3E';
             }}
           />
           <div className="product-details">
@@ -119,15 +120,15 @@ const ProductRow: React.FC<ProductRowProps> = ({ product, onEdit, onDelete, onTo
       <td>{formatDate(product.fecha_creacion)}</td>
       <td>{getStatusBadge(product.isActive)}</td>
       <td className="action-buttons">
-        <button 
-          className="btn-action btn-edit" 
+        <button
+          className="btn-action btn-edit"
           onClick={() => onEdit(product)}
           aria-label={`Editar producto ${product.nombre}`}
           title="Editar producto"
         >
           <i className="bi bi-pencil-square"></i>
         </button>
-        <button 
+        <button
           className={`btn-action ${product.isDestacado ? 'btn-destacado-active' : 'btn-destacado'}`}
           onClick={() => onToggleDestacado(product._id)}
           aria-label={`${product.isDestacado ? 'Quitar de' : 'Marcar como'} destacado ${product.nombre}`}
@@ -135,7 +136,7 @@ const ProductRow: React.FC<ProductRowProps> = ({ product, onEdit, onDelete, onTo
         >
           <i className="bi bi-star-fill"></i>
         </button>
-        <button 
+        <button
           className={`btn-action ${product.isOferta ? 'btn-oferta-active' : 'btn-oferta'}`}
           onClick={() => onToggleOferta(product._id)}
           aria-label={`${product.isOferta ? 'Quitar de' : 'Marcar como'} oferta ${product.nombre}`}
@@ -143,16 +144,16 @@ const ProductRow: React.FC<ProductRowProps> = ({ product, onEdit, onDelete, onTo
         >
           <i className="bi bi-tag-fill"></i>
         </button>
-        <button 
-          className="btn-action btn-toggle-status" 
+        <button
+          className="btn-action btn-toggle-status"
           onClick={() => onToggleStatus(product._id)}
           aria-label={`${product.isActive ? 'Desactivar' : 'Activar'} producto ${product.nombre}`}
           title={product.isActive ? 'Desactivar producto' : 'Activar producto'}
         >
           <i className={`bi ${product.isActive ? 'bi-eye-slash' : 'bi-eye'}`}></i>
         </button>
-        <button 
-          className="btn-action btn-delete" 
+        <button
+          className="btn-action btn-delete"
           onClick={() => onDelete(product._id)}
           aria-label={`Borrar producto ${product.nombre}`}
           title="Eliminar producto"

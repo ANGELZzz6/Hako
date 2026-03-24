@@ -7,6 +7,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
 import { initMercadoPago, createMercadoPagoInstance, validateMercadoPagoConfig } from '../config/mercadopago';
 
+const isDev = import.meta.env.DEV;
+
 interface MercadoPagoCheckoutProps {
   onSuccess?: (paymentData: any) => void;
   onError?: (error: string) => void;
@@ -53,14 +55,15 @@ const MercadoPagoCheckout: React.FC<MercadoPagoCheckoutProps> = ({
   useEffect(() => {
     const loadCheckoutData = async () => {
       try {
-        console.log('=== CARGANDO DATOS DEL CHECKOUT ===');
-
         // Obtener productos seleccionados del estado de navegación
         const selectedItems = location.state?.items;
         const selectedPayer = location.state?.payer;
 
-        console.log('Productos seleccionados recibidos:', selectedItems);
-        console.log('Datos del pagador recibidos:', selectedPayer);
+        if (isDev) {
+          console.log('=== CARGANDO DATOS DEL CHECKOUT ===');
+          console.log('Productos seleccionados recibidos:', selectedItems);
+          console.log('Datos del pagador recibidos:', selectedPayer);
+        }
 
         if (!selectedItems || selectedItems.length === 0) {
           setError('No hay productos seleccionados para el pago');
@@ -103,17 +106,19 @@ const MercadoPagoCheckout: React.FC<MercadoPagoCheckoutProps> = ({
 
       try {
         setLoading(true);
-        console.log('Creando preferencia de pago...');
-        console.log('Productos a pagar:', items);
-        console.log('🔍 Debugging variants en checkout:');
-        items.forEach((item, index) => {
-          console.log(`  Item ${index}:`, {
-            id: item.id,
-            title: item.title,
-            variants: item.variants,
-            hasVariants: !!item.variants && Object.keys(item.variants).length > 0
+        if (isDev) {
+          console.log('Creando preferencia de pago...');
+          console.log('Productos a pagar:', items);
+          console.log('🔍 Debugging variants en checkout:');
+          items.forEach((item, index) => {
+            console.log(`  Item ${index}:`, {
+              id: item.id,
+              title: item.title,
+              variants: item.variants,
+              hasVariants: !!item.variants && Object.keys(item.variants).length > 0
+            });
           });
-        });
+        }
 
         const preference = await paymentService.createPreference(
           items,
@@ -122,7 +127,7 @@ const MercadoPagoCheckout: React.FC<MercadoPagoCheckoutProps> = ({
           items // Enviar los productos que llegaron al checkout
         );
 
-        console.log('Preferencia creada:', preference);
+        if (isDev) console.log('Preferencia creada:', preference);
         setPreferenceId(preference.preference_id);
         setRedirectUrl(preference.init_point);
 
@@ -140,7 +145,7 @@ const MercadoPagoCheckout: React.FC<MercadoPagoCheckoutProps> = ({
   // Función para manejar el pago exitoso
   const handlePaymentSuccess = async (paymentData: any) => {
     try {
-      console.log('Pago exitoso:', paymentData);
+      if (isDev) console.log('Pago exitoso:', paymentData);
 
       // Eliminar productos del carrito
       if (items.length > 0) {
@@ -168,7 +173,7 @@ const MercadoPagoCheckout: React.FC<MercadoPagoCheckoutProps> = ({
 
   // Función para manejar errores de pago
   const handlePaymentError = (error: string) => {
-    console.error('Error en el pago:', error);
+    if (isDev) console.error('Error en el pago:', error);
     setError(error);
 
     if (onError) {
@@ -187,8 +192,10 @@ const MercadoPagoCheckout: React.FC<MercadoPagoCheckoutProps> = ({
     setError(null);
 
     try {
-      console.log('Redirigiendo a Checkout Pro...');
-      console.log('URL:', redirectUrl);
+      if (isDev) {
+        console.log('Redirigiendo a Checkout Pro...');
+        console.log('URL:', redirectUrl);
+      }
 
       // Redirigir directamente usando la URL guardada
       window.location.href = redirectUrl;

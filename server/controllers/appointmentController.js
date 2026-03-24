@@ -1,8 +1,11 @@
 const Appointment = require('../models/Appointment');
 const Order = require('../models/Order');
 const IndividualProduct = require('../models/IndividualProduct');
+const User = require('../models/User');
 const LockerAssignment = require('../models/LockerAssignment');
 const lockerAssignmentService = require('../services/lockerAssignmentService');
+
+const isDev = process.env.NODE_ENV === 'development';
 
 // Offset fijo Colombia UTC-5 (no cambia con horario de verano)
 const COLOMBIA_OFFSET_MS = 5 * 60 * 60 * 1000;
@@ -18,11 +21,11 @@ const createLocalDate = (dateString) => {
       Number(day),
       5, 0, 0, 0  // 00:00 COT = 05:00 UTC
     ));
-    console.log(`🔍 createLocalDate: ${dateString} -> ${date.toISOString()} (Colombia: ${dateString})`);
+    if (isDev) console.log(`🔍 createLocalDate: ${dateString} -> ${date.toISOString()} (Colombia: ${dateString})`);
     return date;
   }
   const date = new Date(dateString);
-  console.log(`🔍 createLocalDate: ${dateString} -> ${date.toISOString()}`);
+  if (isDev) console.log(`🔍 createLocalDate: ${dateString} -> ${date.toISOString()}`);
   return date;
 };
 
@@ -77,24 +80,28 @@ exports.getAvailableTimeSlots = async (req, res) => {
     // Si es el día actual, filtrar horas que ya han pasado
     const isToday = selectedDate.getTime() === getTodayColombia().getTime();
 
-    console.log('🔍 Debug getAvailableTimeSlots:');
-    console.log('  Fecha recibida:', date);
-    console.log('  Fecha seleccionada (parsed):', selectedDate.toISOString());
-    console.log('  Fecha seleccionada (local):', selectedDate.toLocaleDateString());
-    console.log('  Fecha actual:', today.toISOString());
-    console.log('  Fecha actual (local):', today.toLocaleDateString());
-    console.log('  ¿Es hoy?:', isToday);
-    console.log('  Hora actual (servidor):', new Date().toLocaleTimeString());
-    console.log('  Zona horaria del servidor:', Intl.DateTimeFormat().resolvedOptions().timeZone);
+    if (isDev) {
+      console.log('🔍 Debug getAvailableTimeSlots:');
+      console.log('  Fecha recibida:', date);
+      console.log('  Fecha seleccionada (parsed):', selectedDate.toISOString());
+      console.log('  Fecha seleccionada (local):', selectedDate.toLocaleDateString());
+      console.log('  Fecha actual:', today.toISOString());
+      console.log('  Fecha actual (local):', today.toLocaleDateString());
+      console.log('  ¿Es hoy?:', isToday);
+      console.log('  Hora actual (servidor):', new Date().toLocaleTimeString());
+      console.log('  Zona horaria del servidor:', Intl.DateTimeFormat().resolvedOptions().timeZone);
+    }
 
     if (isToday) {
       const now = new Date();
       const currentHour = now.getHours();
       const currentMinute = now.getMinutes();
 
-      console.log('  Filtrando horas para hoy:');
-      console.log('  Hora actual:', currentHour);
-      console.log('  Minuto actual:', currentMinute);
+      if (isDev) {
+        console.log('  Filtrando horas para hoy:');
+        console.log('  Hora actual:', currentHour);
+        console.log('  Minuto actual:', currentMinute);
+      }
 
       // Filtrar slots que ya han pasado
       const filteredSlots = availableSlots.filter(slot => {
@@ -104,13 +111,13 @@ exports.getAvailableTimeSlots = async (req, res) => {
 
         const isFuture = slotHour > currentHour || (slotHour === currentHour && slotMinute > currentMinute);
 
-        console.log(`    ${slot.time}: hora=${slotHour}, minuto=${slotMinute}, ¿es futuro?=${isFuture}`);
+        if (isDev) console.log(`    ${slot.time}: hora=${slotHour}, minuto=${slotMinute}, ¿es futuro?=${isFuture}`);
 
         // Si la hora del slot es menor a la hora actual, o si es la misma hora pero los minutos ya pasaron
         return isFuture;
       });
 
-      console.log('  Horarios filtrados para hoy:', filteredSlots.map(s => s.time));
+      if (isDev) console.log('  Horarios filtrados para hoy:', filteredSlots.map(s => s.time));
 
       return res.json({
         date: date,
@@ -118,7 +125,7 @@ exports.getAvailableTimeSlots = async (req, res) => {
       });
     }
 
-    console.log('  No es hoy, retornando todos los horarios:', availableSlots.map(s => s.time));
+    if (isDev) console.log('  No es hoy, retornando todos los horarios:', availableSlots.map(s => s.time));
 
     res.json({
       date: date,
@@ -144,50 +151,58 @@ exports.createAppointment = async (req, res) => {
 
       if (activeAppointments.length > 0) {
         const now = new Date();
-        console.log('🔍 Verificando reservas vencidas...');
-        console.log('⏰ Hora actual:', now.toISOString());
+        if (isDev) {
+          console.log('🔍 Verificando reservas vencidas...');
+          console.log('⏰ Hora actual:', now.toISOString());
+        }
 
         const hasExpired = activeAppointments.some(app => {
           const appDate = new Date(app.scheduledDate);
           const [h, m] = (app.timeSlot || '00:00').split(':');
           appDate.setHours(parseInt(h || '0'), parseInt(m || '0'), 0, 0);
 
-          console.log(`📅 Reserva ${app._id}: ${appDate.toISOString()} (${app.scheduledDate} ${app.timeSlot})`);
-          console.log(`   ¿Está vencida? ${appDate < now}`);
+          if (isDev) {
+            console.log(`📅 Reserva ${app._id}: ${appDate.toISOString()} (${app.scheduledDate} ${app.timeSlot})`);
+            console.log(`   ¿Está vencida? ${appDate < now}`);
+          }
 
           return appDate < now;
         });
 
         if (hasExpired) {
-          console.log('❌ Usuario tiene reservas vencidas - BLOQUEANDO');
+          if (isDev) console.log('❌ Usuario tiene reservas vencidas - BLOQUEANDO');
           return res.status(403).json({
             error: 'Tienes reservas vencidas. Primero edítalas o cancélalas antes de crear una nueva reserva.'
           });
         }
 
-        console.log('✅ Usuario no tiene reservas vencidas - PERMITIENDO');
+        if (isDev) console.log('✅ Usuario no tiene reservas vencidas - PERMITIENDO');
       }
     }
 
     // Debug: Ver qué datos está recibiendo el backend
-    console.log('🔍 Backend recibió:', {
-      orderId,
-      scheduledDate,
-      timeSlot,
-      itemsToPickup,
-      notes,
-      contactInfo
-    });
+    if (isDev) {
+      console.log('🔍 Backend recibió:', {
+        orderId,
+        scheduledDate,
+        timeSlot,
+        itemsToPickup,
+        notes,
+        contactInfo
+      });
+    }
 
     // Validar datos requeridos
     if (!orderId || !scheduledDate || !timeSlot || !itemsToPickup || !Array.isArray(itemsToPickup)) {
-      console.log('❌ Datos incompletos:', {
-        orderId: !!orderId,
-        scheduledDate: !!scheduledDate,
-        timeSlot: !!timeSlot,
-        itemsToPickup: !!itemsToPickup,
-        isArray: Array.isArray(itemsToPickup)
-      });
+      if (isDev) {
+        console.log('❌ Datos incompletos:', {
+          orderId: !!orderId,
+          scheduledDate: !!scheduledDate,
+          timeSlot: !!timeSlot,
+          itemsToPickup: !!itemsToPickup,
+          isArray: Array.isArray(itemsToPickup)
+        });
+      }
       return res.status(400).json({ error: 'Datos incompletos para crear la cita' });
     }
 
@@ -208,7 +223,7 @@ exports.createAppointment = async (req, res) => {
 
 
     // Verificar penalización por reserva vencida (temporal - 24 horas)
-    const user = await require('../models/User').findById(req.user.id);
+    const user = await User.findById(req.user.id);
     if (user && user.reservationPenalties) {
       const currentTime = new Date();
       const penalty = user.reservationPenalties.find(p => {
@@ -222,15 +237,17 @@ exports.createAppointment = async (req, res) => {
           const penaltyTime = new Date(p.createdAt);
           const hoursSincePenalty = (currentTime.getTime() - penaltyTime.getTime()) / (1000 * 60 * 60);
 
-          console.log(`🔍 Penalización encontrada para ${selectedDate.toLocaleDateString('es-CO')}`);
-          console.log(`⏰ Horas transcurridas desde penalización: ${hoursSincePenalty.toFixed(2)}`);
+          if (isDev) {
+            console.log(`🔍 Penalización encontrada para ${selectedDate.toLocaleDateString('es-CO')}`);
+            console.log(`⏰ Horas transcurridas desde penalización: ${hoursSincePenalty.toFixed(2)}`);
+          }
 
           // Si han pasado menos de 24 horas, aplicar penalización
           if (hoursSincePenalty < 24) {
-            console.log(`❌ Penalización activa - No se puede reservar para este día`);
+            if (isDev) console.log(`❌ Penalización activa - No se puede reservar para este día`);
             return true;
           } else {
-            console.log(`✅ Penalización expirada - Se puede reservar para este día`);
+            if (isDev) console.log(`✅ Penalización expirada - Se puede reservar para este día`);
             return false;
           }
         }
@@ -324,11 +341,11 @@ exports.createAppointment = async (req, res) => {
       status: { $nin: ['cancelled', 'completed'] }
     }).populate('itemsToPickup.product');
 
-    console.log('🔍 Reservas existentes encontradas:', existingAppointments.length);
+    if (isDev) console.log('🔍 Reservas existentes encontradas:', existingAppointments.length);
 
     // Si hay reservas existentes, intentar agregar productos a ellas
     if (existingAppointments.length > 0) {
-      console.log('📅 Intentando agregar productos a reservas existentes...');
+      if (isDev) console.log('📅 Intentando agregar productos a reservas existentes...');
 
       // Agrupar productos por casillero solicitado
       const productsByLocker = new Map();
@@ -352,7 +369,7 @@ exports.createAppointment = async (req, res) => {
           appDateTime.setHours(parseInt(h || '0'), parseInt(m || '0'), 0, 0);
           const now = new Date();
           if (appDateTime < now) {
-            console.log(`♻️ Reserva ${existingAppointment._id} está vencida. Reprogramando antes de agregar productos...`);
+            if (isDev) console.log(`♻️ Reserva ${existingAppointment._id} está vencida. Reprogramando antes de agregar productos...`);
             // Buscar siguiente día/hora disponible (simple: mañana misma hora)
             const newDate = new Date(now);
             newDate.setDate(newDate.getDate() + 1);
@@ -362,7 +379,7 @@ exports.createAppointment = async (req, res) => {
             await existingAppointment.save();
           }
 
-          console.log(`✅ Agregando productos al casillero ${lockerNumber} en reserva existente ${existingAppointment._id}`);
+          if (isDev) console.log(`✅ Agregando productos al casillero ${lockerNumber} en reserva existente ${existingAppointment._id}`);
 
           // Agregar productos a la reserva existente
           for (const product of products) {
@@ -401,7 +418,7 @@ exports.createAppointment = async (req, res) => {
 
     // Si quedan productos sin asignar, crear una nueva reserva
     if (validItems.length > 0) {
-      console.log(`📅 Creando nueva reserva para ${validItems.length} productos restantes`);
+      if (isDev) console.log(`📅 Creando nueva reserva para ${validItems.length} productos restantes`);
 
       // Obtener los casilleros que se van a usar en esta cita
       const requestedLockers = validItems.map(item => item.lockerNumber);
@@ -451,9 +468,9 @@ exports.createAppointment = async (req, res) => {
 
       // Sincronizar automáticamente con locker assignments
       try {
-        console.log('🔄 Sincronizando automáticamente con locker assignments...');
+        if (isDev) console.log('🔄 Sincronizando automáticamente con locker assignments...');
         await lockerAssignmentService.syncFromAppointments(appointment.scheduledDate);
-        console.log('✅ Sincronización automática completada');
+        if (isDev) console.log('✅ Sincronización automática completada');
       } catch (syncError) {
         console.error('⚠️ Error en sincronización automática:', syncError);
         // No fallar la creación de la cita por errores de sincronización
@@ -472,9 +489,9 @@ exports.createAppointment = async (req, res) => {
       // Todos los productos se agregaron a reservas existentes
       // Sincronizar automáticamente con locker assignments
       try {
-        console.log('🔄 Sincronizando automáticamente con locker assignments...');
+        if (isDev) console.log('🔄 Sincronizando automáticamente con locker assignments...');
         await lockerAssignmentService.syncFromAppointments(selectedDate);
-        console.log('✅ Sincronización automática completada');
+        if (isDev) console.log('✅ Sincronización automática completada');
       } catch (syncError) {
         console.error('⚠️ Error en sincronización automática:', syncError);
         // No fallar la operación por errores de sincronización
@@ -508,25 +525,27 @@ exports.getMyAppointments = async (req, res) => {
 
     // Procesar cada cita para agregar información de variantes y dimensiones calculadas
     const processedAppointments = await Promise.all(appointments.map(async (appointment) => {
-      const IndividualProduct = require('../models/IndividualProduct');
 
       // Procesar cada item en la cita
       const processedItems = await Promise.all(appointment.itemsToPickup.map(async (item) => {
-        console.log(`🔍 Procesando item de reserva: ${item.originalProduct.nombre}`);
-
         // Usar directamente el IndividualProduct ya poblado
         const individualProduct = item.individualProduct;
 
         if (individualProduct) {
-          console.log(`🔍 Usando IndividualProduct ID: ${individualProduct._id}`);
-          console.log(`🔍 Variantes:`, individualProduct.variants ? Object.fromEntries(individualProduct.variants) : 'Sin variantes');
+          if (isDev) {
+            console.log(`🔍 Procesando item de reserva: ${item.originalProduct.nombre}`);
+            console.log(`🔍 Usando IndividualProduct ID: ${individualProduct._id}`);
+            console.log(`🔍 Variantes:`, individualProduct.variants ? Object.fromEntries(individualProduct.variants) : 'Sin variantes');
+          }
 
           // Calcular dimensiones considerando variantes
           const variantDimensiones = individualProduct.getVariantOrProductDimensions();
           const variantVolume = individualProduct.getVariantOrProductVolume();
 
-          console.log(`🔍 Dimensiones calculadas:`, variantDimensiones);
-          console.log(`🔍 Volumen calculado:`, variantVolume);
+          if (isDev) {
+            console.log(`🔍 Dimensiones calculadas:`, variantDimensiones);
+            console.log(`🔍 Volumen calculado:`, variantVolume);
+          }
 
           // Agregar información de variantes y dimensiones calculadas al item
           return {
@@ -539,7 +558,7 @@ exports.getMyAppointments = async (req, res) => {
           };
         }
 
-        console.log(`⚠️ No se encontró IndividualProduct para ${item.originalProduct.nombre}`);
+        if (isDev) console.log(`⚠️ No se encontró IndividualProduct para ${item.originalProduct.nombre}`);
         return {
           ...item.toObject(),
           product: item.originalProduct // Mantener compatibilidad con el frontend
@@ -582,26 +601,26 @@ exports.getMyAppointment = async (req, res) => {
       return res.status(404).json({ error: 'Cita no encontrada' });
     }
 
-    // Procesar la cita para agregar información de variantes y dimensiones calculadas
-    const IndividualProduct = require('../models/IndividualProduct');
-
     // Procesar cada item en la cita
     const processedItems = await Promise.all(appointment.itemsToPickup.map(async (item) => {
-      console.log(`🔍 Procesando item de reserva: ${item.originalProduct.nombre}`);
-
       // Usar directamente el IndividualProduct ya poblado
       const individualProduct = item.individualProduct;
 
       if (individualProduct) {
-        console.log(`🔍 Usando IndividualProduct ID: ${individualProduct._id}`);
-        console.log(`🔍 Variantes:`, individualProduct.variants ? Object.fromEntries(individualProduct.variants) : 'Sin variantes');
+        if (isDev) {
+          console.log(`🔍 Procesando item de reserva: ${item.originalProduct.nombre}`);
+          console.log(`🔍 Usando IndividualProduct ID: ${individualProduct._id}`);
+          console.log(`🔍 Variantes:`, individualProduct.variants ? Object.fromEntries(individualProduct.variants) : 'Sin variantes');
+        }
 
         // Calcular dimensiones considerando variantes
         const variantDimensiones = individualProduct.getVariantOrProductDimensions();
         const variantVolume = individualProduct.getVariantOrProductVolume();
 
-        console.log(`🔍 Dimensiones calculadas:`, variantDimensiones);
-        console.log(`🔍 Volumen calculado:`, variantVolume);
+        if (isDev) {
+          console.log(`🔍 Dimensiones calculadas:`, variantDimensiones);
+          console.log(`🔍 Volumen calculado:`, variantVolume);
+        }
 
         // Agregar información de variantes y dimensiones calculadas al item
         return {
@@ -614,7 +633,7 @@ exports.getMyAppointment = async (req, res) => {
         };
       }
 
-      console.log(`⚠️ No se encontró IndividualProduct para ${item.originalProduct.nombre}`);
+      if (isDev) console.log(`⚠️ No se encontró IndividualProduct para ${item.originalProduct.nombre}`);
       return {
         ...item.toObject(),
         product: item.originalProduct // Mantener compatibilidad con el frontend
@@ -640,7 +659,6 @@ exports.updateMyAppointment = async (req, res) => {
     const { scheduledDate, timeSlot, lockerNumber } = req.body;
 
     // Verificar penalizaciones del usuario (reservas vencidas - temporal 24 horas)
-    const User = require('../models/User');
     const user = await User.findById(req.user.id);
     const penalizedDates = new Set();
     const currentTime = new Date();
@@ -656,9 +674,9 @@ exports.updateMyAppointment = async (req, res) => {
         // Solo agregar penalizaciones que no hayan expirado (menos de 24 horas)
         if (hoursSincePenalty < 24) {
           penalizedDates.add(penaltyDate.getTime());
-          console.log(`🔍 Penalización activa para ${penaltyDate.toLocaleDateString('es-CO')} (${hoursSincePenalty.toFixed(2)}h transcurridas)`);
+          if (isDev) console.log(`🔍 Penalización activa para ${penaltyDate.toLocaleDateString('es-CO')} (${hoursSincePenalty.toFixed(2)}h transcurridas)`);
         } else {
-          console.log(`✅ Penalización expirada para ${penaltyDate.toLocaleDateString('es-CO')} (${hoursSincePenalty.toFixed(2)}h transcurridas)`);
+          if (isDev) console.log(`✅ Penalización expirada para ${penaltyDate.toLocaleDateString('es-CO')} (${hoursSincePenalty.toFixed(2)}h transcurridas)`);
         }
       });
     }
@@ -678,9 +696,9 @@ exports.updateMyAppointment = async (req, res) => {
           const hoursSinceExpiry = (currentTime.getTime() - appDateTime.getTime()) / (1000 * 60 * 60);
           if (hoursSinceExpiry < 24) {
             penalizedDates.add(appDate.getTime());
-            console.log(`🔍 Reserva vencida activa para ${appDate.toLocaleDateString('es-CO')} (${hoursSinceExpiry.toFixed(2)}h transcurridas)`);
+            if (isDev) console.log(`🔍 Reserva vencida activa para ${appDate.toLocaleDateString('es-CO')} (${hoursSinceExpiry.toFixed(2)}h transcurridas)`);
           } else {
-            console.log(`✅ Reserva vencida expirada para ${appDate.toLocaleDateString('es-CO')} (${hoursSinceExpiry.toFixed(2)}h transcurridas)`);
+            if (isDev) console.log(`✅ Reserva vencida expirada para ${appDate.toLocaleDateString('es-CO')} (${hoursSinceExpiry.toFixed(2)}h transcurridas)`);
           }
         }
       }
@@ -957,8 +975,8 @@ exports.cancelAppointment = async (req, res) => {
       return res.status(400).json({ error: 'No se puede cancelar una cita en el pasado' });
     }
 
-    console.log('🔄 Cancelando reserva:', appointmentId);
-    console.log('📦 Productos en la reserva:', appointment.itemsToPickup.length);
+    if (isDev) console.log('🔄 Cancelando reserva:', appointmentId);
+    if (isDev) console.log('📦 Productos en la reserva:', appointment.itemsToPickup.length);
 
     // Liberar productos individuales que estaban reservados
     const liberatedProducts = [];
@@ -968,16 +986,16 @@ exports.cancelAppointment = async (req, res) => {
         const individualProductId = itemDoc.individualProduct;
         const originalProduct = itemDoc.originalProduct;
 
-        console.log(`🔍 Buscando producto individual para: ${originalProduct?.nombre || 'Producto sin nombre'}`);
-        console.log(`   IndividualProduct ID: ${individualProductId}`);
-        console.log(`   Casillero: ${itemDoc.lockerNumber}`);
+        if (isDev) console.log(`🔍 Buscando producto individual para: ${originalProduct?.nombre || 'Producto sin nombre'}`);
+        if (isDev) console.log(`   IndividualProduct ID: ${individualProductId}`);
+        if (isDev) console.log(`   Casillero: ${itemDoc.lockerNumber}`);
 
         // Buscar el producto individual directamente por su ID
         let individualProduct = await IndividualProduct.findById(individualProductId);
 
         // Si no se encuentra por ID, buscar por criterios alternativos
         if (!individualProduct) {
-          console.log(`⚠️ No se encontró por ID, buscando por criterios alternativos...`);
+          if (isDev) console.log(`⚠️ No se encontró por ID, buscando por criterios alternativos...`);
           individualProduct = await IndividualProduct.findOne({
             product: originalProduct?._id || originalProduct,
             user: req.user.id,
@@ -987,9 +1005,9 @@ exports.cancelAppointment = async (req, res) => {
         }
 
         if (individualProduct) {
-          console.log(`🔓 Liberando producto individual: ${individualProduct._id}`);
-          console.log(`   Estado actual: ${individualProduct.status}`);
-          console.log(`   Casillero asignado: ${individualProduct.assignedLocker}`);
+          if (isDev) console.log(`🔓 Liberando producto individual: ${individualProduct._id}`);
+          if (isDev) console.log(`   Estado actual: ${individualProduct.status}`);
+          if (isDev) console.log(`   Casillero asignado: ${individualProduct.assignedLocker}`);
 
           // Liberar el producto individual
           individualProduct.status = 'available';
@@ -1005,10 +1023,10 @@ exports.cancelAppointment = async (req, res) => {
           });
 
           const productName = originalProduct?.nombre || 'Producto sin nombre';
-          console.log(`✅ Producto liberado: ${productName}`);
+          if (isDev) console.log(`✅ Producto liberado: ${productName}`);
         } else {
           const productName = originalProduct?.nombre || 'Producto sin nombre';
-          console.log(`❌ No se encontró ningún producto individual para: ${productName}`);
+          if (isDev) console.log(`❌ No se encontró ningún producto individual para: ${productName}`);
 
           // Debug: mostrar todos los productos individuales para este producto
           if (originalProduct?._id) {
@@ -1017,12 +1035,12 @@ exports.cancelAppointment = async (req, res) => {
               user: req.user.id
             });
 
-            console.log(`🔍 Productos individuales encontrados para ${productName}:`, allIndividualProducts.length);
+            if (isDev) console.log(`🔍 Productos individuales encontrados para ${productName}:`, allIndividualProducts.length);
             allIndividualProducts.forEach((ip, index) => {
-              console.log(`   ${index + 1}. ID: ${ip._id}, Estado: ${ip.status}, Casillero: ${ip.assignedLocker}`);
+              if (isDev) console.log(`   ${index + 1}. ID: ${ip._id}, Estado: ${ip.status}, Casillero: ${ip.assignedLocker}`);
             });
           } else {
-            console.log(`⚠️ No se puede buscar productos individuales: originalProduct es null`);
+            if (isDev) console.log(`⚠️ No se puede buscar productos individuales: originalProduct es null`);
           }
         }
       } catch (productError) {
@@ -1049,7 +1067,7 @@ exports.cancelAppointment = async (req, res) => {
       console.error('⚠️ Error sincronizando estado de assignments (cancelled):', syncErr);
     }
 
-    console.log(`✅ Reserva cancelada exitosamente. ${liberatedProducts.length} productos liberados.`);
+    if (isDev) console.log(`✅ Reserva cancelada exitosamente. ${liberatedProducts.length} productos liberados.`);
 
     res.json({
       message: `Cita cancelada exitosamente. ${liberatedProducts.length} productos han sido liberados.`,
@@ -1089,8 +1107,8 @@ exports.getAllAppointments = async (req, res) => {
         $lt: nextDay
       };
 
-      console.log('🔍 getAllAppointments - Fecha solicitada:', date);
-      console.log('🔍 getAllAppointments - Rango UTC:', selectedDate.toISOString(), '->', nextDay.toISOString());
+      if (isDev) console.log('🔍 getAllAppointments - Fecha solicitada:', date);
+      if (isDev) console.log('🔍 getAllAppointments - Rango UTC:', selectedDate.toISOString(), '->', nextDay.toISOString());
     }
 
     const appointments = await Appointment.find(query)
@@ -1131,9 +1149,9 @@ exports.getAllAppointments = async (req, res) => {
       return appointmentObj;
     });
 
-    console.log('🔍 getAllAppointments - Citas encontradas:', appointmentsWithDimensions.length);
+    if (isDev) console.log('🔍 getAllAppointments - Citas encontradas:', appointmentsWithDimensions.length);
     if (appointmentsWithDimensions.length > 0) {
-      console.log('🔍 getAllAppointments - Primera cita:', {
+      if (isDev) console.log('🔍 getAllAppointments - Primera cita:', {
         id: appointmentsWithDimensions[0]._id,
         scheduledDate: appointmentsWithDimensions[0].scheduledDate,
         timeSlot: appointmentsWithDimensions[0].timeSlot,
@@ -1144,7 +1162,7 @@ exports.getAllAppointments = async (req, res) => {
       // Log del primer item para debug
       if (appointmentsWithDimensions[0].itemsToPickup.length > 0) {
         const firstItem = appointmentsWithDimensions[0].itemsToPickup[0];
-        console.log('🔍 getAllAppointments - Primer item:', {
+        if (isDev) console.log('🔍 getAllAppointments - Primer item:', {
           individualProduct: firstItem.individualProduct?._id,
           originalProduct: firstItem.originalProduct?._id,
           individualProductDimensions: firstItem.individualProduct?.dimensiones,
@@ -1182,8 +1200,8 @@ exports.updateAppointmentStatus = async (req, res) => {
 
     // Si se está cancelando la cita, liberar productos individuales
     if (status === 'cancelled' && appointment.status !== 'cancelled') {
-      console.log('🔄 Cancelando reserva desde admin:', appointmentId);
-      console.log('📦 Productos en la reserva:', appointment.itemsToPickup.length);
+      if (isDev) console.log('🔄 Cancelando reserva desde admin:', appointmentId);
+      if (isDev) console.log('📦 Productos en la reserva:', appointment.itemsToPickup.length);
 
       // Liberar productos individuales que estaban reservados
       const liberatedProducts = [];
@@ -1207,7 +1225,7 @@ exports.updateAppointmentStatus = async (req, res) => {
           }
 
           if (individualProduct) {
-            console.log(`🔓 Liberando producto individual: ${individualProduct._id}`);
+            if (isDev) console.log(`🔓 Liberando producto individual: ${individualProduct._id}`);
 
             // Liberar el producto individual
             individualProduct.status = 'available';
@@ -1221,16 +1239,16 @@ exports.updateAppointmentStatus = async (req, res) => {
               lockerNumber: itemDoc.lockerNumber
             });
 
-            console.log(`✅ Producto liberado: ${originalProduct?.nombre || 'Producto sin nombre'}`);
+            if (isDev) console.log(`✅ Producto liberado: ${originalProduct?.nombre || 'Producto sin nombre'}`);
           } else {
-            console.log(`⚠️ No se encontró producto individual para: ${originalProduct?.nombre || 'Producto sin nombre'}`);
+            if (isDev) console.log(`⚠️ No se encontró producto individual para: ${originalProduct?.nombre || 'Producto sin nombre'}`);
           }
         } catch (productError) {
           console.error(`❌ Error liberando producto:`, productError);
         }
       }
 
-      console.log(`✅ Reserva cancelada desde admin. ${liberatedProducts.length} productos liberados.`);
+      if (isDev) console.log(`✅ Reserva cancelada desde admin. ${liberatedProducts.length} productos liberados.`);
     }
 
     // Actualizar estado
@@ -1284,9 +1302,9 @@ exports.updateAppointmentStatus = async (req, res) => {
 
     // Sincronizar automáticamente con locker assignments
     try {
-      console.log('🔄 Sincronizando automáticamente con locker assignments después de actualizar estado...');
+      if (isDev) console.log('🔄 Sincronizando automáticamente con locker assignments después de actualizar estado...');
       await lockerAssignmentService.syncFromAppointments(appointment.scheduledDate);
-      console.log('✅ Sincronización automática completada');
+      if (isDev) console.log('✅ Sincronización automática completada');
     } catch (syncError) {
       console.error('⚠️ Error en sincronización automática:', syncError);
       // No fallar la actualización por errores de sincronización
@@ -1361,8 +1379,8 @@ exports.deleteAppointment = async (req, res) => {
       return res.status(400).json({ error: 'No se puede eliminar una cita completada' });
     }
 
-    console.log('🗑️ Eliminando reserva (admin):', appointmentId);
-    console.log('📦 Productos en la reserva:', appointment.itemsToPickup.length);
+    if (isDev) console.log('🗑️ Eliminando reserva (admin):', appointmentId);
+    if (isDev) console.log('📦 Productos en la reserva:', appointment.itemsToPickup.length);
 
     // Liberar productos individuales que estaban reservados
     const liberatedProducts = [];
@@ -1386,7 +1404,7 @@ exports.deleteAppointment = async (req, res) => {
         }
 
         if (individualProduct) {
-          console.log(`🔓 Liberando producto individual: ${individualProduct._id}`);
+          if (isDev) console.log(`🔓 Liberando producto individual: ${individualProduct._id}`);
 
           // Liberar el producto individual
           individualProduct.status = 'available';
@@ -1400,9 +1418,9 @@ exports.deleteAppointment = async (req, res) => {
             lockerNumber: itemDoc.lockerNumber
           });
 
-          console.log(`✅ Producto liberado: ${originalProduct?.nombre || 'Producto sin nombre'}`);
+          if (isDev) console.log(`✅ Producto liberado: ${originalProduct?.nombre || 'Producto sin nombre'}`);
         } else {
-          console.log(`⚠️ No se encontró producto individual para: ${originalProduct?.nombre || 'Producto sin nombre'}`);
+          if (isDev) console.log(`⚠️ No se encontró producto individual para: ${originalProduct?.nombre || 'Producto sin nombre'}`);
         }
       } catch (productError) {
         console.error(`❌ Error liberando producto:`, productError);
@@ -1438,7 +1456,7 @@ exports.deleteAppointment = async (req, res) => {
     // Eliminar la cita
     await Appointment.findByIdAndDelete(appointmentId);
 
-    console.log(`✅ Reserva eliminada exitosamente. ${liberatedProducts.length} productos liberados.`);
+    if (isDev) console.log(`✅ Reserva eliminada exitosamente. ${liberatedProducts.length} productos liberados.`);
 
     res.json({
       message: `Cita eliminada exitosamente. ${liberatedProducts.length} productos han sido liberados.`,
@@ -1473,33 +1491,39 @@ exports.addProductsToAppointment = async (req, res) => {
 
       if (activeAppointments.length > 0) {
         const now = new Date();
-        console.log('🔍 Verificando reservas vencidas (addProductsToAppointment)...');
-        console.log('⏰ Hora actual:', now.toISOString());
+        if (isDev) {
+          console.log('🔍 Verificando reservas vencidas (addProductsToAppointment)...');
+          console.log('⏰ Hora actual:', now.toISOString());
+        }
 
         const hasExpired = activeAppointments.some(app => {
           const appDate = new Date(app.scheduledDate);
           const [h, m] = (app.timeSlot || '00:00').split(':');
           appDate.setHours(parseInt(h || '0'), parseInt(m || '0'), 0, 0);
 
-          console.log(`📅 Reserva ${app._id}: ${appDate.toISOString()} (${app.scheduledDate} ${app.timeSlot})`);
-          console.log(`   ¿Está vencida? ${appDate < now}`);
+          if (isDev) {
+            console.log(`📅 Reserva ${app._id}: ${appDate.toISOString()} (${app.scheduledDate} ${app.timeSlot})`);
+            console.log(`   ¿Está vencida? ${appDate < now}`);
+          }
 
           return appDate < now;
         });
 
         if (hasExpired) {
-          console.log('❌ Usuario tiene reservas vencidas - BLOQUEANDO');
+          if (isDev) console.log('❌ Usuario tiene reservas vencidas - BLOQUEANDO');
           return res.status(403).json({
             error: 'Tienes reservas vencidas. Primero edítalas o cancélalas antes de agregar productos.'
           });
         }
 
-        console.log('✅ Usuario no tiene reservas vencidas - PERMITIENDO');
+        if (isDev) console.log('✅ Usuario no tiene reservas vencidas - PERMITIENDO');
       }
     }
 
-    console.log('🔄 Agregando productos a reserva existente:', appointmentId);
-    console.log('📦 Productos a agregar:', products);
+    if (isDev) {
+      console.log('🔄 Agregando productos a reserva existente:', appointmentId);
+      console.log('📦 Productos a agregar:', products);
+    }
 
     // Validar datos requeridos
     if (!products || !Array.isArray(products) || products.length === 0) {
@@ -1523,9 +1547,11 @@ exports.addProductsToAppointment = async (req, res) => {
     appointmentDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
     const now = new Date();
     const diffMs = appointmentDateTime.getTime() - now.getTime();
-    console.log('appointmentDateTime:', appointmentDateTime, appointmentDateTime.getTime());
-    console.log('now:', now, now.getTime());
-    console.log('Diferencia (min):', diffMs / (1000 * 60));
+    if (isDev) {
+      console.log('appointmentDateTime:', appointmentDateTime, appointmentDateTime.getTime());
+      console.log('now:', now, now.getTime());
+      console.log('Diferencia (min):', diffMs / (1000 * 60));
+    }
     if (diffMs < 58 * 60 * 1000) {
       return res.status(400).json({ error: 'No se pueden agregar productos a reservas con menos de 1 hora de anticipación. Por favor, crea una nueva reserva.' });
     }
@@ -1584,7 +1610,7 @@ exports.addProductsToAppointment = async (req, res) => {
 
     await appointment.save();
 
-    console.log(`✅ Agregados ${validProducts.length} productos a la reserva ${appointmentId}`);
+    if (isDev) console.log(`✅ Agregados ${validProducts.length} productos a la reserva ${appointmentId}`);
 
     res.json({
       message: 'Productos agregados exitosamente a la reserva',
@@ -1619,32 +1645,36 @@ exports.createMultipleAppointments = async (req, res) => {
 
       if (activeAppointments.length > 0) {
         const now = new Date();
-        console.log('🔍 Verificando reservas vencidas (createMultipleAppointments)...');
-        console.log('⏰ Hora actual:', now.toISOString());
+        if (isDev) {
+          console.log('🔍 Verificando reservas vencidas (createMultipleAppointments)...');
+          console.log('⏰ Hora actual:', now.toISOString());
+        }
 
         const hasExpired = activeAppointments.some(app => {
           const appDate = new Date(app.scheduledDate);
           const [h, m] = (app.timeSlot || '00:00').split(':');
           appDate.setHours(parseInt(h || '0'), parseInt(m || '0'), 0, 0);
 
-          console.log(`📅 Reserva ${app._id}: ${appDate.toISOString()} (${app.scheduledDate} ${app.timeSlot})`);
-          console.log(`   ¿Está vencida? ${appDate < now}`);
+          if (isDev) {
+            console.log(`📅 Reserva ${app._id}: ${appDate.toISOString()} (${app.scheduledDate} ${app.timeSlot})`);
+            console.log(`   ¿Está vencida? ${appDate < now}`);
+          }
 
           return appDate < now;
         });
 
         if (hasExpired) {
-          console.log('❌ Usuario tiene reservas vencidas - BLOQUEANDO');
+          if (isDev) console.log('❌ Usuario tiene reservas vencidas - BLOQUEANDO');
           return res.status(403).json({
             error: 'Tienes reservas vencidas. Primero edítalas o cancélalas antes de crear nuevas reservas.'
           });
         }
 
-        console.log('✅ Usuario no tiene reservas vencidas - PERMITIENDO');
+        if (isDev) console.log('✅ Usuario no tiene reservas vencidas - PERMITIENDO');
       }
     }
 
-    console.log('🔍 Backend recibió múltiples reservas:', appointments);
+    if (isDev) console.log('🔍 Backend recibió múltiples reservas:', appointments);
 
     // Validar datos requeridos
     if (!appointments || !Array.isArray(appointments) || appointments.length === 0) {
@@ -1683,7 +1713,7 @@ exports.createMultipleAppointments = async (req, res) => {
         today.setHours(0, 0, 0, 0);
 
         // Verificar penalización por reserva vencida (temporal - 24 horas)
-        const user = await require('../models/User').findById(req.user.id);
+        const user = await User.findById(req.user.id);
         if (user && user.reservationPenalties) {
           const currentTime = new Date();
           const penalty = user.reservationPenalties.find(p => {
@@ -1822,7 +1852,7 @@ exports.createMultipleAppointments = async (req, res) => {
           lockerNumber: requestedLockers[0] // Asumimos que todos los productos están en el mismo casillero
         });
 
-        console.log(`✅ Reserva creada para casillero ${requestedLockers[0]} en ${scheduledDate} a las ${timeSlot}`);
+        if (isDev) console.log(`✅ Reserva creada para casillero ${requestedLockers[0]} en ${scheduledDate} a las ${timeSlot}`);
 
       } catch (error) {
         console.error('Error al crear reserva individual:', error);
@@ -1901,8 +1931,10 @@ exports.cleanExpiredPenalties = async (req, res) => {
     const now = new Date();
     const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
-    console.log('🧹 Limpiando penalizaciones expiradas...');
-    console.log(`⏰ Fecha límite: ${twentyFourHoursAgo.toLocaleString('es-CO')}`);
+    if (isDev) {
+      console.log('🧹 Limpiando penalizaciones expiradas...');
+      console.log(`⏰ Fecha límite: ${twentyFourHoursAgo.toLocaleString('es-CO')}`);
+    }
 
     // Buscar usuarios con penalizaciones
     const usersWithPenalties = await User.find({
@@ -1926,11 +1958,11 @@ exports.cleanExpiredPenalties = async (req, res) => {
       if (cleaned > 0) {
         await user.save();
         totalCleaned += cleaned;
-        console.log(`✅ Usuario ${user.email}: ${cleaned} penalizaciones limpiadas`);
+        if (isDev) console.log(`✅ Usuario ${user.email}: ${cleaned} penalizaciones limpiadas`);
       }
     }
 
-    console.log(`🎉 Limpieza completada: ${totalCleaned} penalizaciones expiradas eliminadas`);
+    if (isDev) console.log(`🎉 Limpieza completada: ${totalCleaned} penalizaciones expiradas eliminadas`);
 
     res.json({
       message: 'Limpieza de penalizaciones completada',
@@ -1950,7 +1982,7 @@ exports.markAppointmentAsCompleted = async (req, res) => {
     const { appointmentId } = req.params;
     const userId = req.user.id;
 
-    console.log(`🔄 Marcando cita como completada: ${appointmentId} por usuario: ${userId}`);
+    if (isDev) console.log(`🔄 Marcando cita como completada: ${appointmentId} por usuario: ${userId}`);
 
     // Buscar la cita y verificar que pertenece al usuario
     const appointment = await Appointment.findById(appointmentId)
@@ -1963,32 +1995,36 @@ exports.markAppointmentAsCompleted = async (req, res) => {
       return res.status(404).json({ error: 'Cita no encontrada' });
     }
 
-    console.log('📋 Cita encontrada:');
-    console.log('  - ID:', appointment._id);
-    console.log('  - Usuario:', appointment.user);
-    console.log('  - Estado actual:', appointment.status);
-    console.log('  - Fecha programada:', appointment.scheduledDate);
+    if (isDev) {
+      console.log('📋 Cita encontrada:');
+      console.log('  - ID:', appointment._id);
+      console.log('  - Usuario:', appointment.user);
+      console.log('  - Estado actual:', appointment.status);
+      console.log('  - Fecha programada:', appointment.scheduledDate);
+    }
 
     // Verificar que la cita pertenece al usuario autenticado
-    console.log('🔍 Debug de IDs:');
-    console.log('  - appointment.user._id:', appointment.user._id);
-    console.log('  - appointment.user._id.toString():', appointment.user._id.toString());
-    console.log('  - userId (req.user.id):', userId);
-    console.log('  - userId type:', typeof userId);
-    console.log('  - Comparación:', appointment.user._id.toString() === userId);
+    if (isDev) {
+      console.log('🔍 Debug de IDs:');
+      console.log('  - appointment.user._id:', appointment.user._id);
+      console.log('  - appointment.user._id.toString():', appointment.user._id.toString());
+      console.log('  - userId (req.user.id):', userId);
+      console.log('  - userId type:', typeof userId);
+      console.log('  - Comparación:', appointment.user._id.toString() === userId);
+    }
 
     // Convertir ambos IDs a string para comparación segura
     const appointmentUserId = appointment.user._id.toString();
     const authenticatedUserId = userId.toString();
 
     if (appointmentUserId !== authenticatedUserId) {
-      console.log('❌ Usuario no autorizado para modificar esta cita');
-      console.log(`  - ID de la cita: ${appointmentUserId}`);
-      console.log(`  - ID del usuario autenticado: ${authenticatedUserId}`);
+      if (isDev) console.log('❌ Usuario no autorizado para modificar esta cita');
+      if (isDev) console.log(`  - ID de la cita: ${appointmentUserId}`);
+      if (isDev) console.log(`  - ID del usuario autenticado: ${authenticatedUserId}`);
       return res.status(403).json({ error: 'No tienes permisos para modificar esta cita' });
     }
 
-    console.log('✅ Usuario autorizado para modificar la cita');
+    if (isDev) console.log('✅ Usuario autorizado para modificar la cita');
 
     // Verificar que la cita esté en un estado válido para completar
     if (appointment.status === 'cancelled') {
@@ -2004,36 +2040,10 @@ exports.markAppointmentAsCompleted = async (req, res) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Para testing: permitir completar citas futuras si el usuario es admin o si es en modo desarrollo
-    const isDevelopment = process.env.NODE_ENV === 'development';
-    const isAdmin = req.user.role === 'admin';
-    const isTestingMode = process.env.TESTING_MODE === 'true';
-
-    console.log('🔍 Verificación de permisos para cita futura:');
-    console.log(`  - req.user.role: ${req.user.role}`);
-    console.log(`  - isAdmin: ${isAdmin}`);
-    console.log(`  - NODE_ENV: ${process.env.NODE_ENV}`);
-    console.log(`  - isDevelopment: ${isDevelopment}`);
-    console.log(`  - TESTING_MODE: ${process.env.TESTING_MODE}`);
-    console.log(`  - isTestingMode: ${isTestingMode}`);
-
-    // TEMPORALMENTE DESHABILITADO PARA TESTING
-    // if (appointmentDate > today && !isDevelopment && !isAdmin && !isTestingMode) {
-    //   console.log('⚠️ Intento de completar cita futura rechazado');
-    //   console.log(`  - Fecha de la cita: ${appointmentDate.toISOString()}`);
-    //   console.log(`  - Fecha de hoy: ${today.toISOString()}`);
-    //   console.log(`  - Modo desarrollo: ${isDevelopment}`);
-    //   console.log(`  - Usuario es admin: ${isAdmin}`);
-    //   console.log(`  - Modo testing: ${isTestingMode}`);
-    //   return res.status(400).json({ error: 'Solo se pueden completar citas de fechas pasadas o de hoy' });
-    // }
-
     if (appointmentDate > today) {
-      console.log('✅ Cita futura permitida para completar (validación temporalmente deshabilitada para testing)');
-    }
-
-    if (appointmentDate > today) {
-      console.log('✅ Cita futura permitida para completar (modo desarrollo, usuario admin o modo testing)');
+      return res.status(400).json({ 
+        error: 'Solo se pueden completar citas de fechas pasadas o de hoy' 
+      });
     }
 
     // Marcar la cita como completada
@@ -2041,10 +2051,12 @@ exports.markAppointmentAsCompleted = async (req, res) => {
     appointment.completedAt = new Date();
 
     // Liberar los casilleros y productos individuales
-    console.log('🔓 Liberando casilleros y productos...');
+    if (isDev) {
+      console.log('🔓 Liberando casilleros y productos...');
+    }
     for (const pickupItem of appointment.itemsToPickup) {
       if (pickupItem.lockerNumber) {
-        console.log(`  - Casillero ${pickupItem.lockerNumber}`);
+        if (isDev) console.log(`  - Casillero ${pickupItem.lockerNumber}`);
 
         // Liberar el producto individual
         if (pickupItem.individualProduct) {
@@ -2058,7 +2070,7 @@ exports.markAppointmentAsCompleted = async (req, res) => {
               individualProduct.reservedAt = undefined;
               individualProduct.pickedUpAt = new Date();
               await individualProduct.save();
-              console.log(`    ✅ Producto ${individualProduct._id} marcado como recogido`);
+              if (isDev) console.log(`    ✅ Producto ${individualProduct._id} marcado como recogido`);
             }
           } catch (productError) {
             console.error(`    ❌ Error liberando producto:`, productError);
@@ -2077,7 +2089,7 @@ exports.markAppointmentAsCompleted = async (req, res) => {
       if (pendingAppointments.length === 0) {
         appointment.order.status = 'picked_up';
         await appointment.order.save();
-        console.log(`✅ Orden ${appointment.order._id} marcada como recogida`);
+        if (isDev) console.log(`✅ Orden ${appointment.order._id} marcada como recogida`);
       }
     }
 
@@ -2093,7 +2105,7 @@ exports.markAppointmentAsCompleted = async (req, res) => {
       console.error('⚠️ Error sincronizando estado de assignments (completed):', syncErr);
     }
 
-    console.log(`✅ Cita ${appointmentId} marcada como completada exitosamente`);
+    if (isDev) console.log(`✅ Cita ${appointmentId} marcada como completada exitosamente`);
 
     res.json({
       success: true,

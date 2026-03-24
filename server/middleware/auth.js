@@ -1,34 +1,38 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
+const isDev = process.env.NODE_ENV === 'development';
+
 const auth = async (req, res, next) => {
   try {
-    console.log('=== auth middleware DEBUG ===');
+    if (isDev) console.log('=== auth middleware DEBUG ===');
     const token = req.header('Authorization')?.replace('Bearer ', '');
     
-    console.log('Token present:', !!token);
+    if (isDev) console.log('Token present:', !!token);
     
     if (!token) {
-      console.log('auth: No token provided');
+      if (isDev) console.log('auth: No token provided');
       return res.status(401).json({ error: 'Token de acceso requerido' });
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log('Token decoded:', JSON.stringify(decoded, null, 2));
+    if (isDev) console.log('Token decoded:', JSON.stringify(decoded, null, 2));
     
     // Verificar que el usuario existe y está activo
     const user = await User.findById(decoded.id).select('-contraseña -verificationCode -verificationCodeExpires');
-    console.log('User found:', user ? 'Yes' : 'No');
-    console.log('User role:', user?.role);
-    console.log('User isActive:', user?.isActive);
+    if (isDev) {
+      console.log('User found:', user ? 'Yes' : 'No');
+      console.log('User role:', user?.role);
+      console.log('User isActive:', user?.isActive);
+    }
     
     if (!user) {
-      console.log('auth: Usuario no encontrado en DB');
+      if (isDev) console.log('auth: Usuario no encontrado en DB');
       return res.status(401).json({ error: 'Usuario no encontrado' });
     }
 
     if (!user.isActive) {
-      console.log('auth: Usuario desactivado');
+      if (isDev) console.log('auth: Usuario desactivado');
       return res.status(401).json({ error: 'Usuario desactivado' });
     }
 
@@ -39,7 +43,7 @@ const auth = async (req, res, next) => {
       role: user.role
     };
     
-    console.log('auth: req.user set:', JSON.stringify(req.user, null, 2));
+    if (isDev) console.log('auth: req.user set:', JSON.stringify(req.user, null, 2));
     next();
   } catch (error) {
     console.error('Error en middleware de autenticación:', error);

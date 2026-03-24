@@ -3,6 +3,8 @@ const Appointment = require('../models/Appointment');
 const IndividualProduct = require('../models/IndividualProduct');
 const Product = require('../models/Product');
 
+const isDev = process.env.NODE_ENV === 'development';
+
 // Función auxiliar para calcular dimensiones de productos
 const calculateProductDimensions = (item) => {
   // PRIORIDAD 1: Usar dimensiones del backend si están disponibles
@@ -47,7 +49,7 @@ const calculateProductDimensions = (item) => {
   }
 
   // Fallback: dimensiones por defecto
-  console.warn('No se pudieron obtener dimensiones válidas, usando valores por defecto');
+  if (isDev) console.warn('No se pudieron obtener dimensiones válidas, usando valores por defecto');
   return { largo: 15, ancho: 15, alto: 15, peso: 0 };
 };
 
@@ -90,7 +92,7 @@ const getVariantDimensions = (item) => {
       const option = attr.options.find((opt) => opt.value === selectedValue);
 
       if (option && option.dimensiones && isValidDimensions(option.dimensiones)) {
-        console.log(`✅ Usando dimensiones de la variante ${attr.name}: ${selectedValue}`, option.dimensiones);
+        if (isDev) console.log(`✅ Usando dimensiones de la variante ${attr.name}: ${selectedValue}`, option.dimensiones);
         return option.dimensiones;
       }
     }
@@ -169,12 +171,14 @@ const processAppointmentProducts = async (appointment) => {
 
       processedProducts.push(processedProduct);
 
-      console.log(`✅ Producto procesado: ${productName}`, {
-        dimensions: processedProduct.dimensions,
-        calculatedSlots: processedProduct.calculatedSlots,
-        volume: processedProduct.volume,
-        variants: processedProduct.variants
-      });
+      if (isDev) {
+        console.log(`✅ Producto procesado: ${productName}`, {
+          dimensions: processedProduct.dimensions,
+          calculatedSlots: processedProduct.calculatedSlots,
+          volume: processedProduct.volume,
+          variants: processedProduct.variants
+        });
+      }
 
     } catch (error) {
       console.error('Error procesando producto:', error);
@@ -488,7 +492,7 @@ const syncFromAppointments = async (req, res) => {
       });
     }
 
-    console.log(`🔄 Iniciando sincronización de asignaciones para ${date}`);
+    if (isDev) console.log(`🔄 Iniciando sincronización de asignaciones para ${date}`);
 
     // Calcular rango de día [00:00, 23:59:59.999] en horario local
     const dayStart = createLocalDate(date);
@@ -506,7 +510,7 @@ const syncFromAppointments = async (req, res) => {
       })
       .populate('itemsToPickup.originalProduct', 'nombre imagen_url dimensiones variants');
 
-    console.log(`📅 Encontradas ${appointments.length} citas para sincronizar`);
+    if (isDev) console.log(`📅 Encontradas ${appointments.length} citas para sincronizar`);
 
     const createdAssignments = [];
     const errors = [];
@@ -519,7 +523,7 @@ const syncFromAppointments = async (req, res) => {
         });
 
         if (existingAssignment) {
-          console.log(`⚠️ Ya existe asignación para la cita ${appointment._id}`);
+          if (isDev) console.log(`⚠️ Ya existe asignación para la cita ${appointment._id}`);
           continue;
         }
 
@@ -527,7 +531,7 @@ const syncFromAppointments = async (req, res) => {
         const processedProducts = await processAppointmentProducts(appointment);
 
         if (processedProducts.length === 0) {
-          console.log(`⚠️ No se pudieron procesar productos para la cita ${appointment._id}`);
+          if (isDev) console.log(`⚠️ No se pudieron procesar productos para la cita ${appointment._id}`);
           continue;
         }
 
@@ -538,7 +542,7 @@ const syncFromAppointments = async (req, res) => {
 
         // Verificar que quepa en un casillero
         if (totalSlotsUsed > 27) {
-          console.log(`⚠️ Los productos de la cita ${appointment._id} requieren ${totalSlotsUsed} slots, excediendo la capacidad del casillero`);
+          if (isDev) console.log(`⚠️ Los productos de la cita ${appointment._id} requieren ${totalSlotsUsed} slots, excediendo la capacidad del casillero`);
           errors.push({
             appointmentId: appointment._id,
             error: `Productos requieren ${totalSlotsUsed} slots, excediendo capacidad del casillero`
@@ -549,18 +553,21 @@ const syncFromAppointments = async (req, res) => {
         // Normalizar fecha de la cita a formato YYYY-MM-DD para locker assignments
         const formattedDate = new Date(appointment.scheduledDate).toISOString().split('T')[0];
 
-        // Buscar un casillero disponible
+        // OPTIMIZADO: Obtener todos los casilleros ocupados para este horario en una sola consulta
+        const occupiedAssignments = await LockerAssignment.find({
+          scheduledDate: formattedDate,
+          timeSlot: appointment.timeSlot,
+          status: { $in: ['reserved', 'active'] }
+        }).select('lockerNumber');
+        
+        const occupiedLockerNumbers = new Set(occupiedAssignments.map(a => a.lockerNumber));
+
+        // Buscar el primer casillero disponible (del 1 al 100)
         let lockerNumber = 1;
         let lockerFound = false;
 
         while (lockerNumber <= 100 && !lockerFound) {
-          const isAvailable = await LockerAssignment.isLockerAvailable(
-            lockerNumber,
-            formattedDate,
-            appointment.timeSlot
-          );
-
-          if (isAvailable) {
+          if (!occupiedLockerNumbers.has(lockerNumber)) {
             lockerFound = true;
           } else {
             lockerNumber++;
@@ -568,7 +575,7 @@ const syncFromAppointments = async (req, res) => {
         }
 
         if (!lockerFound) {
-          console.log(`⚠️ No hay casilleros disponibles para la cita ${appointment._id}`);
+          if (isDev) console.log(`⚠️ No hay casilleros disponibles para la cita ${appointment._id}`);
           errors.push({
             appointmentId: appointment._id,
             error: 'No hay casilleros disponibles'
@@ -593,7 +600,7 @@ const syncFromAppointments = async (req, res) => {
         await assignment.save();
         createdAssignments.push(assignment);
 
-        console.log(`✅ Asignación creada para cita ${appointment._id} en casillero ${lockerNumber}`);
+        if (isDev) console.log(`✅ Asignación creada para cita ${appointment._id} en casillero ${lockerNumber}`);
 
       } catch (error) {
         console.error(`Error procesando cita ${appointment._id}:`, error);

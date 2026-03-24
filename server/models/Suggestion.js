@@ -17,11 +17,11 @@ const suggestionSchema = new mongoose.Schema({
   email: {
     type: String,
     required: true
-  },
-  fecha: {
-    type: Date,
-    default: Date.now
   }
+}, {
+  timestamps: true
 });
+
+suggestionSchema.index({ userId: 1 });
 
 module.exports = mongoose.model('Suggestion', suggestionSchema); 
