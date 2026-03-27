@@ -95,6 +95,18 @@ const AdminDashboard: React.FC = () => {
               <i className="bi bi-tools icon"></i>
               <p>Soporte Total</p>
             </Link>
+
+            {/* Botón de Monitoreo */}
+            <Link to="/admin/monitoring" className="dashboard-card" style={{ textDecoration: 'none' }}>
+              <i className="bi bi-activity icon text-success"></i>
+              <p>Monitoring</p>
+            </Link>
+
+            {/* Botón de Editor de Contenido */}
+            <Link to="/admin/content" className="dashboard-card" style={{ textDecoration: 'none' }}>
+              <i className="bi bi-pencil-square icon text-warning"></i>
+              <p>Editor Textos</p>
+            </Link>
           </div>
         </div>
       </main>

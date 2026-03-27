@@ -22,4 +22,6 @@ router.get('/admin/:paymentId', auth, adminAuth, paymentController.getPaymentByI
 router.put('/admin/:paymentId/status', auth, adminAuth, paymentController.updatePaymentStatus);
 router.delete('/admin/:paymentId', auth, adminAuth, paymentController.deletePayment);
 
+router.post('/admin/:paymentId/refund', auth, adminAuth, paymentController.refundPayment);
+
 module.exports = router;

@@ -7,13 +7,15 @@ interface PaymentTableProps {
   onViewDetails: (payment: Payment) => void;
   onDelete: (paymentId: string) => void;
   onUpdateStatus: (paymentId: string, status: string) => void;
+  onRefund?: (payment: Payment) => void;
 }
 
 const PaymentTable: React.FC<PaymentTableProps> = ({
   payments,
   onViewDetails,
   onDelete,
-  onUpdateStatus
+  onUpdateStatus,
+  onRefund
 }) => {
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('es-CO', {
@@ -156,6 +158,16 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
                         <i className="bi bi-x"></i>
                       </button>
                     </React.Fragment>
+                  )}
+                  
+                  {payment.status === 'approved' && onRefund && (
+                    <button
+                      className="btn btn-sm btn-outline-warning"
+                      onClick={() => onRefund(payment)}
+                      title="Reembolsar pago"
+                    >
+                      <i className="bi bi-arrow-counterclockwise"></i>
+                    </button>
                   )}
                   
                   <button

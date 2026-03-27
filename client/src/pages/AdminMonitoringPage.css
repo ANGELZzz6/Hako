@@ -1,0 +1,198 @@
+/* Estilos para la página de monitoreo */
+
+.monitoring-management {
+  min-height: 100vh;
+  background: #f5f5f5;
+}
+
+/* Header */
+.monitoring-header-bar {
+  background: #fff;
+  border-bottom: 1px solid #e9ecef;
+  padding: 1rem 0;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.monitoring-header-bar .header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+.monitoring-header-bar .header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.monitoring-header-bar .header-icon {
+  font-size: 1.5rem;
+  color: #dc3545;
+}
+
+.monitoring-header-bar .header-title {
+  color: #dc3545;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.monitoring-header-bar .header-center {
+  flex: 1;
+  text-align: center;
+}
+
+.monitoring-header-bar .header-right {
+  display: flex;
+  align-items: center;
+}
+
+.monitoring-header-bar .back-link {
+  color: #dc3545;
+  text-decoration: none;
+  font-size: 1.5rem;
+  transition: color 0.3s ease;
+}
+
+.monitoring-header-bar .back-link:hover {
+  color: #dc3545;
+  opacity: 0.8;
+}
+
+/* Contenido principal */
+.monitoring-main-content {
+  padding: 2rem 0;
+}
+
+/* Layout y Cards */
+.monitoring-card {
+  background: #fff;
+  border-radius: 15px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e9ecef;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  height: 100%;
+}
+
+.monitoring-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+}
+
+.monitoring-card-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  gap: 1rem;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 1rem;
+}
+
+.monitoring-card-header i {
+  font-size: 1.5rem;
+  color: #0d6efd;
+}
+
+.monitoring-card-header h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.monitoring-data-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.8rem;
+  align-items: center;
+}
+
+.monitoring-data-label {
+  color: #666;
+  font-weight: 500;
+}
+
+.monitoring-data-value {
+  font-weight: 600;
+  color: #333;
+}
+
+/* Indicadores de estado */
+.status-indicator {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  margin-right: 0.5rem;
+}
+
+.status-indicator.success {
+  background-color: #198754;
+  box-shadow: 0 0 5px #198754;
+}
+
+.status-indicator.warning {
+  background-color: #ffc107;
+  box-shadow: 0 0 5px #ffc107;
+}
+
+.status-indicator.error {
+  background-color: #dc3545;
+  box-shadow: 0 0 5px #dc3545;
+}
+
+/* Refresh Bar */
+.refresh-bar-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #fff;
+  padding: 1rem 1.5rem;
+  border-radius: 10px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  margin-bottom: 2rem;
+}
+
+.refresh-text {
+  font-weight: 500;
+  color: #666;
+}
+
+/* Progress bar de memoria */
+.memory-progress-container {
+  margin-top: 1rem;
+}
+
+.memory-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+  color: #666;
+}
+
+/* Loading */
+.loading-container {
+  text-align: center;
+  padding: 3rem;
+  background: #fff;
+  border-radius: 15px;
+  margin: 2rem 0;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e9ecef;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .monitoring-header-bar .header-content {
+    flex-direction: column;
+    gap: 1rem;
+  }
+}

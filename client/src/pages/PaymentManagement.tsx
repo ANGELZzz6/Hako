@@ -18,6 +18,10 @@ const PaymentManagement = () => {
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeletingAll, setIsDeletingAll] = useState(false);
+  const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
+  const [paymentToRefund, setPaymentToRefund] = useState<Payment | null>(null);
+  const [isRefunding, setIsRefunding] = useState(false);
+  const [refundStatus, setRefundStatus] = useState<{type: 'success'|'error', message: string} | null>(null);
   const [stats, setStats] = useState({
     totalPayments: 0,
     approvedPayments: 0,
@@ -125,6 +129,36 @@ const PaymentManagement = () => {
   const closeModal = () => {
     setIsModalOpen(false);
     setSelectedPayment(null);
+  };
+
+  const handleRefundClick = (payment: Payment) => {
+    setPaymentToRefund(payment);
+    setIsRefundModalOpen(true);
+    setRefundStatus(null);
+  };
+
+  const processRefund = async () => {
+    if (!paymentToRefund) return;
+    try {
+      setIsRefunding(true);
+      setRefundStatus(null);
+      const res = await paymentManagementService.refundPayment(paymentToRefund._id);
+      
+      setPayments(payments.map(p => p._id === paymentToRefund._id ? res.payment : p));
+      await loadStats();
+      
+      setRefundStatus({ type: 'success', message: res.message || 'Reembolso procesado.' });
+      
+      setTimeout(() => {
+        setIsRefundModalOpen(false);
+        setPaymentToRefund(null);
+      }, 2500);
+      
+    } catch (err: any) {
+      setRefundStatus({ type: 'error', message: err.message || 'Error al procesar el reembolso' });
+    } finally {
+      setIsRefunding(false);
+    }
   };
 
   const formatCurrency = (amount: number) => {
@@ -282,6 +316,7 @@ const PaymentManagement = () => {
               onViewDetails={handleViewDetails}
               onDelete={handleDelete}
               onUpdateStatus={handleUpdateStatus}
+              onRefund={handleRefundClick}
             />
           )}
 
@@ -301,6 +336,81 @@ const PaymentManagement = () => {
         isOpen={isModalOpen}
         onClose={closeModal}
       />
+
+      {/* Modal de Reembolso */}
+      {isRefundModalOpen && paymentToRefund && (
+        <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content border-0 shadow-lg">
+              <div className="modal-header bg-warning">
+                <h5 className="modal-title text-dark">
+                  <i className="bi bi-arrow-counterclockwise me-2"></i>
+                  Confirmar Reembolso
+                </h5>
+                <button 
+                  type="button" 
+                  className="btn-close" 
+                  onClick={() => !isRefunding && setIsRefundModalOpen(false)}
+                  disabled={isRefunding}
+                ></button>
+              </div>
+              <div className="modal-body p-4">
+                {refundStatus ? (
+                  <div className={`alert alert-${refundStatus.type === 'success' ? 'success' : 'danger'} m-0`}>
+                    <i className={`bi bi-${refundStatus.type === 'success' ? 'check-circle' : 'exclamation-triangle'} me-2`}></i>
+                    {refundStatus.message}
+                  </div>
+                ) : (
+                  <>
+                    <p className="mb-4 text-center">¿Estás seguro de que deseas reembolsar este pago?</p>
+                    <ul className="list-group mb-4 shadow-sm">
+                      <li className="list-group-item d-flex justify-content-between align-items-center">
+                        <span className="text-muted">ID MercadoPago</span>
+                        <strong>{paymentToRefund.mp_payment_id}</strong>
+                      </li>
+                      <li className="list-group-item d-flex justify-content-between align-items-center">
+                        <span className="text-muted">Cliente</span>
+                        <strong>{paymentToRefund.payer.name || paymentToRefund.user_id?.nombre || paymentToRefund.payer.email}</strong>
+                      </li>
+                      <li className="list-group-item d-flex justify-content-between align-items-center bg-light">
+                        <span className="text-muted">Monto a reembolsar</span>
+                        <strong className="text-danger fs-5">{formatCurrency(paymentToRefund.amount)}</strong>
+                      </li>
+                    </ul>
+                    <div className="alert alert-info py-2 m-0 bg-info bg-opacity-10 border-info border-opacity-25 text-info">
+                      <small><i className="bi bi-info-circle me-1"></i> Esta acción se comunicará con Mercado Pago, intentará hacer el reintegro y cancelará el pedido asociado automáticamente.</small>
+                    </div>
+                  </>
+                )}
+              </div>
+              <div className="modal-footer bg-light">
+                <button 
+                  type="button" 
+                  className="btn btn-secondary" 
+                  onClick={() => setIsRefundModalOpen(false)}
+                  disabled={isRefunding}
+                >
+                  {refundStatus?.type === 'success' ? 'Cerrar' : 'Cancelar'}
+                </button>
+                {(!refundStatus || refundStatus.type === 'error') && (
+                  <button 
+                    type="button" 
+                    className="btn btn-warning" 
+                    onClick={processRefund}
+                    disabled={isRefunding}
+                  >
+                    {isRefunding ? (
+                      <><span className="spinner-border spinner-border-sm me-2"></span>Procesando...</>
+                    ) : (
+                      'Confirmar Reembolso'
+                    )}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

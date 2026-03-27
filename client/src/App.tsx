@@ -48,8 +48,11 @@ import AdminLockersPage from './pages/AdminLockersPage';
 import AdminAppointmentsPage from './pages/AdminAppointmentsPage';
 import AdminSupportCompleteFlow from './pages/AdminSupportCompleteFlow';
 import AdminProductTestPage from './pages/AdminProductTestPage';
+import AdminMonitoringPage from './pages/AdminMonitoringPage';
+import AdminContentEditorPage from './pages/AdminContentEditorPage';
 import orderService from './services/orderService';
 import { showSuccessToast } from './utils/toast';
+import { SiteSettingsProvider, useSiteSettings } from './contexts/SiteSettingsContext';
 
 // Importar fuente Montserrat
 import '@fontsource/montserrat/300.css';
@@ -77,6 +80,8 @@ const AppContent = () => {
 
   // Forzar el contexto de carrito
   const { cart, refreshCart, setCart, clearCart } = useCart();
+
+  const { settings } = useSiteSettings();
 
   const [showSplash, setShowSplash] = useState(!isAuthenticated);
   const [showReservationAlert, setShowReservationAlert] = useState(false);
@@ -372,11 +377,11 @@ const AppContent = () => {
               {/* Columna del Texto */}
               <div className="col-md-6 text-center text-md-start">
                 <BoxAnimation highlightRandomCell={showReservationAlert} reservations={myActiveReservations} />
-                <h1 className="display-4 fade-in">Bienvenido a Hako</h1>
-                <p className="lead fade-in">Descubre nuestros productos exclusivos con los mejores precios</p>
+                <h1 className="display-4 fade-in">{settings?.heroTitle || 'Bienvenido a Hako'}</h1>
+                <p className="lead fade-in">{settings?.heroDescription || 'Descubre nuestros productos exclusivos con los mejores precios'}</p>
                 <div className="d-flex gap-3 justify-content-center justify-content-md-start mt-4">
                   <Link to="/productos" className="btn btn-danger btn-lg">
-                    <i className="bi bi-shop me-2"></i>Ver Productos
+                    <i className="bi bi-shop me-2"></i>{settings?.heroCtaText || 'Ver Productos'}
                   </Link>
                   <a href="#ofertas" className="btn btn-outline-primary btn-lg">
                     <i className="bi bi-tag me-2"></i>Ver Ofertas
@@ -603,6 +608,13 @@ const AppContent = () => {
         </nav>
       )}
 
+      {/* Promo Banner */}
+      {showNavbar && settings?.promoBannerEnabled && settings?.promoBannerMessage && (
+        <div className="bg-warning text-dark text-center py-2 fw-semibold">
+          {settings.promoBannerMessage}
+        </div>
+      )}
+
       {/* Contenido principal */}
       <Routes>
         <Route path="/" element={renderContent()} />
@@ -664,6 +676,8 @@ const AppContent = () => {
         <Route path="/admin/orders" element={<ProtectedRoute requireAdmin><AdminOrdersPage /></ProtectedRoute>} />
         <Route path="/admin/lockers" element={<ProtectedRoute requireAdmin><AdminLockersPage /></ProtectedRoute>} />
         <Route path="/admin/appointments" element={<ProtectedRoute requireAdmin><AdminAppointmentsPage /></ProtectedRoute>} />
+        <Route path="/admin/monitoring" element={<ProtectedRoute requireAdmin><AdminMonitoringPage /></ProtectedRoute>} />
+        <Route path="/admin/content" element={<ProtectedRoute requireAdmin><AdminContentEditorPage /></ProtectedRoute>} />
         <Route path="/admin/support-complete" element={<ProtectedRoute requireAdmin><AdminSupportCompleteFlow /></ProtectedRoute>} />
         <Route path="/admin/product-test" element={<ProtectedRoute requireAdmin><AdminProductTestPage /></ProtectedRoute>} />
         <Route path="/soporte" element={<SupportPage />} />
@@ -685,7 +699,7 @@ const AppContent = () => {
           <div className="row g-4">
             <div className="col-12 col-md-4">
               <h5 className="mb-3">Mi Tienda</h5>
-              <p className="text-muted">Tu tienda online de confianza con los mejores productos y precios del mercado.</p>
+              <p className="text-muted">{settings?.aboutUsDescription || 'Tu tienda online de confianza con los mejores productos y precios del mercado.'}</p>
               <div className="d-flex gap-3">
                 <a href="#" className="text-decoration-none fs-5"><i className="bi bi-facebook"></i></a>
                 <a href="#" className="text-decoration-none fs-5"><i className="bi bi-instagram"></i></a>
@@ -704,7 +718,7 @@ const AppContent = () => {
             <div className="col-12 col-md-4">
               <h5 className="mb-3">Contacto</h5>
               <ul className="list-unstyled">
-                <li className="mb-2"><i className="bi bi-envelope me-2"></i>contacto@mitienda.com</li>
+                <li className="mb-2"><i className="bi bi-envelope me-2"></i>{settings?.contactEmail || 'contacto@hako.com'}</li>
                 <li className="mb-2"><i className="bi bi-telephone me-2"></i>(123) 456-7890</li>
                 <li className="mb-2"><i className="bi bi-geo-alt me-2"></i>Calle Principal #123, Ciudad</li>
               </ul>
@@ -712,6 +726,7 @@ const AppContent = () => {
           </div>
           <hr className="my-4" />
           <div className="text-center text-muted">
+            <small className="d-block mb-1">{settings?.footerTagline || 'Todos los derechos reservados'}</small>
             <small>&copy; {new Date().getFullYear()} Hako. Todos los derechos reservados.</small>
           </div>
         </div>
@@ -721,9 +736,11 @@ const AppContent = () => {
 };
 
 const App = () => (
-  <CartProvider>
-    <AppContent />
-  </CartProvider>
+  <SiteSettingsProvider>
+    <CartProvider>
+      <AppContent />
+    </CartProvider>
+  </SiteSettingsProvider>
 );
 
 export default App;

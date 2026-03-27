@@ -44,6 +44,7 @@ const lockerAssignmentRoutes = require('./routes/lockerAssignmentRoutes');
 const debugRoutes = require('./routes/debugRoutes');
 const qrRoutes = require('./routes/qrRoutes');
 const healthRoutes = require('./routes/healthRoutes');
+const siteSettingsRoutes = require('./routes/siteSettingsRoutes');
 const { scheduleTasks } = require('./scheduledTasks');
 
 // Importar el modelo IndividualProduct para asegurar que esté disponible
@@ -57,15 +58,26 @@ app.use((req, res, next) => {
   res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
   res.setHeader('Cross-Origin-Embedder-Policy', 'unsafe-none');
   res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  res.setHeader('ngrok-skip-browser-warning', 'true');
   next();
 });
 
 // Configuración de CORS específica para Google OAuth
 app.use(cors({
-  origin: process.env.FRONTEND_URL,
+  origin: function (origin, callback) {
+    const allowed = [
+      process.env.FRONTEND_URL,
+      'http://localhost:5173'
+    ];
+    if (!origin || allowed.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'ngrok-skip-browser-warning']
 }));
 
 // Configuración de Helmet más permisiva para Google OAuth
@@ -121,6 +133,7 @@ app.use('/api/locker-assignments', lockerAssignmentRoutes);
 app.use('/api/debug', debugRoutes);
 app.use('/api/qr', qrRoutes);
 app.use('/api/health', healthRoutes);
+app.use('/api/settings', siteSettingsRoutes);
 
 if (isDev) {
   console.log('✅ Rutas de pago montadas en /api/payment');

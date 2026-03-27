@@ -101,7 +101,18 @@ const paymentSchema = new mongoose.Schema({
   live_mode: {
     type: Boolean,
     default: false
-  }
+  },
+  
+  // Historial de reembolsos
+  refund_history: [{
+    status: String,
+    amount: Number,
+    date: {
+      type: Date,
+      default: Date.now
+    },
+    error: String
+  }]
 }, {
   timestamps: true
 });

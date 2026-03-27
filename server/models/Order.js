@@ -130,7 +130,17 @@ const orderSchema = new mongoose.Schema({
   delivered_at: Date,
   
   // Notas
-  notes: String
+  notes: String,
+  
+  // Historial de eventos de la orden
+  order_history: [{
+    action: String,
+    date: {
+      type: Date,
+      default: Date.now
+    },
+    details: String
+  }]
 }, {
   timestamps: true
 });

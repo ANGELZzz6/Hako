@@ -1,0 +1,45 @@
+.admin-content-editor-page {
+  padding-bottom: 2rem;
+}
+
+.admin-content-editor-page .card {
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.admin-content-editor-page .section-title {
+  font-weight: 600;
+  color: #333;
+}
+
+.admin-content-editor-page .form-label {
+  font-weight: 500;
+  color: #555;
+  margin-bottom: 0.5rem;
+}
+
+.admin-content-editor-page .form-control {
+  border: 1px solid #ced4da;
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.admin-content-editor-page .form-control:focus {
+  border-color: #86b7fe;
+  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+.admin-content-editor-page .form-actions {
+  background-color: #f8f9fa;
+  margin: 0 -1.5rem -1.5rem;
+  padding: 1.5rem;
+  border-top: 1px solid #dee2e6;
+}
+
+/* Custom switch size */
+.admin-content-editor-page .form-switch.fs-5 .form-check-input {
+  width: 2.5em;
+  height: 1.25em;
+  margin-top: 0.125em;
+}

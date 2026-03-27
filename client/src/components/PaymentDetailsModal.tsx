@@ -266,6 +266,39 @@ const PaymentDetailsModal: React.FC<PaymentDetailsModalProps> = ({
                     </div>
                   </div>
                 )}
+
+                {/* Historial de Reembolsos */}
+                {payment.refund_history && payment.refund_history.length > 0 && (
+                  <div className="card mt-3 border-warning">
+                    <div className="card-header bg-warning bg-opacity-25 text-dark">
+                      <h6 className="mb-0">
+                        <i className="bi bi-arrow-counterclockwise me-2"></i>
+                        Historial de Reembolsos ({payment.refund_history.length})
+                      </h6>
+                    </div>
+                    <div className="card-body p-0">
+                      <ul className="list-group list-group-flush">
+                        {payment.refund_history.map((refund, index) => (
+                          <li key={index} className="list-group-item">
+                            <div className="d-flex justify-content-between align-items-center mb-1">
+                              <strong>
+                                <i className={`bi bi-${refund.status === 'success' || refund.status === 'approved' ? 'check-circle-fill text-success' : 'exclamation-triangle-fill text-danger'} me-2`}></i>
+                                {refund.status === 'success' || refund.status === 'approved' ? 'Reembolso Exitoso' : 'Error en Reembolso'}
+                              </strong>
+                              <small className="text-muted">{formatDate(refund.date)}</small>
+                            </div>
+                            <div className="d-flex justify-content-between">
+                              <span>Monto: <strong className={refund.status === 'success' || refund.status === 'approved' ? 'text-success' : 'text-danger'}>{formatCurrency(refund.amount)}</strong></span>
+                              {refund.error && (
+                                <small className="text-danger ms-2">{refund.error}</small>
+                              )}
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                )}
               </div>
               
               <div className="modal-footer">

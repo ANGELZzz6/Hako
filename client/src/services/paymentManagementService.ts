@@ -37,6 +37,12 @@ export interface Payment {
   date_approved?: string;
   description?: string;
   live_mode: boolean;
+  refund_history?: Array<{
+    status: string;
+    amount: number;
+    date: string;
+    error?: string;
+  }>;
   createdAt: string;
   updatedAt: string;
 }
@@ -160,6 +166,25 @@ class PaymentManagementService {
       return await response.json();
     } catch (error) {
       console.error('Error en deleteAllPayments:', error);
+      throw error;
+    }
+  }
+
+  async refundPayment(paymentId: string): Promise<{ message: string; payment: Payment }> {
+    try {
+      const response = await fetch(`${API_URL}/payment/admin/${paymentId}/refund`, {
+        method: 'POST',
+        headers: this.getHeaders(),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || errorData.message || 'Error al procesar el reembolso');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error en refundPayment:', error);
       throw error;
     }
   }

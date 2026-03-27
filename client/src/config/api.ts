@@ -11,6 +11,22 @@ export const ENDPOINTS = {
   LOCKER_ASSIGNMENTS: `${API_URL}/locker-assignments`,
   DEBUG: `${API_URL}/debug`,
   QR: `${API_URL}/qr`,
+  HEALTH: `${API_URL}/health`,
 };
 
-export default API_URL; 
+// Header requerido para saltar la advertencia de ngrok en desarrollo
+const isNgrok = API_URL.includes('ngrok-free.app');
+
+const originalFetch = window.fetch.bind(window);
+window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+  if (isNgrok) {
+    init = init || {};
+    init.headers = {
+      'ngrok-skip-browser-warning': 'true',
+      ...init.headers,
+    };
+  }
+  return originalFetch(input, init);
+};
+
+export default API_URL;
