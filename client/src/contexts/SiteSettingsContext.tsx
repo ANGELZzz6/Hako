@@ -13,8 +13,8 @@ const defaultSettings: SiteSettings = {
   heroTitle: 'Descubre el futuro del coleccionismo',
   heroDescription: 'Encuentra las figuras más exclusivas y las últimas reservas en nuestra tienda.',
   heroCtaText: 'Ver productos',
-  promoBannerEnabled: true,
-  promoBannerMessage: '¡Envíos gratis en compras mayores a $150.000!',
+  promoBannerEnabled: false,
+  promoBannerMessage: '¡Bienvenido a Hako! Recoge tus productos en nuestros casilleros.',
   contactEmail: 'contacto@hako.com',
   footerTagline: 'Tu tienda de confianza para coleccionables.',
   aboutUsDescription: 'Somos apasionados por el coleccionismo trayendo lo mejor de Japón a tus manos.'
@@ -24,7 +24,7 @@ const SiteSettingsContext = createContext<SiteSettingsContextType>({
   settings: defaultSettings,
   isLoading: true,
   error: null,
-  refreshSettings: async () => {},
+  refreshSettings: async () => { },
 });
 
 export const useSiteSettings = () => useContext(SiteSettingsContext);

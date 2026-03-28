@@ -11,7 +11,7 @@ const paymentSchema = new mongoose.Schema({
   // Estado del pago
   status: {
     type: String,
-    enum: ['pending', 'approved', 'rejected', 'cancelled'],
+    enum: ['pending', 'approved', 'rejected', 'cancelled', 'refunded'],
     required: true
   },
   

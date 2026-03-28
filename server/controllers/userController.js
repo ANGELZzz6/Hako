@@ -325,8 +325,11 @@ exports.updateUser = async (req, res) => {
     const updateData = {};
     if (nombre) updateData.nombre = nombre.trim();
     if (email) updateData.email = email.toLowerCase();
-    if (role !== undefined) updateData.role = role;
-    if (isActive !== undefined) updateData.isActive = isActive;
+    // Solo el administrador puede cambiar el rol y el estado activo
+    if (req.user.role === 'admin') {
+      if (role !== undefined) updateData.role = role;
+      if (isActive !== undefined) updateData.isActive = isActive;
+    }
     if (telefono !== undefined) updateData.telefono = telefono;
     if (direccion !== undefined) updateData.direccion = direccion;
     if (fechaNacimiento !== undefined) updateData.fechaNacimiento = fechaNacimiento;
@@ -429,6 +432,11 @@ exports.getProfile = async (req, res) => {
 
     if (!validator.isMongoId(id)) {
       return res.status(400).json({ error: 'ID de usuario inválido' });
+    }
+
+    // Verificar que el usuario solo puede ver su propio perfil (a menos que sea admin)
+    if (String(req.user.id) !== String(id) && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'No tienes permisos para ver este perfil' });
     }
 
     const user = await User.findById(id).select('-contraseña -verificationCode -verificationCodeExpires');
@@ -586,7 +594,7 @@ exports.changePassword = async (req, res) => {
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f9f9f9; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); padding: 32px 24px;">
             <div style="text-align: center; margin-bottom: 24px;">
-              <img src="https://i.imgur.com/0y0y0y0.png" alt="Hako Logo" style="height: 48px; margin-bottom: 8px;"/>
+              <div style="font-size: 26px; font-weight: 800; color: #d32f2f; letter-spacing: -1px; margin-bottom: 8px;">箱 hako</div>
               <h2 style="color: #d32f2f; margin: 0;">¡Tu contraseña ha sido cambiada!</h2>
             </div>
             <p style="font-size: 17px; color: #222;">Hola <b>${user.nombre}</b>,</p>
@@ -630,7 +638,7 @@ exports.changePassword = async (req, res) => {
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f9f9f9; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); padding: 32px 24px;">
           <div style="text-align: center; margin-bottom: 24px;">
-            <img src="https://i.imgur.com/0y0y0y0.png" alt="Hako Logo" style="height: 48px; margin-bottom: 8px;"/>
+            <div style="font-size: 26px; font-weight: 800; color: #d32f2f; letter-spacing: -1px; margin-bottom: 8px;">箱 hako</div>
             <h2 style="color: #d32f2f; margin: 0;">¡Tu contraseña ha sido cambiada!</h2>
           </div>
           <p style="font-size: 17px; color: #222;">Hola <b>${user.nombre}</b>,</p>
@@ -680,7 +688,7 @@ exports.forgotPassword = async (req, res) => {
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f9f9f9; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); padding: 32px 24px;">
           <div style="text-align: center; margin-bottom: 24px;">
-            <img src="https://i.imgur.com/0y0y0y0.png" alt="Hako Logo" style="height: 48px; margin-bottom: 8px;"/>
+            <div style="font-size: 26px; font-weight: 800; color: #d32f2f; letter-spacing: -1px; margin-bottom: 8px;">箱 hako</div>
             <h2 style="color: #d32f2f; margin: 0;">Recupera tu contraseña</h2>
           </div>
           <p style="font-size: 17px; color: #222;">Hola <b>${user.nombre}</b>,</p>

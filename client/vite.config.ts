@@ -10,8 +10,8 @@ export default defineConfig({
     allowedHosts: [
       'localhost',
       '127.0.0.1',
-      '9251-190-25-116-52.ngrok-free.app',
-      '9924-190-25-116-52.ngrok-free.app'
+      '9d00-190-25-116-52.ngrok-free.app',
+      'a099-190-25-116-52.ngrok-free.app'
     ],
     headers: {
       'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',

@@ -86,7 +86,7 @@ exports.createPreference = async (req, res) => {
         failure: `${process.env.FRONTEND_URL}/payment-result`,
         pending: `${process.env.FRONTEND_URL}/payment-result`
       },
-      // auto_return: 'all', // Comentado para pruebas de webhook - habilitar en producción
+      ...(process.env.NODE_ENV === 'production' ? { auto_return: 'all' } : {}),
       notification_url: process.env.WEBHOOK_URL,
       external_reference: finalExternalReference,
       expires: true,
@@ -452,7 +452,7 @@ exports.mercadoPagoWebhook = async (req, res) => {
                           html: `
                             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f9f9f9; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); padding: 32px 24px;">
                               <div style="text-align: center; margin-bottom: 24px;">
-                                <img src="https://i.imgur.com/0y0y0y0.png" alt="Hako Logo" style="height: 48px; margin-bottom: 8px;"/>
+                                <div style="font-size: 26px; font-weight: 800; color: #d32f2f; letter-spacing: -1px; margin-bottom: 8px;">箱 hako</div>
                                 <h2 style="color: #d32f2f; margin: 0;">¡Gracias por tu compra!</h2>
                               </div>
                               <p style="font-size: 17px; color: #222;">Hola <b>${user.nombre}</b>,</p>
@@ -480,7 +480,7 @@ exports.mercadoPagoWebhook = async (req, res) => {
                             html: `
                               <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f9f9f9; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); padding: 32px 24px;">
                                 <div style="text-align: center; margin-bottom: 24px;">
-                                  <img src="https://i.imgur.com/0y0y0y0.png" alt="Hako Logo" style="height: 48px; margin-bottom: 8px;"/>
+                                  <div style="font-size: 26px; font-weight: 800; color: #d32f2f; letter-spacing: -1px; margin-bottom: 8px;">箱 hako</div>
                                   <h2 style="color: #d32f2f; margin: 0;">¡Ya puedes reservar tu casillero!</h2>
                                 </div>
                                 <p style="font-size: 17px; color: #222;">Hola <b>${user.nombre}</b>,</p>
@@ -789,7 +789,7 @@ exports.refundPayment = async (req, res) => {
       });
 
       // El pago se cancela/reembolsa
-      payment.status = 'cancelled';
+      payment.status = 'refunded';
       payment.status_detail = 'refunded';
       await payment.save();
 
@@ -958,5 +958,6 @@ module.exports = {
   getPaymentById: exports.getPaymentById,
   getPaymentStats: exports.getPaymentStats,
   updatePaymentStatus: exports.updatePaymentStatus,
-  deletePayment: exports.deletePayment
+  deletePayment: exports.deletePayment,
+  refundPayment: exports.refundPayment
 };

@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
+const { auth } = require('../middleware/auth');
+const adminAuth = require('../middleware/adminAuth');
 
 // Health check básico
 router.get('/health', (req, res) => {
@@ -14,7 +16,7 @@ router.get('/health', (req, res) => {
 });
 
 // Health check detallado (solo para admin)
-router.get('/health/detailed', async (req, res) => {
+router.get('/health/detailed', auth, adminAuth, async (req, res) => {
   try {
     const healthData = {
       status: 'OK',
@@ -58,7 +60,7 @@ router.get('/health/detailed', async (req, res) => {
 });
 
 // Health check de la base de datos
-router.get('/health/database', async (req, res) => {
+router.get('/health/database', auth, adminAuth, async (req, res) => {
   try {
     // Verificar conexión a MongoDB
     await mongoose.connection.db.admin().ping();
@@ -88,7 +90,7 @@ router.get('/health/database', async (req, res) => {
 });
 
 // Health check de servicios externos
-router.get('/health/services', async (req, res) => {
+router.get('/health/services', auth, adminAuth, async (req, res) => {
   const services = {
     timestamp: new Date().toISOString(),
     services: {}

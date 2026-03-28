@@ -639,7 +639,7 @@ const AppContent = () => {
           </ProtectedRoute>
         } />
         <Route path="/payment-test" element={
-          <ProtectedRoute>
+          <ProtectedRoute requireAdmin>
             <PaymentTestPage />
           </ProtectedRoute>
         } />

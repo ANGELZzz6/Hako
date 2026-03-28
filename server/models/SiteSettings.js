@@ -7,7 +7,7 @@ const siteSettingsSchema = new mongoose.Schema({
     default: 'config',
     unique: true
   },
-  
+
   // Hero Section
   heroTitle: {
     type: String,
@@ -21,17 +21,17 @@ const siteSettingsSchema = new mongoose.Schema({
     type: String,
     default: 'Ver productos'
   },
-  
+
   // Promotional Banner
   promoBannerEnabled: {
     type: Boolean,
-    default: true
+    default: false
   },
   promoBannerMessage: {
     type: String,
-    default: '¡Envíos gratis en compras mayores a $150.000!'
+    default: '¡Bienvenido a Hako! Recoge tus productos en nuestros casilleros.'
   },
-  
+
   // Footer & Contact
   contactEmail: {
     type: String,

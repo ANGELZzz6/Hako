@@ -18,9 +18,7 @@ const adminAuth = (req, res, next) => {
     if (req.user.role !== 'admin' && !req.user.isAdmin) {
       if (isDev) console.log('adminAuth: Usuario no es admin - role:', req.user.role, 'isAdmin:', req.user.isAdmin);
       return res.status(403).json({ 
-        message: 'Acceso denegado. Se requieren permisos de administrador',
-        userRole: req.user.role,
-        userIsAdmin: req.user.isAdmin
+        message: 'Acceso denegado. Se requieren permisos de administrador'
       });
     }
 
