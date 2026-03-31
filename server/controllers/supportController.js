@@ -50,28 +50,28 @@ exports.createTicket = async (req, res) => {
 exports.addProductToUser = async (req, res) => {
   try {
     const { userId, productId, quantity, variants } = req.body;
-    
+
     // Verificar que el usuario sea administrador
     if (req.user.role !== 'admin') {
       return res.status(403).json({ error: 'No tienes permisos para realizar esta acción' });
     }
-    
+
     // Verificar que existan el usuario y el producto
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
-    
+
     const product = await Product.findById(productId);
     if (!product) {
       return res.status(404).json({ error: 'Producto no encontrado' });
     }
-    
+
     // Verificar stock disponible
     if (product.stock < quantity) {
       return res.status(400).json({ error: `Stock insuficiente. Disponible: ${product.stock}` });
     }
-    
+
     // Validar variantes si el producto las tiene
     if (product.variants && product.variants.enabled) {
       const requiredAttributes = product.variants.attributes.filter(attr => attr.required);
@@ -81,7 +81,7 @@ exports.addProductToUser = async (req, res) => {
         }
       }
     }
-    
+
     // Crear una orden temporal para asociar con los productos individuales
     const order = new Order({
       user: userId,
@@ -98,12 +98,12 @@ exports.addProductToUser = async (req, res) => {
       external_reference: `admin_assignment_${Date.now()}_${userId}`,
       notes: `Producto asignado manualmente por administrador`
     });
-    
+
     await order.save();
-    
+
     // Crear productos individuales
     const createdProducts = [];
-    
+
     for (let i = 0; i < quantity; i++) {
       // Calcular precio total incluyendo variantes
       let totalPrice = product.precio;
@@ -129,20 +129,23 @@ exports.addProductToUser = async (req, res) => {
         variants: variants ? new Map(Object.entries(variants)) : undefined,
         dimensiones: product.dimensiones
       });
-      
+
       await individualProduct.save();
       createdProducts.push(individualProduct);
     }
-    
+
     // Actualizar el stock del producto
     product.stock -= quantity;
     await product.save();
-    
+
     // Poblar los productos creados con información completa
-    const populatedProducts = await IndividualProduct.find({
+    let populatedProducts = await IndividualProduct.find({
       _id: { $in: createdProducts.map(p => p._id) }
     }).populate('product').populate('user');
-    
+
+    // Filtrar productos donde el producto base fue eliminado
+    populatedProducts = populatedProducts.filter(p => p && p.product !== null);
+
     res.status(201).json({
       success: true,
       message: `${quantity} producto(s) asignado(s) a ${user.nombre} correctamente`,

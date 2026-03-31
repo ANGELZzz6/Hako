@@ -841,6 +841,11 @@ exports.getIndividualProductWithDimensions = async (req, res) => {
       return res.status(404).json({ error: 'IndividualProduct no encontrado' });
     }
 
+    if (!individualProduct.product) {
+      if (isDev) console.warn(`⚠️ Producto base no encontrado para individualProduct: ${id}`);
+      return res.status(404).json({ error: 'El producto original para este item ha sido eliminado' });
+    }
+
     // Calcular dimensiones considerando variantes
     const calculatedDimensions = individualProduct.getVariantOrProductDimensions();
 

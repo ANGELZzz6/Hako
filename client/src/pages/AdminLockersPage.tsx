@@ -240,7 +240,7 @@ const AdminLockersPage: React.FC = () => {
     try {
       console.log('🔍 Probando API...');
       const testData = await appointmentService.getAllAppointments({
-        date: selectedDate || new Date().toISOString().split('T')[0]
+        date: selectedDate || new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' })
       });
       console.log('🔍 API funcionando, datos recibidos:', testData.length);
       alert(`API funcionando correctamente. Citas encontradas: ${testData.length}`);
@@ -770,13 +770,28 @@ const AdminLockersPage: React.FC = () => {
         } else {
           // Crear nueva asignación
           console.log(`🔄 Creando nueva asignación para casillero ${i + 1}`);
+
+          // ← AQUÍ el log, justo antes del createAssignment
+          console.log('📦 Datos enviados a createAssignment:',
+            JSON.stringify({
+              lockerNumber: i + 1,
+              userId: appointment.user?._id || 'unknown',
+              userName: appointment.user?.nombre || 'Usuario desconocido',
+              userEmail: appointment.user?.email || 'email@desconocido.com',
+              appointmentId: appointment._id,
+              scheduledDate: new Date(appointment.scheduledDate).toLocaleDateString('en-CA', { timeZone: 'America/Bogota' }),
+              timeSlot: appointment.timeSlot,
+              products: products
+            }, null, 2)
+          );
+
           const createResult = await lockerAssignmentService.createAssignment({
             lockerNumber: i + 1,
             userId: appointment.user?._id || 'unknown',
             userName: appointment.user?.nombre || 'Usuario desconocido',
             userEmail: appointment.user?.email || 'email@desconocido.com',
             appointmentId: appointment._id,
-            scheduledDate: appointment.scheduledDate,
+            scheduledDate: new Date(appointment.scheduledDate).toLocaleDateString('en-CA', { timeZone: 'America/Bogota' }),
             timeSlot: appointment.timeSlot,
             products: products
           });

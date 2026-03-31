@@ -61,7 +61,8 @@ const LockerProductSchema = new mongoose.Schema({
     },
     peso: {
       type: Number,
-      required: true,
+      required: false,
+      default: 0,
       min: 0
     }
   },

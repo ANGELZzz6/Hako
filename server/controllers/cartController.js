@@ -38,6 +38,14 @@ const getCart = async (req, res) => {
         total: 0
       });
       await cart.save();
+    } else if (cart.items && cart.items.length > 0) {
+      const originalLength = cart.items.length;
+      cart.items = cart.items.filter(item => item.id_producto);
+
+      // Si algunos productos fueron eliminados de la DB, actualizamos el carrito
+      if (cart.items.length !== originalLength) {
+        await cart.save();
+      }
     }
 
     res.json(cart);
@@ -346,7 +354,17 @@ const getAllCarts = async (req, res) => {
       .sort({ creado_en: -1 })
       .exec();
 
-    res.json(carts);
+    // Filtrar productos eliminados en cada carrito
+    const cleanedCarts = carts.map(cart => {
+      // Necesitamos convertir a objeto plano para modificar la propiedad items si es un documento de Mongoose
+      const cartObj = cart.toObject ? cart.toObject() : cart;
+      if (cartObj.items && cartObj.items.length > 0) {
+        cartObj.items = cartObj.items.filter(item => item.id_producto);
+      }
+      return cartObj;
+    });
+
+    res.json(cleanedCarts);
   } catch (error) {
     console.error('Error al obtener todos los carritos:', error);
     res.status(500).json({ message: 'Error interno del servidor' });

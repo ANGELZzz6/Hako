@@ -59,6 +59,12 @@ class CartService {
 
       const cartData = await response.json();
       console.log('✅ Datos del carrito recibidos:', cartData);
+      
+      // Filtrar productos eliminados que aún persisten en la respuesta
+      if (cartData && cartData.items) {
+        cartData.items = cartData.items.filter((item: any) => item.id_producto);
+      }
+      
       return cartData;
     } catch (error) {
       console.error('❌ Error en getCart:', error);

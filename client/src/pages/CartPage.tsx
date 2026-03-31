@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import cartService, { type Cart, type CartItem } from '../services/cartService';
-import paymentService from '../services/paymentService';
+import cartService, { type Cart } from '../services/cartService';
 import './CartPage.css';
 
 const CartPage = () => {
@@ -28,6 +27,12 @@ const CartPage = () => {
     try {
       setLoading(true);
       const cartData = await cartService.getCart();
+      
+      // Filtrar productos que ya no existen (id_producto es null)
+      if (cartData && cartData.items) {
+        cartData.items = cartData.items.filter(item => item && item.id_producto);
+      }
+      
       setCart(cartData);
     } catch (error) {
       console.error('Error al cargar el box:', error);
@@ -90,7 +95,7 @@ const CartPage = () => {
     if (selectedItems.length === cart.items.length) {
       setSelectedItems([]);
     } else {
-      setSelectedItems(cart.items.map(item => item.id_producto._id));
+      setSelectedItems(cart.items.filter(item => item.id_producto).map(item => item.id_producto._id));
     }
   };
 
@@ -108,7 +113,7 @@ const CartPage = () => {
     if (!cart) return 0;
 
     return cart.items
-      .filter(item => selectedItems.includes(item.id_producto._id))
+      .filter(item => item.id_producto && selectedItems.includes(item.id_producto._id))
       .reduce((total, item) => total + (item.precio_unitario * item.cantidad), 0);
   };
 
@@ -124,7 +129,7 @@ const CartPage = () => {
     try {
       setProcessing(true);
       const items = cart!.items
-        .filter(item => selectedItems.includes(item.id_producto._id))
+        .filter(item => item.id_producto && selectedItems.includes(item.id_producto._id))
         .map(item => ({
           id: item.id_producto._id, // Incluir el ID del producto
           title: item.nombre_producto,
@@ -207,7 +212,7 @@ const CartPage = () => {
                 ¡Descuentos especiales en productos seleccionados!
               </div>
 
-              {cart.items.map((item) => (
+              {cart.items.filter(item => item != null && item.id_producto != null).map((item) => (
                 <div key={item.id_producto._id} className="cart-item">
                   <div className="row g-0">
                     <div className="col-md-2">
@@ -324,7 +329,7 @@ const CartPage = () => {
                   </div>
                   <div className="selected-products-list mt-2">
                     <ul className="list-group">
-                      {cart.items.filter(item => selectedItems.includes(item.id_producto._id)).map(item => (
+                      {cart.items.filter(item => item.id_producto && selectedItems.includes(item.id_producto._id)).map(item => (
                         <li key={item.id_producto._id} className="list-group-item d-flex justify-content-between align-items-center">
                           <span>
                             <strong>{item.nombre_producto}</strong> x{item.cantidad}

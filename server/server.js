@@ -58,6 +58,9 @@ const { connectDB } = require('./config/db');
 
 const app = express();
 
+// Confiar en el primer proxy (requerido para ngrok y reverse proxies en producción)
+app.set('trust proxy', 1);
+
 // Headers específicos para Google OAuth - DEBE IR ANTES DE HELMET
 app.use((req, res, next) => {
   res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');

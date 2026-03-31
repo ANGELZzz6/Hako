@@ -7,7 +7,18 @@ const isDev = process.env.NODE_ENV === 'development';
 
 // Función auxiliar para calcular dimensiones de productos
 const calculateProductDimensions = (item) => {
-  // PRIORIDAD 1: Usar dimensiones del backend si están disponibles
+  // PRIORIDAD 1: Soporte para 'dimensiones' (Español) directamente en el item
+  if (item.dimensiones && isValidDimensions(item.dimensiones)) {
+    return item.dimensiones;
+  }
+  if (item.individualProduct?.dimensiones && isValidDimensions(item.individualProduct.dimensiones)) {
+    return item.individualProduct.dimensiones;
+  }
+  if (item.originalProduct?.dimensiones && isValidDimensions(item.originalProduct.dimensiones)) {
+    return item.originalProduct.dimensiones;
+  }
+
+  // PRIORIDAD 2: Usar dimensiones del backend si están disponibles (Retrocompatibilidad)
   if (item.dimensiones && isValidDimensions(item.dimensiones)) {
     return item.dimensiones;
   }
@@ -203,10 +214,14 @@ const createAssignment = async (req, res) => {
       products
     } = req.body;
 
+    const normalizedDate = scheduledDate.includes('T') 
+      ? new Date(scheduledDate).toLocaleDateString('en-CA', { timeZone: 'America/Bogota' }) 
+      : scheduledDate;
+
     // Validar que el casillero esté disponible
     const existingAssignment = await LockerAssignment.findOne({
       lockerNumber,
-      scheduledDate,
+      scheduledDate: normalizedDate,
       timeSlot,
       status: { $in: ['reserved', 'active'] }
     });
@@ -214,7 +229,7 @@ const createAssignment = async (req, res) => {
     if (existingAssignment) {
       return res.status(400).json({
         success: false,
-        message: `El casillero ${lockerNumber} ya está ocupado para ${scheduledDate} a las ${timeSlot}`
+        message: `El casillero ${lockerNumber} ya está ocupado para ${normalizedDate} a las ${timeSlot}`
       });
     }
 
@@ -231,6 +246,19 @@ const createAssignment = async (req, res) => {
       });
     }
 
+    // Normalización de productos antes de guardar
+    products.forEach(product => {
+      if (!product.dimensions) {
+        product.dimensions = { 
+          largo: 15, ancho: 15, alto: 15, peso: 0 
+        };
+      }
+      product.dimensions.peso = product.dimensions.peso ?? 0;
+      product.calculatedSlots = product.calculatedSlots || 1;
+      product.volume = product.volume || 
+        (product.dimensions.largo * product.dimensions.ancho * product.dimensions.alto);
+    });
+
     // Crear la asignación
     const assignment = new LockerAssignment({
       lockerNumber,
@@ -238,7 +266,7 @@ const createAssignment = async (req, res) => {
       userName,
       userEmail,
       appointmentId,
-      scheduledDate,
+      scheduledDate: normalizedDate,
       timeSlot,
       products,
       totalSlotsUsed
@@ -254,10 +282,12 @@ const createAssignment = async (req, res) => {
 
   } catch (error) {
     console.error('Error creating locker assignment:', error);
+    console.error('Validation details:', error.errors || error.message);
     res.status(500).json({
       success: false,
       message: 'Error interno del servidor',
-      error: error.message
+      error: error.message,
+      details: error.errors
     });
   }
 };

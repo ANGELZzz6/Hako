@@ -52,10 +52,13 @@ exports.getMyPurchasedProducts = async (req, res) => {
     if (isDev) console.log('🔍 Buscando productos individuales para usuario:', req.user.id);
 
     // Obtener todos los productos individuales del usuario
-    const individualProducts = await IndividualProduct.find({
+    let individualProducts = await IndividualProduct.find({
       user: req.user.id,
       status: { $in: ['available', 'reserved', 'claimed'] }
     }).populate('product order');
+
+    // Filtrar productos donde el producto base fue eliminado
+    individualProducts = individualProducts.filter(p => p && p.product !== null);
 
     if (isDev) console.log(`📊 Productos individuales encontrados: ${individualProducts.length}`);
 
@@ -136,10 +139,13 @@ exports.getUserProducts = async (req, res) => {
     if (isDev) console.log('🔍 [ADMIN] Buscando productos individuales para usuario:', userId);
 
     // Obtener todos los productos individuales del usuario especificado
-    const individualProducts = await IndividualProduct.find({
+    let individualProducts = await IndividualProduct.find({
       user: userId,
       status: { $in: ['available', 'reserved', 'claimed'] }
     }).populate('product order user');
+
+    // Filtrar productos donde el producto base fue eliminado
+    individualProducts = individualProducts.filter(p => p && p.product !== null);
 
     if (isDev) console.log(`📊 [ADMIN] Productos individuales encontrados: ${individualProducts.length}`);
 
@@ -371,8 +377,12 @@ exports.claimIndividualProducts = async (req, res) => {
         status: 'available'
       }).populate('product');
 
-      if (!individualProduct) {
-        validationErrors.push(`Producto individual no encontrado o no disponible`);
+      // Validar que el producto individual exista y tenga su producto base
+      if (!individualProduct || !individualProduct.product) {
+        if (isDev && individualProduct && !individualProduct.product) {
+          console.warn(`⚠️ Producto base no encontrado para individualProduct: ${individualProduct._id}`);
+        }
+        validationErrors.push(`Producto individual no encontrado o el producto original fue eliminado`);
         continue;
       }
 

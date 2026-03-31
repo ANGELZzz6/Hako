@@ -46,7 +46,7 @@ const auth = async (req, res, next) => {
     if (isDev) console.log('auth: req.user set:', JSON.stringify(req.user, null, 2));
     next();
   } catch (error) {
-    console.error('Error en middleware de autenticación:', error);
+    if (isDev) console.error('Error en middleware de autenticación:', error);
     
     if (error.name === 'JsonWebTokenError') {
       return res.status(401).json({ error: 'Token inválido' });

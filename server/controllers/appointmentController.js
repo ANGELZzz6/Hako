@@ -526,8 +526,19 @@ exports.getMyAppointments = async (req, res) => {
     // Procesar cada cita para agregar información de variantes y dimensiones calculadas
     const processedAppointments = await Promise.all(appointments.map(async (appointment) => {
 
-      // Procesar cada item en la cita
-      const processedItems = await Promise.all(appointment.itemsToPickup.map(async (item) => {
+      // Procesar cada item en la cita - Filtrar nulos para evitar crashes
+      const itemsToProcess = appointment.itemsToPickup.filter(item => {
+        const isValid = item.individualProduct && item.originalProduct;
+        if (!isValid && isDev) {
+          console.warn(`⚠️ [getMyAppointments] Filtrando item nulo en cita ${appointment._id}:`, {
+            hasIndividual: !!item.individualProduct,
+            hasOriginal: !!item.originalProduct
+          });
+        }
+        return isValid;
+      });
+
+      const processedItems = await Promise.all(itemsToProcess.map(async (item) => {
         // Usar directamente el IndividualProduct ya poblado
         const individualProduct = item.individualProduct;
 
@@ -601,8 +612,19 @@ exports.getMyAppointment = async (req, res) => {
       return res.status(404).json({ error: 'Cita no encontrada' });
     }
 
-    // Procesar cada item en la cita
-    const processedItems = await Promise.all(appointment.itemsToPickup.map(async (item) => {
+    // Procesar cada item en la cita - Filtrar nulos para evitar crashes
+    const itemsToProcess = appointment.itemsToPickup.filter(item => {
+      const isValid = item.individualProduct && item.originalProduct;
+      if (!isValid && isDev) {
+        console.warn(`⚠️ [getMyAppointment] Filtrando item nulo en cita ${appointment._id}:`, {
+          hasIndividual: !!item.individualProduct,
+          hasOriginal: !!item.originalProduct
+        });
+      }
+      return isValid;
+    });
+
+    const processedItems = await Promise.all(itemsToProcess.map(async (item) => {
       // Usar directamente el IndividualProduct ya poblado
       const individualProduct = item.individualProduct;
 
@@ -765,9 +787,15 @@ exports.updateMyAppointment = async (req, res) => {
       }
 
       // Verificar que el usuario no tenga otras reservas para el mismo casillero, fecha y hora
-      const requestedLockers = appointment.itemsToPickup.map(item =>
-        lockerNumber || item.lockerNumber
-      );
+      const requestedLockers = (appointment.itemsToPickup || [])
+        .filter(item => {
+          const isValid = item && (item.individualProduct || item.originalProduct);
+          if (!isValid && isDev) {
+            console.warn(`⚠️ [updateMyAppointment] Filtrando item nulo en cita ${appointment._id}`);
+          }
+          return isValid;
+        })
+        .map(item => lockerNumber || item.lockerNumber);
 
       const existingUserAppointments = await Appointment.find({
         user: req.user.id,
@@ -802,9 +830,10 @@ exports.updateMyAppointment = async (req, res) => {
         });
       }
 
+      const today = getTodayColombia();
+
       // Validar que la nueva fecha no sea más de 7 días adelante
       if (req.user.role !== 'admin') {
-        const today = getTodayColombia();
         const maxDate = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
         if (newDate > maxDate) {
           return res.status(400).json({ error: 'No se pueden agendar citas con más de 7 días de anticipación' });
@@ -1125,9 +1154,17 @@ exports.getAllAppointments = async (req, res) => {
       .sort({ scheduledDate: 1, timeSlot: 1 });
 
     // Agregar dimensiones calculadas a cada item
-    const appointmentsWithDimensions = appointments.map(appointment => {
-      const appointmentObj = appointment.toObject();
-      appointmentObj.itemsToPickup = appointmentObj.itemsToPickup.map(item => {
+    const appointmentsWithDimensions = (appointments || []).map(appointment => {
+      const appointmentObj = appointment.toObject ? appointment.toObject() : appointment;
+      const itemsToProcess = (appointmentObj.itemsToPickup || []).filter(item => {
+        const isValid = item && item.individualProduct && item.originalProduct;
+        if (!isValid && isDev) {
+          console.warn(`⚠️ [getAllAppointments] Filtrando item nulo o incompleto en cita ${appointmentObj._id}`);
+        }
+        return isValid;
+      });
+
+      appointmentObj.itemsToPickup = itemsToProcess.map(item => {
         // Calcular dimensiones basadas en el producto individual
         let dimensiones = null;
         let volumen = null;
