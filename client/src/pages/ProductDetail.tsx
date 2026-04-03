@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import productService, { type Product, type Review } from '../services/productService';
+import productService, { type Product } from '../services/productService';
 import cartService from '../services/cartService';
-import { useAuth } from '../contexts/AuthContext';
 import { useMobileViewport } from '../hooks/useMobileViewport';
 import './ProductDetail.css';
 import ProductVariantModal from '../components/ProductVariantModal';
@@ -17,175 +16,9 @@ const estrellas = (valor: number) => (
   </span>
 );
 
-const StarSelector: React.FC<{ value: number; onChange: (v: number) => void }> = ({ value, onChange }) => (
-  <div className="star-selector">
-    {[1, 2, 3, 4, 5].map(i => (
-      <i
-        key={i}
-        className={`bi ${value >= i ? 'bi-star-fill' : value >= i - 0.5 ? 'bi-star-half' : 'bi-star'}`}
-        style={{ color: '#f7b731', fontSize: '1.5em', cursor: 'pointer', marginRight: 2 }}
-        onClick={() => onChange(i)}
-        onMouseOver={e => (e.currentTarget.style.color = '#d32f2f')}
-        onMouseOut={e => (e.currentTarget.style.color = '#f7b731')}
-        title={`${i} estrella${i > 1 ? 's' : ''}`}
-      />
-    ))}
-  </div>
-);
 
-const ReseñasPopup: React.FC<{
-  reviews: Review[];
-  onClose: () => void;
-  productId: string;
-  onRefresh: () => void;
-}> = ({ reviews, onClose, productId, onRefresh }) => {
-  const { currentUser, isAuthenticated } = useAuth();
-  const [comentario, setComentario] = useState('');
-  const [rating, setRating] = useState(5);
-  const [editMode, setEditMode] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
 
-  // Calcular media
-  const avg = reviews.length ? (reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length) : 0;
-  // Buscar si el usuario ya dejó reseña
-  const myReview = currentUser ? reviews.find(r => r.user?._id === currentUser.id) : undefined;
 
-  useEffect(() => {
-    if (myReview) {
-      setComentario(myReview.comentario);
-      setRating(myReview.rating);
-      setEditMode(true);
-    } else {
-      setComentario('');
-      setRating(5);
-      setEditMode(false);
-    }
-  }, [myReview]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-    try {
-      if (editMode) {
-        // Lógica para editar reseña (a implementar en el servicio)
-        await productService.editReview(productId, { comentario, rating });
-      } else {
-        // Lógica para crear reseña
-        await productService.addReview(productId, { comentario, rating });
-      }
-      onRefresh();
-    } catch (err: any) {
-      setError(err.message || 'Error al guardar reseña');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!window.confirm('¿Seguro que quieres eliminar tu reseña?')) return;
-    setLoading(true);
-    setError('');
-    try {
-      await productService.deleteReview(productId);
-      onRefresh();
-    } catch (err: any) {
-      setError(err.message || 'Error al eliminar reseña');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="reseñas-popup-overlay" onClick={onClose}>
-      <div className="reseñas-popup" onClick={e => e.stopPropagation()}>
-        <div className="reseñas-popup-header">
-          <h4>Reseñas de usuarios</h4>
-          <button className="btn btn-sm btn-secondary close-btn" onClick={onClose}><i className="bi bi-x-lg"></i></button>
-        </div>
-        <div className="reseñas-popup-body">
-          <div className="mb-3 text-center">
-            <span className="fw-bold">Media de usuarios: </span>
-            {estrellas(avg)} <span className="ms-2">{avg.toFixed(1)}</span>
-            <br />
-            <span className="text-muted ms-2 reviews-count">({reviews.length} reseña{reviews.length !== 1 ? 's' : ''})</span>
-          </div>
-          {isAuthenticated ? (
-            <div className="mb-4">
-              <form onSubmit={handleSubmit}>
-                <div className="mb-2">
-                  <StarSelector value={rating} onChange={setRating} />
-                </div>
-                <textarea
-                  className="form-control mb-2"
-                  placeholder="Escribe tu reseña..."
-                  value={comentario}
-                  onChange={e => setComentario(e.target.value)}
-                  maxLength={500}
-                  required
-                  rows={2}
-                />
-                {error && <div className="alert alert-danger py-1">{error}</div>}
-                <div className="d-flex gap-2">
-                  <button type="submit" className="btn btn-primary" disabled={loading}>
-                    {loading ? (
-                      <>
-                        <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                        {editMode ? 'Actualizando...' : 'Enviando...'}
-                      </>
-                    ) : (
-                      <>
-                        <i className="bi bi-check-circle me-2"></i>
-                        {editMode ? 'Actualizar reseña' : 'Enviar reseña'}
-                      </>
-                    )}
-                  </button>
-                  {editMode && (
-                    <button type="button" className="btn btn-danger" onClick={handleDelete} disabled={loading}>
-                      {loading ? (
-                        <>
-                          <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                          Eliminando...
-                        </>
-                      ) : (
-                        <>
-                          <i className="bi bi-trash me-2"></i>
-                          Eliminar reseña
-                        </>
-                      )}
-                    </button>
-                  )}
-                </div>
-              </form>
-            </div>
-          ) : (
-            <div className="alert alert-info text-center">Inicia sesión para dejar tu reseña.</div>
-          )}
-          <hr />
-          {reviews.length === 0 ? (
-            <p className="text-muted no-reviews-message">Aún no hay reseñas para este producto.</p>
-          ) : (
-            reviews.map((r, idx) => (
-              <div key={idx} className="reseña-item mb-3 p-2 border rounded">
-                <div className="d-flex flex-column mb-1">
-                  <div className="d-flex align-items-center mb-1">
-                    {estrellas(r.rating)}
-                    <span className="ms-2 fw-bold review-username">{r.user?.nombre || 'Usuario'}</span>
-                  </div>
-                  <div className="d-flex justify-content-between align-items-center">
-                    <div className="review-comment">{r.comentario}</div>
-                    <span className="text-muted review-date" style={{ fontSize: '0.9em', whiteSpace: 'nowrap' }}>{new Date(r.fecha).toLocaleDateString()}</span>
-                  </div>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
 
 const ProductDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -195,13 +28,31 @@ const ProductDetail: React.FC = () => {
   const [mainImg, setMainImg] = useState('');
   const [extraImgs, setExtraImgs] = useState<string[]>([]);
   const [adminRating, setAdminRating] = useState<number | null>(null);
-  const [showReviews, setShowReviews] = useState(false);
   const [related, setRelated] = useState<Product[]>([]);
   const navigate = useNavigate();
+  const reviewsRef = React.useRef<HTMLDivElement>(null);
   const [showVariantModal, setShowVariantModal] = useState(false);
   const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
-  const [quantity, setQuantity] = useState(1);
+  const [quantity] = useState(1);
   const { refreshCart } = useCart();
+
+  const hasVariants = product?.variants?.enabled && product?.variants?.attributes?.length > 0;
+
+  const handleVariantChange = (attributeName: string, value: string) => {
+    setSelectedVariants(prev => ({
+      ...prev,
+      [attributeName]: value
+    }));
+  };
+
+  const isFormValid = () => {
+    if (!product?.variants?.enabled) return true;
+    const attributes = product?.variants?.attributes || [];
+    return attributes.every(attribute => {
+      if (!attribute.required) return true;
+      return selectedVariants[attribute.name] && selectedVariants[attribute.name].trim() !== '';
+    });
+  };
 
   // Forzar resolución móvil
   useMobileViewport();
@@ -240,10 +91,42 @@ const ProductDetail: React.FC = () => {
     fetchRelated();
   }, [id]);
 
+  const scrollToReviews = () => {
+    reviewsRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
   const handleAddToBox = async () => {
     if (!product) return;
-    // Mostrar el modal para todos los productos (con o sin variantes)
-    setShowVariantModal(true);
+
+    // Si tiene variantes y no se han seleccionado todas, o si queremos mantener el fallback
+    // Pero la instrucción es intentar en página primero.
+    if (hasVariants && !isFormValid()) {
+      // Si el usuario hace click y no ha seleccionado variantes en página, 
+      // podemos o mostrar el modal o resaltar los selectores.
+      // Siguiendo la instrucción de "fallback", si falla algo o le falta selección, abrimos modal.
+      setShowVariantModal(true);
+      return;
+    }
+
+    try {
+      setAddingToBox(true);
+      if (hasVariants) {
+        await cartService.addToCartWithVariants({
+          productId: product._id,
+          quantity,
+          variants: selectedVariants
+        });
+      } else {
+        await cartService.addToCart(product._id, quantity);
+      }
+      await refreshCart();
+      showSuccessToast('¡Producto agregado al box! 🎉');
+    } catch (error) {
+      console.error('Error al agregar al box:', error);
+      alert('Error al agregar al box. Intenta de nuevo.');
+    } finally {
+      setAddingToBox(false);
+    }
   };
 
   // Manejar la adición al carrito desde el modal de variantes
@@ -304,10 +187,10 @@ const ProductDetail: React.FC = () => {
   );
 
   return (
-    <div style={{ marginTop: '3.5rem' }}>
-      <div className="container py-5 product-detail-container">
+    <div className="product-detail">
+      <div className="container product-detail__container">
         {/* Flecha para regresar */}
-        <div className="mb-4">
+        <div className="product-detail__back">
           <button
             className="btn btn-outline-secondary"
             onClick={() => navigate('/productos')}
@@ -317,81 +200,160 @@ const ProductDetail: React.FC = () => {
           </button>
         </div>
 
-        <div className="row g-4">
-          {/* Imágenes */}
-          <div className="col-md-6">
-            <div className="main-img-container mb-3" style={{ position: 'relative' }}>
-              {/* Cinta de oferta */}
+        <div className="product-detail__content">
+          {/* Galería de Imágenes */}
+          <div className="product-detail__gallery">
+            <div className="product-detail__main-img-wrap">
               {product.isOferta && (
-                <div className="oferta-ribbon" style={{ top: 10, left: -10, position: 'absolute' }}>
+                <div className="product-detail__badge product-detail__badge--oferta">
                   <i className="bi bi-tag-fill me-1"></i>¡Oferta!
                 </div>
               )}
-              {/* Cinta de destacado */}
               {product.isDestacado && (
-                <div className="destacado-ribbon" style={{ top: 50, left: -10, position: 'absolute', background: '#ffd600', color: '#333' }}>
+                <div className="product-detail__badge product-detail__badge--destacado">
                   <i className="bi bi-star-fill me-1"></i>Destacado
                 </div>
               )}
-              <img src={mainImg} alt={product.nombre} className="main-img img-fluid rounded shadow" onError={e => { e.currentTarget.src = 'https://via.placeholder.com/400x300?text=Sin+Imagen' }} />
+              <img 
+                src={mainImg} 
+                alt={product.nombre} 
+                className="product-detail__main-img" 
+                onError={e => { e.currentTarget.src = 'https://via.placeholder.com/400x300?text=Sin+Imagen' }} 
+              />
             </div>
-            <div className="extra-imgs d-flex gap-2">
+            
+            <div className="product-detail__thumbs">
               {extraImgs.map((img, idx) => (
-                <img key={idx} src={img} alt={`Extra ${idx + 1}`} className={`extra-img rounded ${mainImg === img ? 'selected' : ''}`} style={{ width: 64, height: 48, objectFit: 'cover', cursor: 'pointer', border: mainImg === img ? '2px solid #d32f2f' : '1px solid #ccc' }} onClick={() => setMainImg(img)} />
+                <div 
+                  key={idx} 
+                  className={`product-detail__thumb-wrap ${mainImg === img ? 'product-detail__thumb-wrap--selected' : ''}`}
+                  onClick={() => setMainImg(img)}
+                >
+                  <img src={img} alt={`Extra ${idx + 1}`} className="product-detail__thumb-img" />
+                </div>
               ))}
             </div>
           </div>
-          {/* Detalles */}
-          <div className="col-md-6">
-            <h2 className="mb-2 product-title">{product.nombre}</h2>
-            <div className="d-flex align-items-center mb-2">
-              <span className="badge bg-success me-2">Producto comprobado por Hako ✅</span>
+
+          {/* Información del Producto */}
+          <div className="product-detail__info">
+            <h2 className="product-detail__title">{product.nombre}</h2>
+            
+            <div className="product-detail__meta">
+              <span className="product-detail__verified">Producto comprobado por Hako ✅</span>
               {adminRating !== null && estrellas(adminRating)}
             </div>
-            <button className="btn btn-outline-secondary reviews-btn mb-3" onClick={() => setShowReviews(true)}>
-              <i className="bi bi-chat-left-text me-2"></i>Ver reseñas
+
+            <button className="product-detail__reviews-trigger" onClick={scrollToReviews}>
+              <i className="bi bi-chat-left-text me-2"></i>Ver opiniones
             </button>
-            <p className="mb-3 product-description">{product.descripcion || 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque euismod, nisi eu consectetur.'}</p>
-            <div className="price mb-4">
-              <span className="fs-3 fw-bold text-primary">
-                {product.precio.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })} <span style={{ fontSize: '1rem', fontWeight: 400 }}>COP</span>
+
+            <div className="product-detail__description">
+              {product.descripcion || 'Sin descripción disponible.'}
+            </div>
+
+            <div className="product-detail__price-wrap">
+              <span className="product-detail__price">
+                {product.precio.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 })}
+                <span className="product-detail__currency">COP</span>
               </span>
             </div>
-            <div className="secure-section mb-4">
-              <h5 className="secure-title">Pagos seguros y Hako Services</h5>
-              <ul className="list-unstyled mb-2">
+
+            {/* Selector de Variantes Inline (Nuevo) */}
+            {hasVariants && (
+              <div className="product-detail__variants">
+                {product.variants?.attributes.map((attr, idx) => (
+                  <div key={idx} className="product-detail__variant-group">
+                    <label className="product-detail__variant-label">
+                      {attr.name} {attr.required && <span className="text-danger">*</span>}
+                    </label>
+                    <div className="product-detail__variant-options">
+                      {attr.options.filter(opt => opt.isActive).map((opt, optIdx) => (
+                        <button
+                          key={optIdx}
+                          className={`product-detail__variant-btn ${selectedVariants[attr.name] === opt.value ? 'product-detail__variant-btn--active' : ''}`}
+                          onClick={() => handleVariantChange(attr.name, opt.value)}
+                          disabled={opt.stock === 0}
+                        >
+                          {opt.value}
+                          {opt.stock === 0 && <span className="product-detail__variant-out">Agotado</span>}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="product-detail__secure">
+              <h5 className="product-detail__secure-title">Pagos seguros y Hako Services</h5>
+              <ul className="product-detail__secure-list">
                 <li><i className="bi bi-shield-lock text-primary me-2"></i>Datos personales seguros</li>
                 <li><i className="bi bi-credit-card-2-front text-primary me-2"></i>Pagos seguros</li>
                 <li style={{ color: '#2ecc40' }}><i className="bi bi-arrow-repeat me-2"></i>Reembolso por artículo defectuoso</li>
               </ul>
             </div>
-            <button
-              className="btn btn-lg btn-danger w-100 mt-3"
-              disabled={addingToBox || product.stock === 0}
-              onClick={handleAddToBox}
-            >
-              {addingToBox ? (
-                <>
-                  <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                  Agregando al box...
-                </>
-              ) : product.stock === 0 ? (
-                <>
-                  <i className="bi bi-x-octagon me-2"></i>Producto agotado
-                </>
-              ) : (
-                <>
-                  <i className="bi bi-box-seam me-2"></i>¡Agregar a box!
-                </>
-              )}
-            </button>
+
+            {/* El botón en layout desktop (se oculta en móvil vía CSS si es necesario o se duplica) */}
+            <div className="product-detail__buy-action">
+              <button
+                className="btn btn-lg btn-danger w-100"
+                disabled={addingToBox || product.stock === 0}
+                onClick={handleAddToBox}
+              >
+                {addingToBox ? (
+                  <><span className="spinner-border spinner-border-sm me-2" />Agregando...</>
+                ) : product.stock === 0 ? (
+                  <><i className="bi bi-x-octagon me-2" />Agotado</>
+                ) : (
+                  <><i className="bi bi-box-seam me-2" />¡Agregar a box!</>
+                )}
+              </button>
+            </div>
           </div>
         </div>
-        {/* Popup de reseñas */}
-        {showReviews && <ReseñasPopup reviews={product.reviews || []} onClose={() => setShowReviews(false)} productId={product._id} onRefresh={refreshProduct} />}
+
+        {/* Botón Sticky para Móvil (Solo visible en pantallas pequeñas) */}
+        <div className="product-detail__sticky-action">
+          <button
+            className="btn btn-danger product-detail__sticky-btn"
+            disabled={addingToBox || product.stock === 0}
+            onClick={handleAddToBox}
+          >
+            {addingToBox ? (
+              <span className="spinner-border spinner-border-sm" />
+            ) : product.stock === 0 ? (
+              "Agotado"
+            ) : (
+              "¡AGREGAR AL BOX!"
+            )}
+          </button>
+        </div>
+
+        {/* Sección de Reseñas en Página */}
+        <div className="product-detail__reviews-section" ref={reviewsRef}>
+          <h4 className="product-detail__section-title">Opiniones de la comunidad</h4>
+          <div className="product-detail__reviews-container">
+             {product.reviews && product.reviews.length > 0 ? (
+               product.reviews.map((r, idx) => (
+                 <div key={idx} className="product-detail__review-card">
+                    <div className="product-detail__review-header">
+                      {estrellas(r.rating)}
+                      <span className="product-detail__review-user">{r.user?.nombre || 'Hako User'}</span>
+                    </div>
+                    <p className="product-detail__review-text">{r.comentario}</p>
+                    <span className="product-detail__review-date">{new Date(r.fecha).toLocaleDateString()}</span>
+                 </div>
+               ))
+             ) : (
+               <p className="text-muted text-center py-4">Aún no hay opiniones. ¡Sé el primero en comentar al recibir tu pedido!</p>
+             )}
+          </div>
+        </div>
+
         {/* Productos relacionados */}
-        <div className="mt-5">
-          <h4 className="mb-4 related-title">Productos que te pueden interesar</h4>
+        <div className="product-detail__related">
+          <h4 className="product-detail__section-title">Productos que te pueden interesar</h4>
           <div className="row g-3">
             {related.map(p => (
               <div className="col-6 col-md-4 col-lg-2" key={p._id}>

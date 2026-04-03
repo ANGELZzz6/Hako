@@ -2,8 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Routes, Route, Link, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css'; // Para los íconos como el del carrito
-import { Carousel } from 'react-bootstrap';
 import BoxAnimation from './components/BoxAnimation';
+import ProductCard from './components/ProductCard';
 import appointmentService from './services/appointmentService';
 import FallingLines from './components/FallingLines';
 import Productos from './pages/Productos';
@@ -217,18 +217,8 @@ const AppContent = () => {
     window.open(mapsUrl, '_blank');
   };
 
-  // Función para agrupar productos en grupos de 4
-  const chunkArray = (arr: Product[], size: number): Product[][] => {
-    const chunkedArr: Product[][] = [];
-    for (let i = 0; i < arr.length; i += size) {
-      chunkedArr.push(arr.slice(i, i + size));
-    }
-    return chunkedArr;
-  };
-
   // Filtrar solo productos destacados para la sección de inicio
-  const destacados = products.filter(p => p.isDestacado);
-  const destacadosGroups = chunkArray(destacados, 4);
+  const productosDestacados = products.filter(p => p.isDestacado);
 
   // Función para limpiar el estado de pago
   const cleanupPaymentState = () => {
@@ -453,49 +443,16 @@ const AppContent = () => {
         <section className="hero-section hero-section-productos" id="productos">
           <div className="container">
             <h2>Productos Destacados</h2>
-            <Carousel
-              className="productos-carousel"
-              indicators={true}
-              controls={true}
-            >
-              {destacadosGroups.map((group, groupIndex) => (
-                <Carousel.Item key={groupIndex}>
-                  <div className="container">
-                    <div className="row g-4">
-                      {group.map((product) => (
-                        <div className="col-6 col-md-3" key={product._id}>
-                          <div className="card" style={{ cursor: 'pointer' }} onClick={() => handleProductClick(product._id)}>
-                            <img
-                              src={product.imagen_url}
-                              className="card-img-top"
-                              alt={product.nombre}
-                              onError={(e) => {
-                                e.currentTarget.onerror = null;
-                                e.currentTarget.src = 'data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2Fsvg%22%20width%3D%22300%22%20height%3D%22200%22%3E%3Crect%20width%3D%22300%22%20height%3D%22200%22%20fill%3D%22%23e9ecef%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20dominant-baseline%3D%22middle%22%20text-anchor%3D%22middle%22%20font-family%3D%22Arial%22%20font-size%3D%2214%22%20fill%3D%22%236c757d%22%3ESin%20imagen%3C%2Ftext%3E%3C%2Fsvg%3E';
-                              }}
-                            />
-                            <div className="card-body d-flex flex-column">
-                              <h5 className="card-title">{product.nombre}</h5>
-                              <p className="card-text">{product.descripcion}</p>
-                              <div className="price-tag">
-                                {product.precio.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 })} <span style={{ fontSize: '0.9em', fontWeight: 400 }}>COP</span>
-                              </div>
-                              <button
-                                className="btn btn-danger mt-auto"
-                                style={{ pointerEvents: 'none', opacity: 0.85 }}
-                              >
-                                <i className="bi bi-box-seam me-2"></i>
-                                A MI BOX
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </Carousel.Item>
+            <div className="carousel-productos">
+              {productosDestacados.map(producto => (
+                <div key={producto._id} className="product-card-wrapper">
+                  <ProductCard 
+                    producto={producto}
+                    onClick={handleProductClick}
+                  />
+                </div>
               ))}
-            </Carousel>
+            </div>
             <Link to="/productos" className="ver-mas-btn">
               <i className="bi bi-arrow-right-circle me-2"></i>
               Ver más productos

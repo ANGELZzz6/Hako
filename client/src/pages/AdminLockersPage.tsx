@@ -1372,20 +1372,20 @@ const AdminLockersPage: React.FC = () => {
                           <tbody>
                             {cancelledAppointments.map((appointment, index) => (
                               <tr key={index} className="table-light">
-                                <td>
+                                <td data-label="Hora">
                                   <span className="badge bg-danger">
                                     {appointment.timeSlot}
                                   </span>
                                 </td>
-                                <td>
+                                <td data-label="Usuario">
                                   <div className="user-info">
                                     <div className="user-name">{appointment.user?.nombre || 'N/A'}</div>
                                   </div>
                                 </td>
-                                <td>
+                                <td data-label="Email">
                                   <div className="user-email">{appointment.user?.email || 'N/A'}</div>
                                 </td>
-                                <td>
+                                <td data-label="Productos">
                                   <div className="items-list">
                                     {appointment.itemsToPickup.map((item, idx) => (
                                       <div key={idx} className="item-badge">
@@ -1405,12 +1405,12 @@ const AdminLockersPage: React.FC = () => {
                                     ))}
                                   </div>
                                 </td>
-                                <td>
+                                <td data-label="Motivo de Cancelación">
                                   <small className="text-muted">
                                     {appointment.cancellationReason || 'No especificado'}
                                   </small>
                                 </td>
-                                <td>
+                                <td data-label="Fecha de Cancelación">
                                   <small className="text-muted">
                                     {appointment.updatedAt ? new Date(appointment.updatedAt).toLocaleDateString() : 'N/A'}
                                   </small>
@@ -1583,20 +1583,20 @@ const AdminLockersPage: React.FC = () => {
                           <tbody>
                             {filteredReservations.map((reservation, index) => (
                               <tr key={index}>
-                                <td>
+                                <td data-label="Casillero">
                                   <span className="locker-badge">
                                     Casillero {reservation.lockerNumber}
                                   </span>
                                 </td>
-                                <td>
+                                <td data-label="Usuario">
                                   <div className="user-info">
                                     <div className="user-name">{reservation.user.nombre}</div>
                                   </div>
                                 </td>
-                                <td>
+                                <td data-label="Email">
                                   <div className="user-email">{reservation.user.email}</div>
                                 </td>
-                                <td>
+                                <td data-label="Objetos">
                                   <div className="items-list">
                                     {reservation.items.map((item, idx) => (
                                       <div key={idx} className="item-badge">
@@ -1612,12 +1612,12 @@ const AdminLockersPage: React.FC = () => {
                                     ))}
                                   </div>
                                 </td>
-                                <td>
+                                <td data-label="Estado">
                                   <span className={`badge bg-${getStatusColor(reservation.status)}`}>
                                     {getStatusLabel(reservation.status)}
                                   </span>
                                 </td>
-                                <td>
+                                <td data-label="Acciones">
                                   <div className="btn-group btn-group-sm action-buttons">
                                     <button
                                       className="btn btn-outline-primary"
@@ -1766,20 +1766,20 @@ const AdminLockersPage: React.FC = () => {
                         <tbody>
                           {appointments.map((appointment, index) => (
                             <tr key={index}>
-                              <td>
+                              <td data-label="Hora">
                                 <span className="time-badge">
                                   {appointment.timeSlot}
                                 </span>
                               </td>
-                              <td>
+                              <td data-label="Usuario">
                                 <div className="user-info">
                                   <div className="user-name">{appointment.user?.nombre || 'N/A'}</div>
                                 </div>
                               </td>
-                              <td>
+                              <td data-label="Email">
                                 <div className="user-email">{appointment.user?.email || 'N/A'}</div>
                               </td>
-                              <td>
+                              <td data-label="Productos">
                                 <div className="items-list">
                                   {appointment.itemsToPickup.map((item, idx) => (
                                     <div key={idx} className="item-badge">
@@ -1799,12 +1799,12 @@ const AdminLockersPage: React.FC = () => {
                                   ))}
                                 </div>
                               </td>
-                              <td>
+                              <td data-label="Estado">
                                 <span className={`badge bg-${getStatusColor(appointment.status)}`}>
                                   {getStatusLabel(appointment.status)}
                                 </span>
                               </td>
-                              <td>
+                              <td data-label="Acciones">
                                 <button
                                   className="btn btn-outline-primary btn-sm"
                                   onClick={async () => {
