@@ -30,6 +30,7 @@
   --font-size-base: 1rem;
   --font-size-lg: 1.125rem;
   --font-size-xl: 1.5rem;
+  --color-border-tertiary: #e5e7eb;
 }
 
 @media (min-width: 768px) {
@@ -259,6 +260,7 @@ h1, h2, h3, h4, h5, h6 {
   color: #666;
   display: -webkit-box;
   -webkit-line-clamp: 3;
+  line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -553,6 +555,7 @@ footer a:hover {
   flex-grow: 1;
   display: -webkit-box;
   -webkit-line-clamp: 3;
+  line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -1126,6 +1129,35 @@ footer a:hover {
 
 .btn-outline-danger:hover i {
   color: white !important;
+}
+
+/* Botones de acción en la Navbar (Responsivo) */
+.navbar__auth-actions {
+  display: flex !important;
+  flex-direction: column;
+  gap: var(--spacing-sm) !important;
+  align-items: center;
+  width: 100%;
+  margin-top: var(--spacing-md);
+}
+
+@media (min-width: 992px) {
+  .navbar__auth-actions {
+    flex-direction: row;
+    width: auto;
+    margin-top: 0;
+    gap: var(--spacing-sm) !important;
+  }
+}
+
+.navbar__auth-actions .btn {
+  width: 100%;
+}
+
+@media (min-width: 992px) {
+  .navbar__auth-actions .btn {
+    width: auto;
+  }
 }
 
 /* Tema oscuro para los botones */

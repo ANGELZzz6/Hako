@@ -557,6 +557,9 @@ exports.markAsPickedUp = async (req, res) => {
 // Obtener un pedido por ID (solo si es del usuario o admin)
 exports.getOrderById = async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ error: 'ID con formato inválido' });
+    }
     const order = await Order.findById(req.params.id).populate('items.product user');
     if (!order) return res.status(404).json({ error: 'Pedido no encontrado' });
     if (order.user._id.toString() !== req.user.id && req.user.role !== 'admin') {

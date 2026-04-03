@@ -113,6 +113,9 @@ The system requires the following environment variables:
 | `WEBHOOK_URL` | Public URL for Mercado Pago async notifications |
 | `EMAIL_USER` | SMTP username for notifications |
 | `EMAIL_PASS` | SMTP password for notifications |
+| `MP_CLIENT_ID` | Mercado Pago OAuth Client ID (for testing) |
+| `MP_CLIENT_SECRET` | Mercado Pago OAuth Client Secret (for testing) |
+| `API_BASE_URL` | Base URL of the API for testing scripts |
 
 ## Usage
 
@@ -148,6 +151,27 @@ The system requires the following environment variables:
 *   **Frontend:** Recommendations for Vercel or Netlify.
 *   **Backend:** Recommendations for Heroku, Railway, or Render.
 *   **Database:** MongoDB Atlas is recommended for production.
+*   **Testing:** Node.js environment for integration scripts.
+
+## Integration Testing
+
+The project includes a comprehensive integration test suite to validate the end-to-end payment lifecycle, from preference creation to administrative refunds.
+
+### Payment Flow Validation
+This script simulates a complete purchase using Mercado Pago's sandbox:
+1.  Admin authentication.
+2.  Product retrieval and cart management.
+3.  Preference creation.
+4.  Automated 'TEST-' token retrieval via OAuth.
+5.  Sandbox payment simulation (approved status).
+6.  Webhook processing and Order creation verification.
+7.  Administrative refund and order cancellation flow.
+
+**Run the test:**
+```bash
+# Ensure ngrok is running and WEBHOOK_URL is updated in .env
+node server/scripts/test-payment-flow.js
+```
 
 ## Future Improvements
 

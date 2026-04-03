@@ -2,10 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import paymentService from '../services/paymentService';
 import type { MPItem, MPPayer } from '../services/paymentService';
-import cartService from '../services/cartService';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
-import { initMercadoPago, createMercadoPagoInstance, validateMercadoPagoConfig } from '../config/mercadopago';
+import { initMercadoPago, validateMercadoPagoConfig } from '../config/mercadopago';
 
 const isDev = import.meta.env.DEV;
 
@@ -27,7 +26,6 @@ const MercadoPagoCheckout: React.FC<MercadoPagoCheckoutProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [items, setItems] = useState<MPItem[]>([]);
   const [payer, setPayer] = useState<MPPayer | null>(null);
-  const [preferenceId, setPreferenceId] = useState<string | null>(null);
   const [redirectUrl, setRedirectUrl] = useState<string | null>(null);
   const [sdkLoaded, setSdkLoaded] = useState(false);
   const [redirecting, setRedirecting] = useState(false);
@@ -128,7 +126,6 @@ const MercadoPagoCheckout: React.FC<MercadoPagoCheckoutProps> = ({
         );
 
         if (isDev) console.log('Preferencia creada:', preference);
-        setPreferenceId(preference.preference_id);
         setRedirectUrl(preference.init_point);
 
       } catch (err: any) {
@@ -141,45 +138,6 @@ const MercadoPagoCheckout: React.FC<MercadoPagoCheckoutProps> = ({
 
     createPreference();
   }, [sdkLoaded, items, payer]);
-
-  // Función para manejar el pago exitoso
-  const handlePaymentSuccess = async (paymentData: any) => {
-    try {
-      if (isDev) console.log('Pago exitoso:', paymentData);
-
-      // Eliminar productos del carrito
-      if (items.length > 0) {
-        const productIds = items.map(item => item.id).filter((id): id is string => !!id);
-        if (productIds.length > 0) {
-          await cartService.removeMultipleItems(productIds);
-          await refreshCart();
-        }
-      }
-
-      // Llamar callback de éxito
-      if (onSuccess) {
-        onSuccess(paymentData);
-      }
-
-      // Redirigir a página de éxito
-      navigate('/payment-success', {
-        state: { paymentData }
-      });
-
-    } catch (error) {
-      console.error('Error procesando pago exitoso:', error);
-    }
-  };
-
-  // Función para manejar errores de pago
-  const handlePaymentError = (error: string) => {
-    if (isDev) console.error('Error en el pago:', error);
-    setError(error);
-
-    if (onError) {
-      onError(error);
-    }
-  };
 
   // Función para redirigir a Checkout Pro
   const redirectToCheckout = () => {
@@ -327,25 +285,6 @@ const MercadoPagoCheckout: React.FC<MercadoPagoCheckoutProps> = ({
               </div>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Logs de depuración */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="mt-4">
-          <details>
-            <summary>Información de Depuración</summary>
-            <pre className="bg-light p-3 mt-2 rounded small">
-              {JSON.stringify({
-                sdkLoaded,
-                itemsCount: items.length,
-                preferenceId,
-                redirectUrl: redirectUrl ? redirectUrl.substring(0, 50) + '...' : null,
-                total: calculateTotal(),
-                error
-              }, null, 2)}
-            </pre>
-          </details>
         </div>
       )}
     </div>

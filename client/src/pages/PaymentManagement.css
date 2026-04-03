@@ -1,12 +1,17 @@
-/* Estilos para la página de gestión de pagos */
+/* 
+   PaymentManagement.css
+   Referencia canónica Mobile-First para tablas admin de Hako.
+   Base: card layout (móvil 375px) con scope .payment-management
+   Override: tabla tradicional @media (min-width: 768px)
+*/
 
 .payment-management {
   min-height: 100vh;
   background: #f5f5f5;
 }
 
-/* Header */
-.payment-header-bar {
+/* --- HEADER & NAVIGATION --- */
+.payment-management .payment-header-bar {
   background: #fff;
   border-bottom: 1px solid #e9ecef;
   padding: 1rem 0;
@@ -16,7 +21,7 @@
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.header-content {
+.payment-management .header-content {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -25,73 +30,46 @@
   padding: 0 1rem;
 }
 
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.header-icon {
+.payment-management .header-icon {
   font-size: 1.5rem;
   color: #dc3545;
 }
 
-.header-title {
+.payment-management .header-title {
   color: #dc3545;
   font-size: 1.2rem;
   font-weight: 600;
 }
 
-.header-center {
-  flex: 1;
-  text-align: center;
-}
-
-.payment-header {
+.payment-management .payment-header {
   margin: 0;
   font-size: 1.8rem;
   font-weight: 700;
   color: #333;
 }
 
-.header-right {
-  display: flex;
-  align-items: center;
-}
-
-.back-link {
+.payment-management .back-link {
   color: #dc3545;
   text-decoration: none;
   font-size: 1.5rem;
   transition: color 0.3s ease;
 }
 
-.back-link:hover {
+.payment-management .back-link:hover {
   color: #dc3545;
   opacity: 0.8;
 }
 
-/* Contenido principal */
-.payment-main-content {
+/* --- MAIN CONTENT & STATS --- */
+.payment-management .payment-main-content {
   padding: 2rem 0;
 }
 
-/* Grid de estadísticas */
-.stats-grid {
+.payment-management .stats-grid {
   margin-bottom: 2rem;
 }
 
-.stats-grid .row {
-  margin: 0 -0.5rem;
-}
-
-.stats-grid .col-md-2 {
-  padding: 0 0.5rem;
-  margin-bottom: 1rem;
-}
-
-/* Tarjetas de estadísticas */
-.stat-card {
+.payment-management .stat-card {
   background: #fff;
   border-radius: 15px;
   padding: 1.5rem;
@@ -106,12 +84,12 @@
   text-align: center;
 }
 
-.stat-card:hover {
+.payment-management .stat-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
 }
 
-.stat-icon {
+.payment-management .stat-icon {
   width: 60px;
   height: 60px;
   border-radius: 50%;
@@ -123,169 +101,437 @@
   color: #fff;
 }
 
-.stat-content h3 {
+.payment-management .stat-content h3 {
   margin: 0;
   font-size: 1.8rem;
   font-weight: 700;
   color: #333;
-  word-break: break-word;
 }
 
-.stat-content p {
+.payment-management .stat-content p {
   margin: 0.5rem 0 0 0;
   color: #666;
   font-size: 0.9rem;
   font-weight: 500;
-  word-break: break-word;
+}
+
+/* --- MOBILE DEFAULT (BASE): SCOPED CARD LAYOUT --- */
+
+/* Responsive container scoped */
+.payment-management .table-responsive {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  overflow: visible !important;
+}
+
+/* Transformation to Cards with specific scope */
+.payment-management .table, 
+.payment-management .table thead, 
+.payment-management .table tbody, 
+.payment-management .table th, 
+.payment-management .table td, 
+.payment-management .table tr {
+  display: block;
+  width: 100%;
+}
+
+/* Hidden Headers on Mobile - Scoped */
+.payment-management .table thead {
+  position: absolute;
+  top: -9999px;
+  left: -9999px;
+}
+
+/* Row as a Card - Scoped */
+.payment-management .table tbody tr {
+  background: white;
+  border: 1px solid #e9ecef;
+  border-radius: 12px;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+  padding: 1rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.payment-management .table tbody tr:hover {
+  background: white;
+}
+
+/* Cell Layout inside Card - Scoped */
+.payment-management .table td {
+  border: none;
+  border-bottom: 1px solid #f8f9fa;
+  position: relative;
+  padding: 0.8rem 0.5rem 0.8rem 45%;
+  text-align: right;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.payment-management .table td:last-child {
+  border-bottom: none;
+}
+
+/* Data Labels (Mobile Headers) - Scoped */
+.payment-management .table td:before {
+  content: attr(data-label);
+  position: absolute;
+  left: 1rem;
+  width: 40%;
+  padding-right: 15px;
+  white-space: nowrap;
+  font-weight: 700;
+  text-align: left;
+  color: #666;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  letter-spacing: 0.5px;
+}
+
+/* Action Buttons Specific Cell - Scoped */
+.payment-management .table td.action-buttons {
+  justify-content: center;
+  padding: 1rem;
+  margin-top: 0.5rem;
+  background: #fafafa;
+  border-top: 1px solid #eee;
+  border-radius: 0 0 12px 12px;
+}
+
+.payment-management .table td.action-buttons:before {
+  display: none;
+}
+
+/* Touch Optimized Buttons - Scoped */
+.payment-management .btn-group {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.payment-management .btn-group .btn {
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  margin: 0;
+  flex: 0 0 auto;
+}
+
+/* --- MODAL PRODUCTS REDESIGN (MOBILE CARDS) --- */
+.payment-management .products-card {
+  height: auto !important;
+  min-height: min-content;
+  display: flex;
+  flex-direction: column;
+}
+
+.payment-management .products-table-wrapper {
+  padding: 0;
+  width: 100%;
+}
+
+.payment-management .products-table-wrapper .table,
+.payment-management .products-table-wrapper .table thead,
+.payment-management .products-table-wrapper .table tbody,
+.payment-management .products-table-wrapper .table tr,
+.payment-management .products-table-wrapper .table td {
+  display: block;
+  width: 100%;
+}
+
+.payment-management .products-table-wrapper .table thead {
+  display: none;
+}
+
+.payment-management .products-table-wrapper .table tbody tr {
+  background: #fff;
+  border-bottom: 2px solid #f8f9fa;
+  padding: 1.25rem;
+  position: relative;
+}
+
+.payment-management .products-table-wrapper .table td {
+  border: none;
+  padding: 0.6rem 0.5rem 0.6rem 45%;
+  text-align: right;
+  min-height: auto;
+  position: relative;
+}
+
+.payment-management .products-table-wrapper .table td:before {
+  content: attr(data-label);
+  position: absolute;
+  left: 0.5rem;
+  width: 40%;
+  text-align: left;
+  font-weight: 700;
+  font-size: 0.75rem;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.payment-management .products-table-wrapper .product-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.payment-management .products-table-wrapper .product-name {
+  font-weight: 700;
+  color: #333;
   line-height: 1.2;
 }
 
-/* Contenedor de carga */
-.loading-container {
+.payment-management .products-table-wrapper .product-id {
+  font-size: 0.75rem;
+  color: #999;
+  font-family: monospace;
+}
+
+.payment-management .products-table-wrapper .quantity-badge {
+  background: #e7f1ff;
+  color: #0d6efd;
+  padding: 0.2rem 0.75rem;
+  border-radius: 50px;
+  font-weight: 700;
+}
+
+.payment-management .products-table-wrapper .item-total {
+  color: #198754;
+  font-weight: 700;
+}
+
+.payment-management .products-table-wrapper .table tfoot td {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1.5rem 1rem;
+  background: #f8f9fa;
+  text-align: center;
+}
+
+.payment-management .products-table-wrapper .table tfoot td:before {
+  display: none;
+}
+
+/* --- DESKTOP OVERRIDE: SCOPED TRADITIONAL TABLE --- */
+@media (min-width: 768px) {
+  /* Scope desktop overrides with .payment-management */
+  .payment-management .stat-card {
+    padding: 1rem;
+  }
+
+  .payment-management .stat-content h3 {
+    font-size: 1.4rem;
+    word-break: break-word;
+    overflow-wrap: break-word;
+  }
+
+  .payment-management .stat-content p {
+    font-size: 0.75rem;
+  }
+
+  .payment-management .table {
+    display: table;
+    margin-bottom: 0;
+  }
+
+  .payment-management .table thead {
+    display: table-header-group;
+    position: static;
+    visibility: visible;
+  }
+
+  .payment-management .table thead tr {
+    display: table-row !important;
+    position: static;
+  }
+
+  .payment-management .table th {
+    display: table-cell !important;
+    text-align: left;
+    vertical-align: middle;
+  }
+
+  .payment-management .table tbody {
+    display: table-row-group;
+  }
+
+  .payment-management .table tbody tr {
+    display: table-row;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    margin-bottom: 0;
+    box-shadow: none;
+    padding: 0;
+  }
+
+  .payment-management .table td {
+    display: table-cell;
+    padding: 1rem 0.75rem;
+    text-align: left;
+    min-height: auto;
+    border-bottom: 1px solid #dee2e6;
+    background: transparent;
+    vertical-align: middle;
+  }
+
+  /* Reset Cell Alignment - Scoped */
+  .payment-management .table td {
+    justify-content: flex-start;
+  }
+
+  /* Remove Mobile Labels - Scoped */
+  .payment-management .table td:before {
+    display: none;
+  }
+
+  /* Restore Table-Responsive Container - Scoped */
+  .payment-management .table-responsive {
+    background: #fff;
+    border-radius: 15px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e9ecef;
+    overflow-x: auto;
+    padding: 0;
+  }
+
+  /* Actions Area Cleanup - Scoped */
+  .payment-management .table td.action-buttons {
+    background: transparent;
+    border-top: none;
+    padding: 1rem 0.75rem;
+    border-radius: 0;
+  }
+
+  .payment-management .btn-group {
+    gap: 0;
+  }
+
+  .payment-management .btn-group .btn {
+    min-width: 32px;
+    min-height: 32px;
+    font-size: 0.9rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+  }
+
+  .payment-management .modal-dialog.modal-lg {
+    max-width: 900px !important;
+    width: 90vw !important;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .payment-management .modal-content {
+    width: 100% !important;
+    max-width: none !important;
+  }
+
+  /* --- PRODUCTS TABLE DESKTOP RESTORATION --- */
+  .payment-management .products-table-wrapper {
+    overflow-x: auto;
+    border-radius: 8px;
+  }
+
+  .payment-management .products-table-wrapper .table {
+    display: table;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .payment-management .products-table-wrapper .table thead {
+    display: table-header-group;
+  }
+
+  .payment-management .products-table-wrapper .table thead th {
+    display: table-cell !important;
+    background: #f8f9fa;
+    color: #666;
+    padding: 1rem;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-bottom: 2px solid #dee2e6;
+  }
+
+  .payment-management .products-table-wrapper .table tbody {
+    display: table-row-group;
+  }
+
+  .payment-management .products-table-wrapper .table tr {
+    display: table-row;
+    background: transparent !important;
+    padding: 0;
+    box-shadow: none;
+    border-radius: 0;
+  }
+
+  .payment-management .products-table-wrapper .table td {
+    display: table-cell !important;
+    padding: 1.25rem 1rem;
+    border-bottom: 1px solid #eee;
+    text-align: left;
+    background: transparent;
+    vertical-align: middle;
+  }
+
+  .payment-management .products-table-wrapper .table td:before {
+    display: none;
+  }
+
+  .payment-management .products-table-wrapper .product-info {
+    align-items: flex-start;
+  }
+
+  .payment-management .products-table-wrapper .table tfoot {
+    display: table-footer-group;
+  }
+
+  .payment-management .products-table-wrapper .table tfoot tr {
+    display: table-row;
+    background: #f8f9fa;
+  }
+
+  .payment-management .products-table-wrapper .table tfoot td {
+    display: table-cell;
+    padding: 1.5rem 1rem;
+    text-align: right;
+  }
+}
+
+/* --- ADDITIONAL UI STATES --- */
+.payment-management .loading-container {
   text-align: center;
   padding: 3rem;
   background: #fff;
   border-radius: 15px;
   margin: 2rem 0;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  border: 1px solid #e9ecef;
 }
 
-.loading-container p {
-  margin-top: 1rem;
-  color: #666;
-  font-size: 1.1rem;
-}
-
-/* Mensaje de no hay pagos */
-.no-payments {
+.payment-management .no-payments {
   text-align: center;
   padding: 4rem 2rem;
   background: #fff;
   border-radius: 15px;
   margin: 2rem 0;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   border: 1px solid #e9ecef;
 }
 
-.no-payments i {
-  font-size: 4rem;
-  color: #ccc;
-  margin-bottom: 1rem;
-}
-
-.no-payments p {
-  color: #666;
-  font-size: 1.2rem;
-  margin: 0;
-}
-
-/* Tabla */
-.table-responsive {
-  background: #fff;
-  border-radius: 15px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  border: 1px solid #e9ecef;
-  overflow: hidden;
-}
-
-.table {
-  margin-bottom: 0;
-}
-
-.table thead th {
-  border-bottom: 2px solid #dee2e6;
-  font-weight: 600;
-}
-
-.table tbody tr:hover {
-  background-color: #f8f9fa;
-}
-
-/* Alertas */
-.alert {
+.payment-management .alert {
   border-radius: 10px;
   border: none;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
-
-/* Responsive */
-@media (max-width: 768px) {
-  .header-content {
-    flex-direction: column;
-    gap: 1rem;
-  }
-  
-  .payment-header {
-    font-size: 1.5rem;
-  }
-  
-  .stats-grid .col-md-2 {
-    flex: 0 0 50%;
-    max-width: 50%;
-  }
-  
-  .stat-card {
-    margin-bottom: 1rem;
-    padding: 1rem;
-  }
-  
-  .stat-content h3 {
-    font-size: 1.5rem;
-  }
-  
-  .stat-content p {
-    font-size: 0.8rem;
-  }
-  
-  .stat-icon {
-    width: 50px;
-    height: 50px;
-    font-size: 1.2rem;
-  }
-}
-
-@media (max-width: 576px) {
-  .stats-grid .col-md-2 {
-    flex: 0 0 100%;
-    max-width: 100%;
-  }
-  
-  .stat-card {
-    padding: 0.8rem;
-  }
-  
-  .stat-content h3 {
-    font-size: 1.3rem;
-  }
-  
-  .stat-content p {
-    font-size: 0.75rem;
-  }
-  
-  .stat-icon {
-    width: 45px;
-    height: 45px;
-    font-size: 1rem;
-  }
-}
-
-@media (max-width: 576px) {
-  .payment-main-content {
-    padding: 1rem 0;
-  }
-  
-  .stat-card {
-    padding: 1rem;
-  }
-  
-  .stat-icon {
-    width: 50px;
-    height: 50px;
-    font-size: 1.2rem;
-  }
-  
-  .stat-content h3 {
-    font-size: 1.3rem;
-  }
-} 

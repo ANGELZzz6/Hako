@@ -83,31 +83,31 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
         <tbody>
           {payments.map((payment) => (
             <tr key={payment._id}>
-              <td>
+              <td data-label="ID MP">
                 <small className="text-muted">{payment.mp_payment_id}</small>
               </td>
-              <td>
+              <td data-label="Usuario">
                 <div>
                   <strong>{payment.user_id?.nombre || 'N/A'}</strong>
                   <br />
                   <small className="text-muted">{payment.user_id?.email || 'N/A'}</small>
                 </div>
               </td>
-              <td>
+              <td data-label="Monto">
                 <strong>{formatCurrency(payment.amount)}</strong>
                 <br />
                 <small className="text-muted">{payment.currency}</small>
               </td>
-              <td>
+              <td data-label="Método">
                 <div className="d-flex align-items-center">
                   <i className={`${getPaymentMethodIcon(payment.payment_method.type)} me-2`}></i>
                   <span>{payment.payment_method.type || 'N/A'}</span>
                 </div>
               </td>
-              <td>
+              <td data-label="Estado">
                 {getStatusBadge(payment.status)}
               </td>
-              <td>
+              <td data-label="Fecha">
                 <div>
                   <small>{formatDate(payment.date_created)}</small>
                   {payment.date_approved && (
@@ -120,7 +120,7 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
                   )}
                 </div>
               </td>
-              <td>
+              <td data-label="Productos">
                 <div>
                   <span className="badge bg-info">
                     {payment.purchased_items.length} producto{payment.purchased_items.length !== 1 ? 's' : ''}
@@ -131,7 +131,7 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
                   </small>
                 </div>
               </td>
-              <td>
+              <td className="action-buttons">
                 <div className="btn-group" role="group">
                   <button
                     className="btn btn-sm btn-outline-primary"

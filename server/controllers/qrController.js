@@ -5,11 +5,15 @@ const User = require('../models/User');
 const IndividualProduct = require('../models/IndividualProduct');
 const QRCode = require('qrcode');
 const notificationService = require('../services/notificationService');
+const mongoose = require('mongoose');
 
 // Generar un nuevo código QR para una cita
 async function generateQR(req, res) {
   try {
     const { appointmentId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(appointmentId)) {
+      return res.status(400).json({ error: 'ID con formato inválido' });
+    }
     const userId = req.user.id;
 
     console.log('=== DEBUG QR GENERATION ===');

@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import orderService from '../services/orderService';
 import type { Order } from '../types/order';
+import OrderDetailModal from '../components/OrderDetailModal';
 import './AdminOrdersPage.css';
 import './AdminModalImprovements.css';
 
@@ -619,7 +620,7 @@ const AdminOrdersPage: React.FC = () => {
                               onChange={() => handleSelectOrder(order._id)}
                             />
                           </td>
-                          <td>
+                          <td data-label="Fecha">
                             <div className="small">
                               {new Date(order.createdAt).toLocaleDateString('es-CO')}
                             </div>
@@ -627,7 +628,7 @@ const AdminOrdersPage: React.FC = () => {
                               {new Date(order.createdAt).toLocaleTimeString('es-CO')}
                             </div>
                           </td>
-                          <td>
+                          <td data-label="Usuario">
                             <div className="user-info">
                               <div className="user-name">
                                 {(order.user && typeof order.user === 'object') ? order.user.nombre : 'N/A'}
@@ -637,13 +638,13 @@ const AdminOrdersPage: React.FC = () => {
                               </div>
                             </div>
                       </td>
-                      <td>
+                          <td data-label="Productos">
                             <div className="small">
-                          {order.items.map((item, idx) => (
+                              {order.items.map((item, idx) => (
                                 <div key={idx} className="product-item">
-                              <img 
-                                src={item.product?.imagen_url || ''} 
-                                alt={item.product?.nombre || 'Sin nombre'} 
+                                  <img 
+                                    src={item.product?.imagen_url || ''} 
+                                    alt={item.product?.nombre || 'Sin nombre'} 
                                     style={{ width: 24, height: 24, objectFit: 'cover', borderRadius: 2 }} 
                                   />
                                   <span className="product-name">
@@ -654,77 +655,77 @@ const AdminOrdersPage: React.FC = () => {
                               ))}
                             </div>
                           </td>
-                          <td>
+                          <td data-label="Total">
                             <strong>${order.total_amount.toLocaleString('es-CO')}</strong>
-                      </td>
-                      <td>
-                        <div className="small">
-                          {order.items.map((item: any, idx: number) => {
-                            const claimedQuantity = item.claimed_quantity || 0;
-                            const totalQuantity = item.quantity;
-                            const remainingQuantity = totalQuantity - claimedQuantity;
-                            
-                            return (
-                              <div key={idx} className="mb-1">
-                                <div className="d-flex justify-content-between">
+                          </td>
+                          <td data-label="Reclamados">
+                            <div className="small">
+                              {order.items.map((item: any, idx: number) => {
+                                const claimedQuantity = item.claimed_quantity || 0;
+                                const totalQuantity = item.quantity;
+                                const remainingQuantity = totalQuantity - claimedQuantity;
+                                
+                                return (
+                                  <div key={idx} className="mb-1">
+                                    <div className="d-flex justify-content-between">
                                       <span className="text-truncate" style={{ maxWidth: '60px' }}>
-                                    {item.product?.nombre || 'Sin nombre'}
-                                  </span>
-                                  <span className="badge bg-secondary">
-                                    {claimedQuantity}/{totalQuantity}
-                                  </span>
-                                </div>
-                                {remainingQuantity > 0 && (
-                                  <small className="text-muted">
-                                    {remainingQuantity} pendientes
-                                  </small>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </td>
-                      <td>
-                        {(() => {
-                          const assignedLockers = new Set();
-                          order.items.forEach((item: any) => {
-                            if (item.assigned_locker) {
-                              assignedLockers.add(item.assigned_locker);
-                            }
-                          });
-                          
-                          if (assignedLockers.size > 0) {
-                            return (
-                              <div>
-                                {Array.from(assignedLockers).map((lockerNum: any) => (
+                                        {item.product?.nombre || 'Sin nombre'}
+                                      </span>
+                                      <span className="badge bg-secondary">
+                                        {claimedQuantity}/{totalQuantity}
+                                      </span>
+                                    </div>
+                                    {remainingQuantity > 0 && (
+                                      <small className="text-muted">
+                                        {remainingQuantity} pendientes
+                                      </small>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </td>
+                          <td data-label="Casilleros">
+                            {(() => {
+                              const assignedLockers = new Set();
+                              order.items.forEach((item: any) => {
+                                if (item.assigned_locker) {
+                                  assignedLockers.add(item.assigned_locker);
+                                }
+                              });
+                              
+                              if (assignedLockers.size > 0) {
+                                return (
+                                  <div>
+                                    {Array.from(assignedLockers).map((lockerNum: any) => (
                                       <span key={lockerNum} className="locker-badge">
                                         {lockerNum}
-                                  </span>
-                                ))}
-                              </div>
-                            );
-                          } else {
-                            return <span className="text-muted">Sin asignar</span>;
-                          }
-                        })()}
-                      </td>
-                      <td>
-                        <select
-                          className="form-select form-select-sm"
-                          value={order.status}
-                          onChange={e => handleStatusChange(order._id, e.target.value as Order['status'])}
-                          disabled={updatingId === order._id}
-                        >
+                                      </span>
+                                    ))}
+                                  </div>
+                                );
+                              } else {
+                                return <span className="text-muted">Sin asignar</span>;
+                              }
+                            })()}
+                          </td>
+                          <td data-label="Estado">
+                            <select
+                              className="form-select form-select-sm"
+                              value={order.status}
+                              onChange={e => handleStatusChange(order._id, e.target.value as Order['status'])}
+                              disabled={updatingId === order._id}
+                            >
                               {statusOptions.filter(opt => opt.value).map(opt => (
-                            <option key={opt.value} value={opt.value}>{opt.label}</option>
-                          ))}
-                        </select>
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                              ))}
+                            </select>
                             <span className={`badge bg-${statusColors[order.status]} text-white mt-1 d-block status-badge status-${order.status}`}>
-                          {statusLabels[order.status] || order.status}
-                        </span>
-                      </td>
-                      <td>
-                        <div className="btn-group-vertical btn-group-sm">
+                              {statusLabels[order.status] || order.status}
+                            </span>
+                          </td>
+                          <td className="action-buttons">
+                            <div className="btn-group-vertical btn-group-sm">
                               <button
                                 className="btn btn-outline-primary btn-sm"
                                 onClick={() => handleShowOrderDetails(order)}
@@ -797,79 +798,13 @@ const AdminOrdersPage: React.FC = () => {
 
       {/* Modal de detalles del pedido */}
       {showOrderModal && selectedOrder && (
-        <div className="modal fade show d-block order-details-modal" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
-          <div className="modal-dialog modal-lg admin-dashboard">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">Detalles del Pedido #{selectedOrder._id.slice(-6)}</h5>
-                <button type="button" className="btn-close" onClick={() => setShowOrderModal(false)}></button>
-              </div>
-              <div className="modal-body">
-                <div className="row">
-                  <div className="col-md-6">
-                    <h6>Información del Cliente</h6>
-                    <p><strong>Nombre:</strong> {(selectedOrder.user && typeof selectedOrder.user === 'object') ? (selectedOrder.user as any).nombre : 'N/A'}</p>
-                    <p><strong>Email:</strong> {(selectedOrder.user && typeof selectedOrder.user === 'object') ? (selectedOrder.user as any).email : 'N/A'}</p>
-                    <p><strong>Fecha de creación:</strong> {new Date(selectedOrder.createdAt).toLocaleString('es-CO')}</p>
-                    <p><strong>Estado:</strong> <span className={`badge bg-${statusColors[selectedOrder.status]} status-badge status-${selectedOrder.status}`}>{statusLabels[selectedOrder.status]}</span></p>
-                  </div>
-                  <div className="col-md-6">
-                    <h6>Información de Pago</h6>
-                    <p><strong>Total:</strong> ${selectedOrder.total_amount.toLocaleString('es-CO')}</p>
-                    <p><strong>Método:</strong> {selectedOrder.payment?.method || 'N/A'}</p>
-                    <p><strong>ID de pago:</strong> {selectedOrder.payment?.mp_payment_id || 'N/A'}</p>
-                    <p><strong>Referencia:</strong> {selectedOrder.external_reference}</p>
-                  </div>
-                </div>
-                <hr />
-                <h6>Productos</h6>
-                <div className="table-responsive">
-                  <table className="table table-sm">
-                    <thead>
-                      <tr>
-                        <th>Producto</th>
-                        <th>Cantidad</th>
-                        <th>Precio Unitario</th>
-                        <th>Total</th>
-                        <th>Reclamado</th>
-                        <th>Casillero</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {selectedOrder.items.map((item, idx) => (
-                        <tr key={idx}>
-                          <td>
-                            <div className="d-flex align-items-center">
-                              <img 
-                                src={item.product?.imagen_url || ''} 
-                                alt={item.product?.nombre || 'Sin nombre'} 
-                                style={{ width: 32, height: 32, objectFit: 'cover', borderRadius: 4, marginRight: 8 }} 
-                              />
-                              {item.product?.nombre || 'Sin nombre'}
-                            </div>
-                          </td>
-                          <td>{item.quantity}</td>
-                          <td>${item.unit_price.toLocaleString('es-CO')}</td>
-                          <td>${item.total_price.toLocaleString('es-CO')}</td>
-                          <td>{item.claimed_quantity || 0}</td>
-                          <td>{item.assigned_locker || 'Sin asignar'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-              <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowOrderModal(false)}>
-                  Cerrar
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <OrderDetailModal 
+          order={selectedOrder} 
+          onClose={() => setShowOrderModal(false)} 
+        />
       )}
     </div>
   );
 };
 
-export default AdminOrdersPage; 
+export default AdminOrdersPage;

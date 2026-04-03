@@ -5,7 +5,7 @@ const { auth } = require('../middleware/auth');
 const adminAuth = require('../middleware/adminAuth');
 
 // Health check básico
-router.get('/health', (req, res) => {
+router.get('/', (req, res) => {
   res.status(200).json({
     status: 'OK',
     timestamp: new Date().toISOString(),
@@ -16,7 +16,7 @@ router.get('/health', (req, res) => {
 });
 
 // Health check detallado (solo para admin)
-router.get('/health/detailed', auth, adminAuth, async (req, res) => {
+router.get('/detailed', auth, adminAuth, async (req, res) => {
   try {
     const healthData = {
       status: 'OK',
@@ -60,7 +60,7 @@ router.get('/health/detailed', auth, adminAuth, async (req, res) => {
 });
 
 // Health check de la base de datos
-router.get('/health/database', auth, adminAuth, async (req, res) => {
+router.get('/database', auth, adminAuth, async (req, res) => {
   try {
     // Verificar conexión a MongoDB
     await mongoose.connection.db.admin().ping();
@@ -90,7 +90,7 @@ router.get('/health/database', auth, adminAuth, async (req, res) => {
 });
 
 // Health check de servicios externos
-router.get('/health/services', auth, adminAuth, async (req, res) => {
+router.get('/services', auth, adminAuth, async (req, res) => {
   const services = {
     timestamp: new Date().toISOString(),
     services: {}
@@ -157,7 +157,7 @@ router.get('/health/services', auth, adminAuth, async (req, res) => {
 });
 
 // Health check de endpoints críticos
-router.get('/health/endpoints', async (req, res) => {
+router.get('/endpoints', async (req, res) => {
   const endpoints = {
     timestamp: new Date().toISOString(),
     endpoints: {

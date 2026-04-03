@@ -48,3 +48,8 @@ FRONTEND_URL=http://localhost:5173
 # - Frontend accede localmente a localhost:5000
 # - auto_return está comentado en el código
 # - Para producción, habilitar auto_return y usar URLs públicas 
+
+# Admin Test Credentials (Required for test-admin-endpoints.js)
+ADMIN_TEST_EMAIL=
+ADMIN_TEST_PASSWORD=
+API_BASE_URL=http://localhost:5000

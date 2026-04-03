@@ -1,0 +1,237 @@
+/* 
+   OrderDetailModal.css
+   Diseño Premium Mobile-First para la Modal de Detalles de Pedido.
+   Sigue el patrón canónico de Hako admin.
+*/
+
+.order-detail-modal {
+  z-index: 1060;
+}
+
+.order-detail-modal .modal-dialog {
+  max-width: 95vw;
+  margin: 1.75rem auto;
+}
+
+.order-detail-modal .modal-content {
+  border-radius: 20px;
+  border: none;
+  box-shadow: 0 15px 50px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+
+.order-detail-modal .modal-header {
+  background: white;
+  border-bottom: 2px solid #f8f9fa;
+  padding: 1.5rem;
+}
+
+.order-detail-modal .modal-title {
+  font-weight: 700;
+  color: #333;
+  margin: 0;
+}
+
+.order-detail-modal .btn-close {
+  width: 44px;
+  height: 44px;
+  background-size: 1.2rem;
+  opacity: 1;
+}
+
+/* --- GRID DE INFORMACIÓN (BASE MOBILE) --- */
+.order-detail-modal .info-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.order-detail-modal .info-section {
+  padding: 1rem;
+  background: #fbfbfb;
+  border-radius: 12px;
+  border: 1px solid #f0f0f0;
+}
+
+.order-detail-modal .info-section h6 {
+  font-weight: 700;
+  color: #555;
+  margin-bottom: 1rem;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 1px;
+}
+
+.order-detail-modal .info-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #eee;
+}
+
+.order-detail-modal .info-item:last-child {
+  border-bottom: none;
+}
+
+.order-detail-modal .info-item .label {
+  color: #888;
+  font-size: 0.85rem;
+}
+
+.order-detail-modal .info-item .value {
+  font-weight: 600;
+  color: #333;
+  word-break: break-all;
+  text-align: right;
+  margin-left: 1rem;
+}
+
+.order-detail-modal .total-amount {
+  color: #007bff;
+  font-size: 1.1rem;
+}
+
+/* --- TABLA DE PRODUCTOS (BASE MOBILE: CARDS) --- */
+.order-detail-modal .products-table-wrapper .table,
+.order-detail-modal .products-table-wrapper .table thead,
+.order-detail-modal .products-table-wrapper .table tbody,
+.order-detail-modal .products-table-wrapper .table tr,
+.order-detail-modal .products-table-wrapper .table td {
+  display: block;
+  width: 100%;
+}
+
+.order-detail-modal .products-table-wrapper .table thead {
+  display: none !important;
+}
+
+.order-detail-modal .products-table-wrapper .table tbody tr {
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 12px;
+  margin-bottom: 1rem;
+  padding: 0.5rem;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+}
+
+.order-detail-modal .products-table-wrapper .table td {
+  border: none;
+  border-bottom: 1px solid #f8f9fa;
+  padding: 0.75rem 0.5rem 0.75rem 40%;
+  text-align: right;
+  position: relative;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.order-detail-modal .products-table-wrapper .table td:before {
+  content: attr(data-label);
+  position: absolute;
+  left: 0.5rem;
+  width: 35%;
+  text-align: left;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.65rem;
+  color: #999;
+}
+
+.order-detail-modal .products-table-wrapper .product-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.order-detail-modal .product-thumb {
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  object-fit: cover;
+}
+
+.order-detail-modal .locker-badge {
+  background: #17a2b8;
+  color: #fff;
+  padding: 0.2rem 0.5rem;
+  border-radius: 50px;
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+
+.order-detail-modal .close-modal-btn {
+  min-height: 44px;
+  width: 100%;
+  border-radius: 10px;
+}
+
+/* --- OVERRIDES DESKTOP (768px+) --- */
+@media (min-width: 768px) {
+  .order-detail-modal .modal-dialog {
+    max-width: 800px;
+  }
+
+  .order-detail-modal .info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+  }
+
+  .order-detail-modal .products-table-wrapper {
+    overflow-x: auto;
+    border-radius: 12px;
+    border: 1px solid #f0f0f0;
+  }
+
+  .order-detail-modal .products-table-wrapper .table {
+    display: table;
+    margin-bottom: 0;
+  }
+
+  .order-detail-modal .products-table-wrapper .table thead {
+    display: table-header-group !important;
+    position: static;
+    visibility: visible;
+  }
+
+  .order-detail-modal .products-table-wrapper .table thead th {
+    display: table-cell !important;
+    background: #f8f9fa;
+    padding: 1rem;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    color: #888;
+    border-bottom: 2px solid #eee;
+  }
+
+  .order-detail-modal .products-table-wrapper .table tbody {
+    display: table-row-group;
+  }
+
+  .order-detail-modal .products-table-wrapper .table tbody tr {
+    display: table-row;
+    border: none;
+    box-shadow: none;
+  }
+
+  .order-detail-modal .products-table-wrapper .table td {
+    display: table-cell;
+    padding: 1rem;
+    text-align: left;
+    border-bottom: 1px solid #eee;
+  }
+
+  .order-detail-modal .products-table-wrapper .table td:before {
+    display: none;
+  }
+
+  .order-detail-modal .close-modal-btn {
+    width: auto;
+    padding: 0.5rem 2rem;
+  }
+
+  .order-detail-modal .product-cell {
+    justify-content: flex-start;
+  }
+}

@@ -663,27 +663,27 @@ const AdminProductTestPage: React.FC = () => {
 
                             return (
                               <tr key={product._id}>
-                                <td>
+                                <td data-label="Producto">
                                   <div className="product-info">
                                     <div className="product-name">{product.nombre}</div>
                                     <small className="text-muted">{product.descripcion}</small>
                                   </div>
                                 </td>
-                                <td>
+                                <td data-label="Categoría">
                                   <span className="badge bg-secondary">{product.categoria}</span>
                                 </td>
-                                <td>
+                                <td data-label="Precio">
                                   <span className="price">${product.precio.toLocaleString()}</span>
                                 </td>
-                                <td>
+                                <td data-label="Dimensiones">
                                   <span className="dimensions">
                                     {dimensions.largo}×{dimensions.ancho}×{dimensions.alto} cm
                                   </span>
                                 </td>
-                                <td>
+                                <td data-label="Slots">
                                   <span className="badge bg-info">{productSlots} slots</span>
                                 </td>
-                                <td>
+                                <td data-label="Variantes">
                                   {hasVariants ? (
                                     <span className="badge bg-warning">
                                       <i className="bi bi-tags me-1"></i>

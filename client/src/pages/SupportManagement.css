@@ -94,7 +94,7 @@
 .support-table th,
 .support-table td {
   padding: 1rem;
-  text-align: center;
+  text-align: left;
   border-bottom: 1px solid #e9ecef;
   color: #495057;
   transition: background-color 0.3s ease;
@@ -573,8 +573,9 @@
 .table-container {
   background-color: #fff;
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1), inset -8px 0 8px -4px var(--color-border-tertiary);
   border: 1px solid #e9ecef;
+  position: relative;
 }
 
 .support-table {

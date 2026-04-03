@@ -390,9 +390,10 @@
 .table-container {
   background-color: #fff;
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1), inset -8px 0 8px -4px var(--color-border-tertiary);
   border: 1px solid #e9ecef;
   margin-top: 2rem;
+  position: relative;
 }
 
 .cart-table {
@@ -419,6 +420,7 @@
   padding: 1rem;
   border-bottom: 1px solid #e9ecef;
   vertical-align: middle;
+  text-align: left;
 }
 
 .cart-table td:last-child {

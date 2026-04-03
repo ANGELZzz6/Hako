@@ -4,10 +4,11 @@ const rateLimit = require('express-rate-limit');
 const userController = require('../controllers/userController');
 const { auth, requireAdmin } = require('../middleware/auth');
 
-// Rate limiting específico para autenticación
+// Rate limiting específico para autenticación (1000 en test, 10 en otros)
+const authLimitMax = process.env.NODE_ENV === 'test' ? 1000 : 10;
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 10, // máximo 10 intentos de autenticación por ventana de tiempo
+  windowMs: 15 * 60 * 1000,
+  max: authLimitMax,
   message: 'Demasiados intentos de autenticación, intenta de nuevo en 15 minutos.',
   standardHeaders: true,
   legacyHeaders: false,

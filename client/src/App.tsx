@@ -516,7 +516,7 @@ const AppContent = () => {
                   <Link className="nav-link" to="/soporte"><i className="bi bi-headset me-1"></i>Soporte</Link>
                 </li>
               </ul>
-              <div className="d-flex flex-column flex-lg-row gap-2 align-items-center">
+              <div className="navbar__auth-actions">
                 <button
                   className="theme-switch"
                   onClick={toggleTheme}
@@ -529,7 +529,7 @@ const AppContent = () => {
                   Tu Box <span className="badge bg-primary">{cart?.items.length || 0}</span>
                 </Link>
                 {isAuthenticated ? (
-                  <div className="d-flex gap-2 align-items-center">
+                  <div className="d-flex flex-wrap gap-2 justify-content-center align-items-center">
                     <AdminOnly>
                       <Link to="/admin" className="btn btn-outline-danger">
                         <i className="bi bi-shield-lock me-1"></i>

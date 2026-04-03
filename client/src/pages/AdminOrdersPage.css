@@ -1,443 +1,320 @@
-/* Estilos específicos para la página de Admin Orders */
+/* 
+   AdminOrdersPage.css
+   Referencia canónica Mobile-First para la página de Gestión de Pedidos de Hako.
+   Sigue el patrón de PaymentManagement.css.
+   Base: card layout (móvil) con scope .admin-dashboard.admin-orders-page
+   Override: tabla tradicional @media (min-width: 768px)
+*/
 
-.admin-orders-page {
+.admin-dashboard.admin-orders-page {
   background-color: #f8f9fa;
   min-height: 100vh;
 }
 
-/* Estadísticas cards */
-.stats-card {
-  transition: transform 0.2s ease-in-out;
-  border: none;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.stats-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-}
-
-.stats-card .card-body {
-  padding: 1rem;
-}
-
-.stats-card h5 {
-  font-size: 1.5rem;
-  font-weight: bold;
-  margin-bottom: 0.25rem;
-}
-
-.stats-card small {
-  font-size: 0.8rem;
-  opacity: 0.9;
-}
-
-/* Controles de filtros */
-.filters-section {
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  margin-bottom: 1rem;
-}
-
-.filters-section .card-body {
-  padding: 1.5rem;
-}
-
-/* Tabla mejorada */
-.orders-table {
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
-}
-
-.orders-table .table {
-  margin-bottom: 0;
-}
-
-.orders-table .table-dark th {
-  background-color: #343a40;
-  border-color: #454d55;
-  font-weight: 600;
-  font-size: 0.9rem;
-  padding: 0.75rem;
-}
-
-.orders-table .table-dark th:hover {
-  background-color: #495057;
-  cursor: pointer;
-}
-
-.orders-table tbody tr {
-  transition: background-color 0.2s ease;
-}
-
-.orders-table tbody tr:hover {
-  background-color: #f8f9fa;
-}
-
-.orders-table td {
-  padding: 0.75rem;
-  vertical-align: middle;
-}
-
-/* Checkbox personalizado */
-.orders-table input[type="checkbox"] {
-  transform: scale(1.2);
-  cursor: pointer;
-}
-
-/* Badges mejorados */
-.badge {
-  font-size: 0.75rem;
-  padding: 0.35em 0.65em;
-}
-
-/* Botones de acción */
-.btn-group-vertical .btn {
-  margin-bottom: 0.25rem;
-  border-radius: 4px !important;
-}
-
-.btn-group-vertical .btn:last-child {
-  margin-bottom: 0;
-}
-
-/* Modal de detalles */
-.order-details-modal .modal-content {
-  border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-}
-
-.order-details-modal .modal-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border-radius: 12px 12px 0 0;
-}
-
-.order-details-modal .modal-title {
-  font-weight: 600;
-}
-
-.order-details-modal .table-sm th,
-.order-details-modal .table-sm td {
-  padding: 0.5rem;
-  font-size: 0.9rem;
-}
-
-/* Paginación */
-.pagination .page-link {
-  border-radius: 4px;
-  margin: 0 2px;
-  border: 1px solid #dee2e6;
-}
-
-.pagination .page-item.active .page-link {
-  background-color: #007bff;
-  border-color: #007bff;
-}
-
-.pagination .page-link:hover {
-  background-color: #e9ecef;
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-  .stats-card {
-    margin-bottom: 1rem;
-  }
-
-  .orders-table .table-responsive {
-    font-size: 0.8rem;
-  }
-
-  .orders-table td {
-    padding: 0.5rem;
-  }
-
-  .btn-group-vertical {
-    flex-direction: row;
-  }
-
-  .btn-group-vertical .btn {
-    margin-bottom: 0;
-    margin-right: 0.25rem;
-  }
-}
-
-/* Estados de carga */
-.loading-overlay {
-  position: absolute;
+/* --- HEADER & NAVIGATION --- */
+.admin-dashboard.admin-orders-page .admin-header-bar {
+  background: #fff;
+  border-bottom: 1px solid #e9ecef;
+  padding: 1rem 0;
+  position: sticky;
   top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(255, 255, 255, 0.8);
+  z-index: 1000;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.admin-dashboard.admin-orders-page .header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+.admin-dashboard.admin-orders-page .header-icon {
+  font-size: 1.5rem;
+  color: #dc3545;
+}
+
+.admin-dashboard.admin-orders-page .header-title {
+  color: #dc3545;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+/* --- STATS CARDS --- */
+.admin-dashboard.admin-orders-page .stats-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  border: none;
+  transition: transform 0.2s ease;
+  text-align: center;
+}
+
+.admin-dashboard.admin-orders-page .stats-card:hover {
+  transform: translateY(-2px);
+}
+
+.admin-dashboard.admin-orders-page .stats-card h5 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+/* --- FILTERS SECTION --- */
+.admin-dashboard.admin-orders-page .filters-section {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+  margin-bottom: 1.5rem;
+  border: 1px solid #eee;
+}
+
+/* --- MOBILE DEFAULT (BASE): CARD LAYOUT --- */
+
+.admin-dashboard.admin-orders-page .table-responsive {
+  background: transparent;
+  border: none;
+  overflow: visible !important;
+}
+
+.admin-dashboard.admin-orders-page .table, 
+.admin-dashboard.admin-orders-page .table thead, 
+.admin-dashboard.admin-orders-page .table tbody, 
+.admin-dashboard.admin-orders-page .table th, 
+.admin-dashboard.admin-orders-page .table td, 
+.admin-dashboard.admin-orders-page .table tr {
+  display: block;
+  width: 100%;
+}
+
+/* Hidden Headers on Mobile */
+.admin-dashboard.admin-orders-page .table thead {
+  position: absolute;
+  top: -9999px;
+  left: -9999px;
+}
+
+/* Row as a Card */
+.admin-dashboard.admin-orders-page .table tbody tr {
+  background: white;
+  border: 1px solid #e9ecef;
+  border-radius: 15px;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  padding: 1rem;
+  position: relative;
+}
+
+/* Cell Layout inside Card */
+.admin-dashboard.admin-orders-page .table td {
+  border: none;
+  border-bottom: 1px solid #f8f9fa;
+  position: relative;
+  padding: 0.8rem 0.5rem 0.8rem 45%;
+  text-align: right;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.admin-dashboard.admin-orders-page .table td:last-child {
+  border-bottom: none;
+}
+
+/* Data Labels (Mobile Headers) */
+.admin-dashboard.admin-orders-page .table td:before {
+  content: attr(data-label);
+  position: absolute;
+  left: 1rem;
+  width: 40%;
+  padding-right: 15px;
+  white-space: nowrap;
+  font-weight: 700;
+  text-align: left;
+  color: #666;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  letter-spacing: 0.5px;
+}
+
+/* Checkbox specific handling */
+.admin-dashboard.admin-orders-page .table td:first-child {
+  padding-left: 1rem;
+  justify-content: flex-start;
+  background: #fcfcfc;
+  border-bottom: 1px solid #eee;
+  margin-bottom: 0.5rem;
+  border-radius: 8px 8px 0 0;
+}
+
+.admin-dashboard.admin-orders-page .table td:first-child:before {
+  display: none;
+}
+
+/* Action Buttons Specific Cell */
+.admin-dashboard.admin-orders-page .table td.action-buttons {
+  justify-content: center;
+  padding: 1rem;
+  margin-top: 0.5rem;
+  background: #fafafa;
+  border-top: 1px solid #eee;
+  border-radius: 0 0 15px 15px;
+}
+
+.admin-dashboard.admin-orders-page .table td.action-buttons:before {
+  display: none;
+}
+
+/* Touch Optimized Buttons */
+.admin-dashboard.admin-orders-page .btn-group-vertical {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.admin-dashboard.admin-orders-page .btn-group-vertical .btn {
+  min-width: 44px;
+  min-height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  border-radius: 8px !important;
+  font-size: 1.1rem;
+  margin: 0 !important;
 }
 
-/* Animaciones */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
+/* --- DESKTOP OVERRIDE: TRADITIONAL TABLE --- */
+@media (min-width: 768px) {
+  .admin-dashboard.admin-orders-page .table {
+    display: table;
   }
 
-  to {
-    opacity: 1;
-    transform: translateY(0);
+  .admin-dashboard.admin-orders-page .table thead {
+    display: table-header-group;
+    position: static;
+  }
+
+  .admin-dashboard.admin-orders-page .table thead tr {
+    display: table-row !important;
+    position: static;
+  }
+
+  .admin-dashboard.admin-orders-page .table th {
+    display: table-cell !important;
+    padding: 1rem 0.75rem;
+    text-align: left;
+    vertical-align: middle;
+    background: #343a40;
+    color: #fff;
+  }
+
+  .admin-dashboard.admin-orders-page .table tbody {
+    display: table-row-group;
+  }
+
+  .admin-dashboard.admin-orders-page .table tbody tr {
+    display: table-row;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    margin-bottom: 0;
+    box-shadow: none;
+    padding: 0;
+  }
+
+  .admin-dashboard.admin-orders-page .table td {
+    display: table-cell;
+    padding: 1rem 0.75rem;
+    text-align: left;
+    min-height: auto;
+    border-bottom: 1px solid #dee2e6;
+    background: transparent;
+    vertical-align: middle;
+  }
+
+  .admin-dashboard.admin-orders-page .table td:before {
+    display: none;
+  }
+
+  .admin-dashboard.admin-orders-page .orders-table {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+  }
+
+  /* Reset Cell Alignment */
+  .admin-dashboard.admin-orders-page .table td {
+    justify-content: flex-start;
+  }
+
+  .admin-dashboard.admin-orders-page .table td.action-buttons {
+    background: transparent;
+    border-top: none;
+    padding: 1rem 0.75rem;
+  }
+
+  .admin-dashboard.admin-orders-page .btn-group-vertical {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .admin-dashboard.admin-orders-page .btn-group-vertical .btn {
+    min-width: 32px;
+    min-height: 32px;
+    font-size: 0.9rem;
+    padding: 0.25rem 0.5rem;
   }
 }
 
-.stats-card,
-.filters-section,
-.orders-table {
-  animation: fadeIn 0.3s ease-out;
+/* --- PRODUCT & USER INFO SUB-STYLES --- */
+.admin-dashboard.admin-orders-page .user-info {
+  display: flex;
+  flex-direction: column;
+  text-align: right;
 }
 
-/* Tooltips personalizados */
-.tooltip-custom {
-  position: relative;
-  display: inline-block;
+@media (min-width: 768px) {
+  .admin-dashboard.admin-orders-page .user-info {
+    text-align: left;
+  }
 }
 
-.tooltip-custom .tooltiptext {
-  visibility: hidden;
-  width: 120px;
-  background-color: #555;
-  color: #fff;
-  text-align: center;
-  border-radius: 6px;
-  padding: 5px;
-  position: absolute;
-  z-index: 1;
-  bottom: 125%;
-  left: 50%;
-  margin-left: -60px;
-  opacity: 0;
-  transition: opacity 0.3s;
-}
-
-.tooltip-custom:hover .tooltiptext {
-  visibility: visible;
-  opacity: 1;
-}
-
-/* Scrollbar personalizado */
-.table-responsive::-webkit-scrollbar {
-  height: 8px;
-}
-
-.table-responsive::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 4px;
-}
-
-.table-responsive::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
-  border-radius: 4px;
-}
-
-.table-responsive::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
-}
-
-/* Estados de los pedidos */
-.status-badge {
-  font-size: 0.75rem;
-  padding: 0.35em 0.65em;
-  border-radius: 12px;
-  font-weight: 500;
-}
-
-.status-pending {
-  background-color: #ffc107;
-  color: #212529;
-}
-
-.status-paid {
-  background-color: #007bff;
-  color: white;
-}
-
-.status-ready_for_pickup {
-  background-color: #17a2b8;
-  color: white;
-}
-
-.status-picked_up {
-  background-color: #28a745;
-  color: white;
-}
-
-.status-cancelled {
-  background-color: #dc3545;
-  color: white;
-}
-
-/* Información de usuario */
-.user-info {
-  max-width: 150px;
-}
-
-.user-info .user-name {
-  font-weight: 500;
-  color: #495057;
-}
-
-.user-info .user-email {
-  font-size: 0.8rem;
-  color: #6c757d;
-  word-break: break-all;
-}
-
-/* Productos en tabla */
-.product-item {
+.admin-dashboard.admin-orders-page .product-item {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 0.5rem;
   margin-bottom: 0.25rem;
 }
 
-.product-item img {
-  border-radius: 4px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+@media (min-width: 768px) {
+  .admin-dashboard.admin-orders-page .product-item {
+    justify-content: flex-start;
+  }
 }
 
-.product-item .product-name {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Contador de elementos */
-.items-counter {
-  font-size: 0.8rem;
-  color: #6c757d;
-  margin-top: 0.25rem;
-}
-
-/* Botones de acción masiva */
-.bulk-actions {
-  background: #f8f9fa;
-  border: 1px solid #dee2e6;
-  border-radius: 6px;
-  padding: 0.5rem;
-  margin-bottom: 1rem;
-}
-
-.bulk-actions .btn {
-  margin-right: 0.5rem;
-}
-
-/* Filtros avanzados */
-.advanced-filters {
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  margin-bottom: 1rem;
-}
-
-.advanced-filters .form-label {
-  font-weight: 500;
-  font-size: 0.9rem;
-  color: #495057;
-}
-
-.advanced-filters .form-control,
-.advanced-filters .form-select {
-  border-radius: 6px;
-  border: 1px solid #ced4da;
-  font-size: 0.9rem;
-}
-
-.advanced-filters .form-control:focus,
-.advanced-filters .form-select:focus {
-  border-color: #80bdff;
-  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
-}
-
-/* Información de paginación */
-.pagination-info {
-  font-size: 0.9rem;
-  color: #6c757d;
-}
-
-/* Casilleros */
-.locker-badge {
-  display: inline-block;
-  padding: 0.25em 0.6em;
-  font-size: 0.75rem;
-  font-weight: 500;
-  line-height: 1;
-  text-align: center;
-  white-space: nowrap;
-  vertical-align: baseline;
-  border-radius: 10px;
+.admin-dashboard.admin-orders-page .locker-badge {
   background-color: #17a2b8;
   color: white;
-  margin-right: 0.25rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 10px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  margin-left: 0.25rem;
 }
 
-/* Estados de carga */
-.loading-spinner {
-  display: inline-block;
-  width: 1rem;
-  height: 1rem;
-  border: 2px solid #f3f3f3;
-  border-top: 2px solid #007bff;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
+.admin-dashboard.admin-orders-page .status-badge {
+  display: block;
+  width: 100%;
+  padding: 0.5rem;
+  border-radius: 8px;
+  font-weight: 600;
 }
-
-@keyframes spin {
-  0% {
-    transform: rotate(0deg);
-  }
-
-  100% {
-    transform: rotate(360deg);
-  }
-}
-
-/* Mensajes de estado */
-.status-message {
-  padding: 0.75rem;
-  border-radius: 6px;
-  margin-bottom: 1rem;
-  font-weight: 500;
-}
-
-.status-message.success {
-  background-color: #d4edda;
-  color: #155724;
-  border: 1px solid #c3e6cb;
-}
-
-.status-message.error {
-  background-color: #f8d7da;
-  color: #721c24;
-  border: 1px solid #f5c6cb;
-}
-
-.status-message.warning {
-  background-color: #fff3cd;
-  color: #856404;
-  border: 1px solid #ffeaa7;
-}
-
-.status-message.info {
-  background-color: #d1ecf1;
-  color: #0c5460;
-  border: 1px solid #bee5eb;
-}
-
-/* 
- * NOTA: Los estilos de modales responsivos se manejan globalmente en AdminModalImprovements.css
- * para mantener consistencia en todas las páginas de admin.
- */

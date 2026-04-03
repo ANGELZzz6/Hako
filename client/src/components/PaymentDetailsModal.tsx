@@ -201,49 +201,57 @@ const PaymentDetailsModal: React.FC<PaymentDetailsModalProps> = ({
                 </div>
 
                 {/* Productos Comprados */}
-                <div className="card">
-                  <div className="card-header">
+                <div className="card products-card overflow-hidden">
+                  <div className="card-header bg-light d-flex justify-content-between align-items-center">
                     <h6 className="mb-0">
-                      <i className="bi bi-box-seam me-2"></i>
-                      Productos Comprados ({payment.purchased_items.length})
+                      <i className="bi bi-box-seam me-2 text-primary"></i>
+                      Productos Comprados
                     </h6>
+                    <span className="badge bg-primary rounded-pill">
+                      {payment.purchased_items.length} item{payment.purchased_items.length !== 1 ? 's' : ''}
+                    </span>
                   </div>
-                  <div className="card-body">
-                    <div className="table-responsive">
-                      <table className="table table-sm">
+                  <div className="card-body p-0">
+                    <div className="products-table-wrapper">
+                      <table className="table mb-0">
                         <thead>
                           <tr>
                             <th>Producto</th>
-                            <th>Cantidad</th>
-                            <th>Precio Unitario</th>
-                            <th>Total</th>
+                            <th className="text-center">Cantidad</th>
+                            <th className="text-end">Precio Unit.</th>
+                            <th className="text-end">Total</th>
                           </tr>
                         </thead>
                         <tbody>
                           {payment.purchased_items.map((item, index) => (
                             <tr key={index}>
-                              <td>
-                                <strong>{item.title}</strong>
-                                <br />
-                                <small className="text-muted">ID: {item.id}</small>
+                              <td data-label="Producto">
+                                <div className="product-info">
+                                  <span className="product-name">{item.title}</span>
+                                  <span className="product-id">ID: {item.id}</span>
+                                </div>
                               </td>
-                              <td>
-                                <span className="badge bg-primary">{item.quantity}</span>
+                              <td data-label="Cantidad" className="text-center">
+                                <span className="quantity-badge">{item.quantity}</span>
                               </td>
-                              <td>{formatCurrency(item.unit_price)}</td>
-                              <td>
-                                <strong>{formatCurrency(item.total_price)}</strong>
+                              <td data-label="Precio Unit." className="text-end">
+                                {formatCurrency(item.unit_price)}
+                              </td>
+                              <td data-label="Total" className="text-end">
+                                <span className="item-total">{formatCurrency(item.total_price)}</span>
                               </td>
                             </tr>
                           ))}
                         </tbody>
                         <tfoot>
-                          <tr className="table-primary">
-                            <td colSpan={3} className="text-end">
-                              <strong>Total:</strong>
+                          <tr className="table-light border-top-2">
+                            <td colSpan={3} className="text-end py-3">
+                              <strong className="text-muted text-uppercase small">Total General</strong>
                             </td>
-                            <td>
-                              <strong>{formatCurrency(payment.amount)}</strong>
+                            <td className="text-end py-3">
+                              <strong className="text-primary fs-5">
+                                {formatCurrency(payment.amount)}
+                              </strong>
                             </td>
                           </tr>
                         </tfoot>

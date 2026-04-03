@@ -105,10 +105,11 @@ const limiter = rateLimit({
   validate: { xForwardedForHeader: false }
 });
 
-// Rate limiting específico para login y registro (max 10 cada 15 min)
+// Rate limiting específico para login y registro (max 10 cada 15 min, excepto en test)
+const authLimitMax = process.env.NODE_ENV === 'test' ? 1000 : 10;
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
+  max: authLimitMax,
   message: 'Demasiados intentos de autenticación, intenta de nuevo en 15 minutos.',
   standardHeaders: true,
   legacyHeaders: false,
