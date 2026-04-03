@@ -829,7 +829,10 @@ const OrdersPage: React.FC = () => {
   };
 
   // Filtrar productos válidos
-  const validPurchasedProducts = purchasedProducts.filter(p => p.orderId);
+  // Filtrar productos válidos (que no hayan sido reclamados o recogidos)
+  const validPurchasedProducts = purchasedProducts.filter(
+    p => p.orderId && p.status !== 'claimed' && p.status !== 'picked_up'
+  );
 
   // Verificar productos en reservas
   const productosEnReservas = new Set<string>();
@@ -1252,41 +1255,30 @@ const OrdersPage: React.FC = () => {
 
                                                   if (productImage) {
                                                     return (
-                                                      <>
-                                                        <img
-                                                          src={productImage}
-                                                          alt={productName}
-                                                          className="product-thumbnail"
-                                                          style={{
-                                                            width: '50px',
-                                                            height: '50px',
-                                                            objectFit: 'cover',
-                                                            borderRadius: '8px',
-                                                            border: '2px solid #28a745'
-                                                          }}
-                                                          onError={(e) => {
-                                                            // Fallback si la imagen no carga
-                                                            e.currentTarget.style.display = 'none';
-                                                            // Mostrar placeholder
-                                                            const placeholder = e.currentTarget.nextElementSibling as HTMLElement;
-                                                            if (placeholder) {
-                                                              placeholder.style.display = 'flex';
-                                                            }
-                                                          }}
-                                                        />
-                                                        <div className="bg-success rounded d-flex align-items-center justify-content-center product-placeholder"
-                                                          style={{ width: '50px', height: '50px', display: 'none' }}
-                                                          title="Imagen no disponible">
-                                                          <i className="bi bi-box text-white" style={{ fontSize: '20px' }}></i>
-                                                        </div>
-                                                      </>
+                                                      <img
+                                                        src={productImage}
+                                                        alt={productName}
+                                                        className="product-thumbnail"
+                                                        style={{
+                                                          width: '44px',
+                                                          height: '44px',
+                                                          objectFit: 'cover',
+                                                          borderRadius: '6px',
+                                                          border: '1px solid #d4edda'
+                                                        }}
+                                                        onError={(e) => {
+                                                          e.currentTarget.style.display = 'none';
+                                                          const placeholder = e.currentTarget.nextElementSibling as HTMLElement;
+                                                          if (placeholder) placeholder.style.display = 'flex';
+                                                        }}
+                                                      />
                                                     );
                                                   } else {
                                                     return (
-                                                      <div className="bg-success rounded d-flex align-items-center justify-content-center product-placeholder"
-                                                        style={{ width: '50px', height: '50px' }}
+                                                      <div className="bg-success-light rounded d-flex align-items-center justify-content-center product-placeholder"
+                                                        style={{ width: '44px', height: '44px', backgroundColor: '#f8fff9' }}
                                                         title="Imagen no disponible">
-                                                        <i className="bi bi-box text-white" style={{ fontSize: '20px' }}></i>
+                                                        <i className="bi bi-box text-success" style={{ fontSize: '18px' }}></i>
                                                       </div>
                                                     );
                                                   }

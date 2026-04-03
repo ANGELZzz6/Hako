@@ -19,29 +19,8 @@ export const createLocalDate = (dateString: string): Date => {
 
 // Función para formatear fechas de manera consistente
 export const formatAppointmentDate = (dateString: string): string => {
-  console.log('🔍 formatAppointmentDate debug:', {
-    input: dateString,
-    type: typeof dateString,
-    isISO: dateString.includes('T') && dateString.includes('Z'),
-    isDateOnly: /^\d{4}-\d{2}-\d{2}$/.test(dateString)
-  });
-
   try {
-    // Usar la función específica para Colombia
     const localDate = createColombiaDate(dateString);
-
-    console.log('🔍 formatAppointmentDate debug:', {
-      input: dateString,
-      localDate: localDate.toISOString(),
-      localDateLocal: localDate.toLocaleDateString(),
-      localDateLocalTime: localDate.toLocaleString(),
-      formatted: localDate.toLocaleDateString('es-CO', {
-        year: 'numeric',
-        month: 'numeric',
-        day: 'numeric'
-      })
-    });
-
     return localDate.toLocaleDateString('es-CO', {
       year: 'numeric',
       month: 'numeric',
@@ -49,46 +28,11 @@ export const formatAppointmentDate = (dateString: string): string => {
     });
   } catch (error) {
     console.error('❌ Error en formatAppointmentDate:', error);
-    // Retornar la fecha original como fallback
     return dateString;
   }
 };
 
-// Función de prueba para entender el problema de fechas
-export const debugDateIssue = (dateString: string, timeSlot: string) => {
-  console.log('🧪 DEBUG: Analizando problema de fecha');
-  console.log('🧪 Fecha del backend:', dateString);
-  console.log('🧪 Hora del slot:', timeSlot);
 
-  // Crear fecha local usando la función de Colombia
-  const localDate = createColombiaDate(dateString);
-  console.log('🧪 Fecha local creada (Colombia):', localDate.toLocaleDateString());
-
-  // Crear fecha con hora
-  const [hours, minutes] = timeSlot.split(':');
-  const appointmentDateTime = new Date(localDate);
-  appointmentDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-
-  console.log('🧪 Fecha + hora:', appointmentDateTime.toLocaleString());
-  console.log('🧪 Fecha + hora ISO:', appointmentDateTime.toISOString());
-
-  // Comparar con fecha actual
-  const now = new Date();
-  console.log('🧪 Fecha actual:', now.toLocaleDateString());
-  console.log('🧪 Hora actual:', now.toLocaleTimeString());
-
-  const timeDifference = appointmentDateTime.getTime() - now.getTime();
-  const hoursDifference = Math.floor(timeDifference / (1000 * 60 * 60));
-  const minutesDifference = Math.floor((timeDifference % (1000 * 60 * 60)) / (1000 * 60));
-
-  console.log('🧪 Diferencia de tiempo:', `${hoursDifference}h ${minutesDifference}m`);
-
-  return {
-    localDate: localDate.toLocaleDateString(),
-    appointmentDateTime: appointmentDateTime.toLocaleString(),
-    timeDifference: `${hoursDifference}h ${minutesDifference}m`
-  };
-};
 
 // Función específica para crear fechas en zona horaria de Colombia
 export const createColombiaDate = createLocalDate;
@@ -177,28 +121,28 @@ export const getTimeUntilAppointment = (appointment: any): string => {
       : appointment.scheduledDate;
     const [year, month, day] = dateOnly.split('-').map(Number);
     const [hours, minutes] = appointment.timeSlot.split(':').map(Number);
+    // Medellin/Bogota es UTC-5. Para obtener el objeto Date correcto:
     const appointmentDateTime = new Date(Date.UTC(year, month - 1, day, hours + 5, minutes, 0, 0));
 
     const now = new Date();
-
-    console.log('🔍 getTimeUntilAppointment debug:', {
-      originalDate: appointment.scheduledDate,
-      timeSlot: appointment.timeSlot,
-      appointmentDateTime: appointmentDateTime.toISOString(),
-      appointmentDateTimeLocal: appointmentDateTime.toLocaleString(),
-      now: now.toISOString(),
-      nowLocal: now.toLocaleString(),
-      timeDifference: appointmentDateTime.getTime() - now.getTime()
-    });
-
     const timeDifference = appointmentDateTime.getTime() - now.getTime();
-    const hoursDifference = Math.floor(timeDifference / (1000 * 60 * 60));
-    const minutesDifference = Math.floor((timeDifference % (1000 * 60 * 60)) / (1000 * 60));
 
-    if (hoursDifference > 0) {
-      return `${hoursDifference}h ${minutesDifference}m`;
-    } else if (minutesDifference > 0) {
-      return `${minutesDifference}m`;
+    if (timeDifference <= 0) {
+      return 'En curso o expirada';
+    }
+
+    const totalMinutes = Math.floor(timeDifference / (1000 * 60));
+    const totalHours = Math.floor(totalMinutes / 60);
+    const remainingMinutes = totalMinutes % 60;
+
+    if (totalHours >= 24) {
+      const days = Math.floor(totalHours / 24);
+      const remainingHours = totalHours % 24;
+      return `${days} día${days > 1 ? 's' : ''}${remainingHours > 0 ? `, ${remainingHours} hora${remainingHours > 1 ? 's' : ''}` : ''}`;
+    } else if (totalHours > 0) {
+      return `${totalHours}h ${remainingMinutes}m`;
+    } else if (remainingMinutes > 0) {
+      return `${remainingMinutes}m`;
     } else {
       return 'Menos de 1 minuto';
     }

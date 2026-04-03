@@ -55,6 +55,7 @@ export interface OrderItem {
   individualIndex?: number;
   totalInOrder?: number;
   variants?: Record<string, string>; // <--- Añadido para variantes seleccionadas
+  status?: 'available' | 'reserved' | 'claimed' | 'picked_up';
 }
 
 export interface Order {

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { getTimeUntilAppointment, canModifyAppointment, isAppointmentExpired, formatAppointmentDate, debugDateIssue } from '../utils/dateUtils';
+import { getTimeUntilAppointment, canModifyAppointment, isAppointmentExpired, formatAppointmentDate } from '../utils/dateUtils';
 import qrService from '../../../services/qrService';
 import appointmentService from '../../../services/appointmentService';
 import type { QRCode } from '../../../services/qrService';
@@ -224,18 +224,7 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
                   <strong>Fecha:</strong><br />
                   {formatAppointmentDate(appointment.scheduledDate)}
                 </p>
-                {/* Botón de debug temporal */}
-                <button
-                  className="btn btn-outline-secondary btn-sm mb-2"
-                  onClick={() => {
-                    console.log('🔍 Debug de fecha para cita:', appointment._id);
-                    debugDateIssue(appointment.scheduledDate, appointment.timeSlot);
-                  }}
-                  title="Debug de fecha (temporal)"
-                >
-                  <i className="bi bi-bug me-1"></i>
-                  Debug Fecha
-                </button>
+
                 <p className="mb-1">
                   <strong>Hora:</strong><br />
                   {appointment.timeSlot}
@@ -453,67 +442,114 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
           </div>
         </div>
       )}
-      {/* Modal para visualizar casillero(s) de la reserva */}
       {showLockerModal && (
-        <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+        <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}>
           <div className="modal-dialog modal-lg modal-dialog-centered">
-            <div className="modal-content">
-              <div className="modal-header bg-success text-white py-2">
-                <h6 className="modal-title mb-0">
-                  <i className="bi bi-box-seam me-2"></i>
-                  Casillero(s) de la reserva
-                </h6>
+            <div className="modal-content shadow-lg border-0">
+              <div className="modal-header bg-success text-white py-3">
+                <div className="d-flex align-items-center">
+                  <div className="bg-white bg-opacity-25 rounded-circle p-2 me-3">
+                    <i className="bi bi-box-seam fs-4"></i>
+                  </div>
+                  <div>
+                    <h5 className="modal-title mb-0 fw-bold">Visualización del Casillero</h5>
+                    <small className="text-white-50">Distribución 3D de tus productos</small>
+                  </div>
+                </div>
                 <button type="button" className="btn-close btn-close-white" onClick={() => setShowLockerModal(false)}></button>
               </div>
-              <div className="modal-body">
-                <div className="mb-3">
-                  <small className="text-muted d-block">
-                    <strong>Reserva:</strong> #{appointment._id?.slice?.(-6) || ''}
-                  </small>
-                  <small className="text-muted d-block">
-                    <strong>Fecha:</strong> {formatAppointmentDate(appointment.scheduledDate)}
-                  </small>
-                  <small className="text-muted d-block">
-                    <strong>Hora:</strong> {appointment.timeSlot}
-                  </small>
-                  <small className="text-muted d-block">
-                    <strong>Casilleros:</strong> {lockerBins.map(l => (l as any).lockerNumber || parseInt(String(l.id).replace('locker_', ''))).join(', ')}
-                  </small>
+              <div className="modal-body p-4">
+                <div className="row mb-4">
+                  <div className="col-md-6 border-end">
+                    <div className="d-flex flex-column gap-2">
+                      <div className="d-flex align-items-center">
+                        <i className="bi bi-hash text-success me-2"></i>
+                        <span className="text-muted small me-2">Reserva:</span>
+                        <span className="fw-bold">#{appointment._id?.slice?.(-6) || ''}</span>
+                      </div>
+                      <div className="d-flex align-items-center">
+                        <i className="bi bi-calendar3 text-success me-2"></i>
+                        <span className="text-muted small me-2">Fecha:</span>
+                        <span>{formatAppointmentDate(appointment.scheduledDate)}</span>
+                      </div>
+                      <div className="d-flex align-items-center">
+                        <i className="bi bi-clock text-success me-2"></i>
+                        <span className="text-muted small me-2">Hora:</span>
+                        <span>{appointment.timeSlot}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="col-md-6 ps-md-4">
+                    <div className="bg-light rounded p-3 h-100">
+                      <h6 className="fw-bold mb-2 small text-uppercase text-muted">Ubicación asignada</h6>
+                      <div className="d-flex flex-wrap gap-2">
+                        {lockerBins.map(l => {
+                          const num = (l as any).lockerNumber || parseInt(String(l.id).replace('locker_', ''));
+                          return (
+                            <span key={num} className="badge bg-success px-3 py-2 fs-6">
+                              Casillero #{num}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="row g-3">
+                <div className="row g-4">
                   {lockerBins.map((locker) => {
                     const lockerNum = (locker as any).lockerNumber || parseInt(String(locker.id).replace('locker_', ''));
                     return (
-                    <div className="col-md-6" key={lockerNum}>
-                      <div className="card h-100">
-                        <div className="card-header bg-light">
-                          <strong>Casillero {lockerNum}</strong>
-                        </div>
-                        <div className="card-body d-flex justify-content-center">
-                          <Locker3DCanvas bin={locker} />
+                      <div className="col-md-6" key={lockerNum}>
+                        <div className="card h-100 border-0 shadow-sm overflow-hidden">
+                          <div className="card-header bg-dark text-white py-2 text-center border-0">
+                            <span className="small fw-bold">VISTA INTERNA · CASILLERO {lockerNum}</span>
+                          </div>
+                          <div className="card-body d-flex justify-content-center p-0 bg-white" style={{ minHeight: '300px' }}>
+                            <Locker3DCanvas bin={locker} />
+                          </div>
                         </div>
                       </div>
-                    </div>
                     );
                   })}
                 </div>
 
-                <div className="mt-3">
-                  <h6>Productos a recoger</h6>
-                  <ul className="list-unstyled small mb-0">
-                    {(appointment.itemsToPickup || []).map((it: any, idx: number) => (
-                      <li key={idx} className="mb-1">
-                        <i className="bi bi-dot"></i>
-                        Casillero {it.lockerNumber} · x{it.quantity} · {it.product?.nombre || it.originalProduct?.nombre || 'Producto'}
-                      </li>
-                    ))}
-                  </ul>
+                <div className="mt-4 p-3 rounded border-start border-4 border-success bg-light">
+                  <h6 className="fw-bold mb-3"><i className="bi bi-list-check me-2 text-success"></i>Productos a recoger</h6>
+                  <div className="table-responsive">
+                    <table className="table table-sm table-borderless mb-0">
+                      <thead>
+                        <tr className="text-muted small">
+                          <th className="ps-0">PRODUCTO</th>
+                          <th className="text-center">CANT.</th>
+                          <th className="text-end">UBICACIÓN</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(appointment.itemsToPickup || []).map((it: any, idx: number) => (
+                          <tr key={idx} className="border-bottom-dark-subtle">
+                            <td className="ps-0 py-2">
+                              <span className="fw-medium">{it.product?.nombre || it.originalProduct?.nombre || 'Producto'}</span>
+                            </td>
+                            <td className="text-center py-2">
+                              <span className="badge bg-secondary rounded-pill">x{it.quantity}</span>
+                            </td>
+                            <td className="text-end py-2">
+                              <span className="text-muted">Casillero {it.lockerNumber}</span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
-              <div className="modal-footer py-2">
-                <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowLockerModal(false)}>
+              <div className="modal-footer bg-light border-0 py-3 mt-2">
+                <button type="button" className="btn btn-outline-secondary px-4 fw-bold" onClick={() => setShowLockerModal(false)}>
                   Cerrar
+                </button>
+                <button type="button" className="btn btn-success px-4 fw-bold shadow-sm" onClick={() => setShowLockerModal(false)}>
+                  <i className="bi bi-check2-circle me-1"></i> Entendido
                 </button>
               </div>
             </div>

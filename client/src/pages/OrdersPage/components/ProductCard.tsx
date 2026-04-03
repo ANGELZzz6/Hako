@@ -1,5 +1,4 @@
-import React from 'react';
-import { getDimensiones, getVolumen, tieneDimensiones } from '../utils/productUtils';
+import { getDimensiones, tieneDimensiones } from '../utils/productUtils';
 
 interface ProductCardProps {
   item: any;
@@ -16,7 +15,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
   isRecentlyUnlocked,
   yaEstaEnReserva
 }) => {
-  const isClaimed = item.isClaimed || false;
+  const isClaimed = item.isClaimed || item.status === 'claimed' || item.status === 'picked_up';
   
   return (
     <div className={`card shadow-sm mb-3 ${isRecentlyUnlocked ? 'border-success border-2' : ''}`}>
@@ -66,14 +65,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
                   </span>
                 ) : null;
               })()}
-              {(() => {
-                const v = getVolumen(item);
-                return v ? (
-                  <span className="badge bg-secondary">
-                    {(v / 1000).toFixed(1)} L
-                  </span>
-                ) : null;
-              })()}
+
             </div>
           </div>
           <div className="col-md-2 text-center">
