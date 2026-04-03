@@ -599,7 +599,7 @@ exports.getAllOrders = async (req, res) => {
 // Obtener casilleros disponibles (para admin)
 exports.getAvailableLockers = async (req, res) => {
   try {
-    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Solo admin puede ver casilleros' });
+    // Cualquier usuario autenticado puede ver qué números de casillero están libres (1-12)
 
     // Obtener todos los casilleros ocupados (solo los que tienen número asignado y no están recogidos)
     const occupiedLockers = await Order.find({

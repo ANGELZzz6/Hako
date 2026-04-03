@@ -83,10 +83,7 @@ export const getAvailableTimeSlotsForDate = (date: string) => {
   const availableDates = getAvailableDates();
   const isToday = date === availableDates[0].value;
 
-  console.log('🕐 Verificando horarios para fecha:', date);
-  console.log('🕐 Fecha actual:', availableDates[0].value);
-  console.log('🕐 Hora actual:', `${currentHour}:${currentMinute.toString().padStart(2, '0')}`);
-  console.log('🕐 ¿Es hoy?:', isToday);
+
 
   const timeSlots = [
     '08:00', '09:00', '10:00', '11:00', '12:00', '13:00',
@@ -101,16 +98,15 @@ export const getAvailableTimeSlotsForDate = (date: string) => {
 
       const isFuture = slotHour > currentHour || (slotHour === currentHour && slotMinute > currentMinute);
 
-      console.log(`🕐 ${time}: hora=${slotHour}, minuto=${slotMinute}, ¿es futuro?=${isFuture}`);
+
 
       return isFuture;
     });
 
-    console.log('🕐 Horarios filtrados para hoy:', filteredSlots);
     return filteredSlots;
   }
 
-  console.log('🕐 No es hoy, retornando todos los horarios:', timeSlots);
+
   return timeSlots;
 };
 
@@ -205,24 +201,18 @@ export const canAddProductsToAppointment = (appointment: any): boolean => {
 // Función para verificar si hay reservas vencidas en una lista
 export const hasExpiredAppointments = (appointments: any[]): boolean => {
   try {
-    console.log('🔍 Verificando reservas vencidas en lista de', appointments.length, 'reservas');
 
-    const now = new Date();
-    console.log('⏰ Hora actual:', now.toISOString(), now.toLocaleString());
 
     const expiredAppointments = appointments.filter(appointment => {
-      if (appointment.status !== 'scheduled' && appointment.status !== 'confirmed') {
-        console.log(`📅 Reserva ${appointment._id}: Status ${appointment.status} - No verificando`);
+if (appointment.status !== 'scheduled' && appointment.status !== 'confirmed') {
         return false;
       }
 
       const isExpired = isAppointmentExpired(appointment);
-      console.log(`📅 Reserva ${appointment._id}: ${appointment.scheduledDate} ${appointment.timeSlot} - ¿Vencida? ${isExpired}`);
 
       return isExpired;
     });
 
-    console.log(`🔍 Encontradas ${expiredAppointments.length} reservas vencidas de ${appointments.length} total`);
     return expiredAppointments.length > 0;
 
   } catch (error) {

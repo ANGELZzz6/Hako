@@ -20,7 +20,7 @@ const LockerVisualization: React.FC<LockerVisualizationProps> = ({
     <div key={locker.id} className="col-md-6 mb-4">
       <div className={`card ${isExistingLocker ? 'border-success' : 'border-primary'}`}>
         <div className={`card-header ${isExistingLocker ? 'bg-success' : 'bg-primary'} text-white`}>
-          <div className="d-flex justify-content-between align-items-center">
+          <div className="d-flex flex-wrap justify-content-between align-items-center gap-2">
             <strong>
               {isExistingLocker ? (
                 <>

@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Text } from '@react-three/drei';
 import type { Locker3D } from '../services/gridPackingService';
@@ -62,7 +62,7 @@ const Locker3DCanvas: React.FC<Locker3DCanvasProps> = ({ bin, selectedProductId 
   const lockerDepth = GRID * SLOT_SIZE + LOCKER_WALL_THICKNESS * 2;
 
   return (
-    <div style={{ width: 400, height: 400 }}>
+    <div style={{ width: '100%', maxWidth: '400px', height: '400px', margin: '0 auto' }}>
       <Canvas camera={{ position: [4, 4, 6], fov: 50 }}>
         <ambientLight intensity={0.7} />
         <directionalLight position={[5, 10, 7]} intensity={0.8} />

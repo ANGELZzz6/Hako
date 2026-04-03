@@ -872,21 +872,20 @@ const OrdersPage: React.FC = () => {
       <div className="row justify-content-center">
         <div className="col-lg-12">
           {/* Header */}
-          <div className="d-flex justify-content-between align-items-center mb-4">
-            <h2 className="mb-0">
-              <i className="bi bi-box-seam me-2"></i>
+          <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+            <h2 className="mb-0 fs-3 fw-bold">
+              <i className="bi bi-box-seam me-2 text-primary"></i>
               Mis Productos Comprados
             </h2>
-            <div className="d-flex gap-2 align-items-center">
+            <div className="d-flex flex-wrap gap-2 align-items-center justify-content-md-end">
               {validPurchasedProducts.length > 0 && selectedProducts.size === 0 && (
                 <>
                   {(() => {
-                    // Verificar si hay reservas vencidas usando la función utilitaria
                     const hasExpired = hasExpiredAppointments(myAppointments);
 
                     if (hasExpired) {
                       return (
-                        <div className="text-danger fw-bold">
+                        <div className="text-danger fw-bold small">
                           <i className="bi bi-exclamation-triangle me-2"></i>
                           Primero actualiza tus reservas vencidas
                         </div>
@@ -895,12 +894,12 @@ const OrdersPage: React.FC = () => {
 
                     return (
                       <button
-                        className="btn btn-outline-primary"
+                        className="btn btn-outline-primary btn-sm px-3"
                         onClick={selectAllAvailableProducts}
                         disabled={loading}
                       >
                         <i className="bi bi-check-all me-1"></i>
-                        Seleccionar Todos los Productos
+                        Seleccionar Todos
                       </button>
                     );
                   })()}
@@ -909,27 +908,27 @@ const OrdersPage: React.FC = () => {
               {selectedProducts.size > 0 && (
                 <>
                   <button
-                    className="btn btn-outline-secondary"
+                    className="btn btn-outline-secondary btn-sm px-3"
                     onClick={handleClearSelection}
                     disabled={claimingProducts || reservingLocker}
                   >
                     <i className="bi bi-x-circle me-1"></i>
-                    Limpiar Selección
+                    Limpiar
                   </button>
                   <button
-                    className="btn btn-success"
+                    className="btn btn-success btn-sm px-3 shadow-sm"
                     onClick={handleSmartReservation}
                     disabled={claimingProducts || reservingLocker}
                   >
                     {reservingLocker ? (
                       <>
                         <span className="spinner-border spinner-border-sm me-1" role="status"></span>
-                        Procesando...
+                        Cargando...
                       </>
                     ) : (
                       <>
                         <i className="bi bi-calendar-check me-1"></i>
-                        Reservar Casillero
+                        Reservar
                       </>
                     )}
                   </button>

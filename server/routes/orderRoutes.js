@@ -61,6 +61,9 @@ router.post('/:orderId/claim-products', auth, orderController.claimProducts);
 // Obtener productos disponibles para reclamar
 router.get('/:orderId/available-products', auth, orderController.getAvailableProducts);
 
+// Obtener casilleros disponibles (para usuarios en proceso de reserva)
+router.get('/lockers', auth, orderController.getAvailableLockers);
+
 // Obtener un pedido por id
 router.get('/:id', auth, orderController.getOrderById);
 

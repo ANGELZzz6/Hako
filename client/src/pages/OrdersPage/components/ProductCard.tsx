@@ -109,9 +109,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
                       <span className="badge bg-primary">
                         Casillero {selectedProduct.lockerNumber}
                       </span>
-                      <small className="text-muted">
-                        (Optimizado automáticamente)
-                      </small>
+
                     </div>
                   </div>
                 )}
