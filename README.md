@@ -1,181 +1,117 @@
-# Hako — Beauty Salon Platform
+# Hako — E-commerce con Sistema de Recogida en Lockers
 
-A comprehensive management system for beauty salons that integrates a public booking website with a robust administration dashboard. This platform automates the appointment scheduling process, manages salon services (products), and provides real-time monitoring of salon operations.
+Hako es una plataforma completa de comercio electrónico que integra un sistema de compra de productos con un innovador sistema de recogida en taquillas o casilleros inteligentes (lockers). Permite a los usuarios comprar productos en línea y reservarlos para recogerlos en un momento específico, evitando los tiempos de espera de los envíos tradicionales.
 
-## Project Overview
+## Descripción del Proyecto
 
-Hako is designed to streamline the interaction between salon owners, specialists, and clients. It provides a seamless digital experience for booking beauty services, managing professional schedules, and handling secure payments.
+Hako está diseñado para ofrecer una experiencia de compra rápida y sin fricciones. Desde la selección de productos y el pago seguro en línea, hasta la reserva de un locker para recoger la compra escaneando un código QR.
 
-**Target Users:**
-*   **Salon Owners:** For complete business oversight, revenue tracking, and system configuration.
-*   **Specialists:** To manage their availability and view upcoming appointments.
-*   **Clients:** To browse services, book appointments, and manage their personal booking history.
+**Usuarios Principales:**
+*   **Administradores:** Tienen control total sobre el inventario, gestión de usuarios, asignación de lockers, soporte, control de pagos, y personalización del contenido de la web.
+*   **Clientes:** Pueden explorar productos, agregarlos a su "Box" (carrito), realizar pagos, gestionar sus reservas de lockers y revisar su historial de pedidos.
 
-**Core Value:** 
-Automation of the entire booking lifecycle, from initial service selection and secure payment to appointment scheduling and automated notifications, reducing manual administrative overhead and improving customer satisfaction.
+**Valor Principal:**
+Comodidad y rapidez. Los clientes no tienen que esperar días por un envío. Compran, eligen el momento para recoger, se les asigna un locker y van a retirar sus productos cuando les sea más conveniente.
 
-## Features
+## Funcionalidades Principales
 
-### Public Website
-*   **Service Catalog:** Browse beauty services with detailed descriptions, pricing, and category filtering.
-*   **Featured Services:** Highlighted treatments on the landing page for better visibility.
-*   **Client Profile:** Secure user accounts with booking history and personal settings.
-*   **Responsive Design:** Optimized for both desktop and mobile devices.
+### Plataforma Cliente
+*   **Catálogo de Productos:** Exploración de productos disponibles, con detalles, precios e imágenes.
+*   **Sistema de Carrito ("Tu Box"):** Gestión de productos a comprar.
+*   **Recogida en Lockers:** Tras la compra, el sistema permite reservar una fecha y hora para la recogida, asignando automáticamente un locker disponible.
+*   **Pagos Seguros:** Integración con Mercado Pago para transacciones seguras.
+*   **Perfil de Usuario y Mis Pedidos:** Historial de compras, reservas activas, y códigos QR para abrir los lockers.
+*   **Diseño Responsivo:** Optimizado tanto para dispositivos móviles como de escritorio, con modo claro y oscuro.
 
-### Booking System
-*   **Real-time Availability:** Dynamic time slot calculation (1-hour windows from 08:00 to 22:00) with conflict prevention.
-*   **Secure Checkout:** Integrated payment flow via Mercado Pago (Checkout Pro) supporting multiple payment methods (PSE, Credit, Cash).
-*   **QR Identification:** Automated generation of unique QR codes for appointment verification and check-in.
-*   **Automated Reminders:** Email notifications for booking confirmation and payment success.
+### Panel de Administración (Admin Dashboard)
+*   **Gestión de Inventario (Productos):** Agregar, editar y eliminar productos.
+*   **Gestión de Lockers y Asignaciones:** Supervisión de los lockers, su estado, y las reservas de los clientes.
+*   **Monitorización de Pedidos y Pagos:** Ver pedidos realizados y su estado de pago.
+*   **Gestión de Usuarios:** Ver información de los clientes registrados.
+*   **Sistema de Soporte:** Responder a sugerencias o problemas reportados por los clientes.
+*   **Editor de Contenido:** Personalizar títulos, descripciones y banners de la página principal directamente desde el panel, sin tocar código.
 
-### Admin Dashboard
-*   **Appointment Management:** Real-time visualization and status control (Scheduled, Confirmed, Completed, Cancelled).
-*   **Service & Specialist Management:** Tools to add, edit, or deactivate services and manage specialists.
-*   **System Monitoring:** Dashboard to track system health, active assignments, and recent errors.
-*   **Content Editor:** Manage site-wide text, featured banners, and promotional messages without code changes.
-*   **Refund Management:** Integrated refund processing with built-in business rule validation (e.g., block refunds if appointment starts in < 1 hour).
+## Tecnologías Utilizadas (Tech Stack)
 
-### Notifications & Integrations
-*   **Mercado Pago:** Secure payment gateway integration.
-*   **Nodemailer:** Automated email system for transaction and booking alerts.
-*   **Google OAuth:** One-click social login for faster client registration.
-
-## Tech Stack
-
-*   **Frontend:** React 18, TypeScript, Vite, Vanilla CSS, Bootstrap (for layout).
+*   **Frontend:** React 18, TypeScript, Vite, Vanilla CSS, Bootstrap (para estructura).
 *   **Backend:** Node.js, Express.js.
-*   **Database:** MongoDB with Mongoose ODM.
-*   **Authentication:** JWT (JSON Web Tokens) & Google OAuth 2.0.
-*   **Payments:** Mercado Pago v1 SDK.
-*   **Automation:** `node-cron` for scheduled background tasks.
+*   **Base de Datos:** MongoDB con Mongoose ODM.
+*   **Autenticación:** JWT (JSON Web Tokens) & Google OAuth 2.0.
+*   **Pagos:** Integración con Mercado Pago.
+*   **Generación de QR:** `qrcode` para los códigos de acceso a los lockers.
 
-## Project Structure
+## Estructura del Proyecto
 
 ```text
 /
-├── client/                 # React frontend application
+├── client/                 # Aplicación frontend en React
 │   ├── src/
-│   │   ├── components/     # Reusable UI components
-│   │   ├── pages/          # Page-level components (Admin, Booking, etc.)
-│   │   ├── services/       # API client abstractions
-│   │   └── contexts/       # Global state management (Auth, Cart, Settings)
-├── server/                 # Node.js Express backend
-│   ├── controllers/        # Business logic handlers
-│   ├── models/             # MongoDB/Mongoose schemas
-│   ├── routes/             # API endpoint definitions
-│   ├── middleware/         # Security and authentication guards
-│   └── services/           # External service integrations (Email, Payments)
-└── docs/                   # Project documentation and master files
+│   │   ├── components/     # Componentes de UI reutilizables
+│   │   ├── pages/          # Vistas principales (Admin, Checkout, Home, etc.)
+│   │   ├── services/       # Conexiones con la API (axios)
+│   │   ├── contexts/       # Estado global (Auth, Cart, Configuración del Sitio)
+│   │   └── hooks/          # Custom hooks
+├── server/                 # Aplicación backend Node.js / Express
+│   ├── controllers/        # Lógica de negocio
+│   ├── models/             # Esquemas de base de datos (Mongoose)
+│   ├── routes/             # Definición de endpoints de la API
+│   ├── middleware/         # Autenticación, guardias de seguridad
+│   └── services/           # Integraciones de servicios
+└── docs/                   # Documentación adicional
 ```
 
-## Installation
+## Instalación
 
-### 1. Clone the repository
+### 1. Clonar el repositorio
 ```bash
 git clone <repository-url>
 cd hako
 ```
 
-### 2. Install dependencies
-Install root, client, and server dependencies:
+### 2. Instalar dependencias
+Instalar las dependencias de la carpeta raíz, del frontend y del backend:
 ```bash
 npm install
 cd client && npm install
 cd ../server && npm install
 ```
 
-### 3. Environment Variables
-Create a `.env` file in the root and `server` directories based on the provided templates (see Environment Variables section).
+### 3. Variables de Entorno
+Crea archivos `.env` en la raíz, en `client/` y en `server/` basándote en los ejemplos (p. ej. `env-example.txt`). Necesitarás configurar:
+*   URI de MongoDB.
+*   Secretos para JWT.
+*   Credenciales de Mercado Pago.
+*   Client ID de Google para autenticación.
 
-### 4. Run the project
-**Development Mode:**
+### 4. Ejecutar el proyecto
+**Modo Desarrollo:**
 ```bash
-# In the root directory
+# En la carpeta raíz
 npm run dev
 ```
+Esto iniciará tanto el servidor backend como la aplicación frontend en React de forma simultánea.
 
-**Production Mode:**
+**Modo Producción:**
 ```bash
 npm start
 ```
 
-## Environment Variables
+## Flujo de Uso (Para el Usuario)
 
-The system requires the following environment variables:
+1.  **Exploración y Selección:** El cliente navega por los productos, añade al "Box" los que desea comprar.
+2.  **Checkout y Pago:** El usuario inicia el proceso de pago, es redirigido a Mercado Pago.
+3.  **Reserva de Locker:** Tras un pago exitoso, la plataforma indica que tiene productos sin reservar. El cliente va a "Mis Pedidos" y programa la fecha/hora de recogida.
+4.  **Generación de QR:** El sistema asigna un locker y genera un código QR único que sirve como "llave" para abrir el locker.
+5.  **Recogida:** El cliente se dirige a la ubicación física de la tienda en el horario acordado, muestra el QR y recoge sus productos.
 
-| Variable | Description |
-| :--- | :--- |
-| `MONGODB_URI` | MongoDB connection string |
-| `JWT_SECRET` | Secret key for session tokens |
-| `MERCADOPAGO_ACCESS_TOKEN` | Mercado Pago API access token |
-| `GOOGLE_CLIENT_ID` | Google OAuth Client ID |
-| `FRONTEND_URL` | Base URL of the frontend application |
-| `WEBHOOK_URL` | Public URL for Mercado Pago async notifications |
-| `EMAIL_USER` | SMTP username for notifications |
-| `EMAIL_PASS` | SMTP password for notifications |
-| `MP_CLIENT_ID` | Mercado Pago OAuth Client ID (for testing) |
-| `MP_CLIENT_SECRET` | Mercado Pago OAuth Client Secret (for testing) |
-| `API_BASE_URL` | Base URL of the API for testing scripts |
+## Endpoints Principales de la API
 
-## Usage
+*   `GET /api/productos`: Lista de todos los productos disponibles.
+*   `POST /api/cart/add`: Añade un producto al carrito del usuario.
+*   `POST /api/payment/create-preference`: Inicia una intención de pago en Mercado Pago.
+*   `GET /api/orders/my-orders`: Devuelve las compras del usuario autenticado.
+*   `POST /api/appointments`: Crea una reserva de recogida y asigna un locker.
+*   `GET /api/lockers`: (Admin) Ver el estado de todos los casilleros.
 
-### Client Flow
-1.  **Selection:** Browse services and add them to the "Box" (Cart).
-2.  **Payment:** Proceed to checkout via Mercado Pago secure platform.
-3.  **Booking:** Choose a date and time slot for the appointment.
-4.  **Confirmation:** Receive a QR code via email for identification at the salon.
-
-### Admin Flow
-1.  **Monitoring:** View active appointments and system health from the Dashboard.
-2.  **Inventory:** Manage services and adjust pricing or availability.
-3.  **Support:** Respond to customer suggestions and manage support tickets.
-4.  **Override:** Manually update appointment statuses or process refunds when necessary.
-
-## API Endpoints
-
-### Services (Products)
-*   `GET /api/products`: List all active services.
-*   `POST /api/products/admin`: (Admin) Create a new service.
-
-### Appointments
-*   `GET /api/appointments/available-slots/:date`: Check availability.
-*   `POST /api/appointments`: Create a new booking.
-*   `GET /api/appointments/my-appointments`: View personal history.
-
-### Payments
-*   `POST /api/payment/create-preference`: Initiate checkout.
-*   `POST /api/payment/webhook`: Handle payment status updates.
-
-## Deployment
-
-*   **Frontend:** Recommendations for Vercel or Netlify.
-*   **Backend:** Recommendations for Heroku, Railway, or Render.
-*   **Database:** MongoDB Atlas is recommended for production.
-*   **Testing:** Node.js environment for integration scripts.
-
-## Integration Testing
-
-The project includes a comprehensive integration test suite to validate the end-to-end payment lifecycle, from preference creation to administrative refunds.
-
-### Payment Flow Validation
-This script simulates a complete purchase using Mercado Pago's sandbox:
-1.  Admin authentication.
-2.  Product retrieval and cart management.
-3.  Preference creation.
-4.  Automated 'TEST-' token retrieval via OAuth.
-5.  Sandbox payment simulation (approved status).
-6.  Webhook processing and Order creation verification.
-7.  Administrative refund and order cancellation flow.
-
-**Run the test:**
-```bash
-# Ensure ngrok is running and WEBHOOK_URL is updated in .env
-node server/scripts/test-payment-flow.js
-```
-
-## Future Improvements
-
-*   **SaaS Integration:** Multi-salon support with tenant isolation.
-*   **Advanced Analytics:** Revenue forecasting and specialist performance metrics.
-*   **Mobile App:** Dedicated iOS/Android applications for better push notifications.
-*   **AI Chatbot:** Automated customer support for FAQs and appointment rescheduling.
+---
+*Nota: Este proyecto está en desarrollo y algunas funcionalidades como los pagos y correos electrónicos pueden estar en modo de prueba (sandbox).*
