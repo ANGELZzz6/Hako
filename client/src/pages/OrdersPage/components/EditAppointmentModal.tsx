@@ -185,8 +185,8 @@ const EditAppointmentModal: FC<EditAppointmentModalProps> = ({
   };
 
   return (
-    <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
-      <div className="modal-dialog modal-lg">
+    <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }} onClick={(e) => { if(e.target === e.currentTarget) onClose(); }}>
+      <div className="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div className="modal-content">
           <div className="modal-header bg-primary text-white">
             <h5 className="modal-title">
@@ -199,98 +199,89 @@ const EditAppointmentModal: FC<EditAppointmentModalProps> = ({
               onClick={onClose}
             ></button>
           </div>
-          <div className="modal-body">
-            <div className="row">
-              <div className="col-md-6">
-                <div className="mb-3">
-                  <label className="form-label">
-                    <strong>Fecha Actual:</strong>
-                  </label>
-                  <p className="form-control-plaintext">
-                    {new Date(appointment.scheduledDate).toLocaleDateString('es-CO')}
-                  </p>
-                </div>
-                <div className="mb-3">
-                  <label className="form-label">
-                    <strong>Hora Actual:</strong>
-                  </label>
-                  <p className="form-control-plaintext">
-                    {appointment.timeSlot}
-                  </p>
-                </div>
-                <div className="mb-3">
-                  <label className="form-label">
-                    <strong>Casillero Actual:</strong>
-                  </label>
-                  <p className="form-control-plaintext">
-                    {appointment.itemsToPickup.map((item: any) => item.lockerNumber).join(', ')}
-                  </p>
+          <div className="modal-body p-3">
+            {/* Info actual — compacta, en tarjeta */}
+            <div className="card border-0 bg-light mb-3">
+              <div className="card-body py-2 px-3">
+                <p className="mb-0 fw-bold small text-muted text-uppercase mb-1">Reserva actual</p>
+                <div className="row g-1">
+                  <div className="col-6 col-sm-4">
+                    <small className="text-muted d-block">Fecha</small>
+                    <span className="fw-semibold small">{new Date(appointment.scheduledDate).toLocaleDateString('es-CO')}</span>
+                  </div>
+                  <div className="col-6 col-sm-4">
+                    <small className="text-muted d-block">Hora</small>
+                    <span className="fw-semibold small">{appointment.timeSlot}</span>
+                  </div>
+                  <div className="col-12 col-sm-4">
+                    <small className="text-muted d-block">Casillero(s)</small>
+                    <span className="fw-semibold small">{appointment.itemsToPickup.map((item: any) => item.lockerNumber).join(', ')}</span>
+                  </div>
                 </div>
               </div>
-              <div className="col-md-6">
-                <div className="mb-3">
-                  <label htmlFor="newDate" className="form-label">
-                    <strong>Nueva Fecha:</strong>
-                  </label>
+            </div>
+
+            {/* Nueva fecha y hora */}
+            <div className="row g-3">
+              <div className="col-12 col-sm-6">
+                <label htmlFor="newDate" className="form-label fw-semibold mb-1">
+                  <i className="bi bi-calendar3 me-1 text-primary"></i>Nueva Fecha
+                </label>
+                <select
+                  className="form-select"
+                  value={editAppointmentDate}
+                  onChange={(e) => handleDateChange(e.target.value)}
+                >
+                  {getAvailableDates(penalizedDates).map(date => (
+                    <option key={date.value} value={date.value} disabled={date.isPenalized}>
+                      {date.label} {date.isToday && '(Hoy)'}{date.isPenalized && ' \u{1F512} Bloqueado'}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="col-12 col-sm-6">
+                <label htmlFor="newTime" className="form-label fw-semibold mb-1">
+                  <i className="bi bi-clock me-1 text-primary"></i>Nueva Hora
+                </label>
+                {loadingTimeSlots ? (
+                  <div className="form-select d-flex align-items-center gap-2">
+                    <div className="spinner-border spinner-border-sm" role="status"></div>
+                    <span>Cargando horarios...</span>
+                  </div>
+                ) : (
                   <select
                     className="form-select"
-                    value={editAppointmentDate}
-                    onChange={(e) => handleDateChange(e.target.value)}
+                    value={editAppointmentTime}
+                    onChange={(e) => onTimeChange(e.target.value)}
                   >
-                    {getAvailableDates(penalizedDates).map(date => (
-                      <option key={date.value} value={date.value} disabled={date.isPenalized}>
-                        {date.label} {date.isToday && '(Hoy)'}{date.isPenalized && ' (Bloqueado)'}
-                      </option>
-                    ))}
+                    {availableTimeSlots.length === 0 ? (
+                      <option value="">No hay horarios disponibles</option>
+                    ) : (
+                      availableTimeSlots.map(time => (
+                        <option key={time} value={time}>{time}</option>
+                      ))
+                    )}
                   </select>
-                </div>
-                <div className="mb-3">
-                  <label htmlFor="newTime" className="form-label">
-                    <strong>Nueva Hora:</strong>
-                  </label>
-                  {loadingTimeSlots ? (
-                    <div className="form-select">
-                      <div className="d-flex align-items-center">
-                        <div className="spinner-border spinner-border-sm me-2" role="status"></div>
-                        Cargando horarios...
-                      </div>
-                    </div>
-                  ) : (
-                    <select 
-                      className="form-select" 
-                      value={editAppointmentTime}
-                      onChange={(e) => onTimeChange(e.target.value)}
-                    >
-                      {availableTimeSlots.map(time => (
-                        <option key={time} value={time}>
-                          {time}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </div>
+                )}
               </div>
             </div>
-            
-            <div className="alert alert-info">
-              <i className="bi bi-info-circle me-2"></i>
-              <strong>Información:</strong> Solo se pueden modificar reservas con al menos 1 hora de anticipación. 
-              Las reservas solo se pueden programar hasta 7 días adelante del día actual.
-              Para el día actual, solo se pueden seleccionar horas futuras.
-              Los cambios se aplicarán a todos los productos de esta reserva.
+
+            <div className="alert alert-info py-2 px-3 mt-3 mb-0 small">
+              <i className="bi bi-info-circle me-1"></i>
+              Mínimo 1 hora de anticipación • Máximo 7 días adelante • Solo horas futuras para hoy
             </div>
           </div>
-          <div className="modal-footer">
+          <div className="modal-footer flex-column flex-sm-row gap-2 px-3 py-2">
             <button
               type="button"
-              className="btn btn-secondary"
+              className="btn btn-outline-secondary w-100 w-sm-auto"
               onClick={onClose}
             >
               Cancelar
             </button>
             <button
               type="button"
-              className="btn btn-primary"
+              className="btn btn-primary w-100 w-sm-auto"
               onClick={handleUpdate}
               disabled={updatingAppointment || loadingTimeSlots}
             >

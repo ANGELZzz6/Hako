@@ -1068,7 +1068,7 @@ const OrdersPage = () => {
                 </div>
               </div>
             ) : myAppointments.filter(appointment => appointment.status === 'completed').length > 0 ? (
-              <>
+<>
                 <div className="row mb-4">
                   {myAppointments
                     .filter(appointment => appointment.status === 'completed')
@@ -1076,198 +1076,121 @@ const OrdersPage = () => {
                     .map(appointment => (
                       <div key={appointment._id} className="col-12 mb-3">
                         <div className="card border-success appointment-card">
-                          <div className="card-header bg-success text-white">
+                          <div className="card-header bg-success text-white py-2">
                             <div className="d-flex justify-content-between align-items-center">
-                              <h6 className="mb-0">
-                                <i className="bi bi-calendar-check me-2"></i>
-                                Reserva #{appointment._id.slice(-6)} - Completada
+                              <h6 className="mb-0 small">
+                                <i className="bi bi-calendar-check me-1"></i>
+                                #{appointment._id.slice(-6)}
                               </h6>
-                              <span className="badge bg-success">
+                              <span className="badge bg-white text-success fw-semibold">
                                 <i className="bi bi-check-circle me-1"></i>
                                 Completada
                               </span>
                             </div>
                           </div>
-                          <div className="card-body">
-                            <div className="row">
-                              <div className="col-md-3">
-                                <p className="mb-1">
-                                  <strong>Fecha:</strong><br />
+                          <div className="card-body py-2 px-3">
+                            <div className="row g-2">
+                              <div className="col-6 col-md-3">
+                                <small className="text-muted d-block">Fecha</small>
+                                <span className="fw-semibold small">
                                   {new Date(appointment.scheduledDate).toLocaleDateString('es-CO', {
-                                    weekday: 'long',
-                                    year: 'numeric',
-                                    month: 'long',
-                                    day: 'numeric'
+                                    year: 'numeric', month: 'short', day: 'numeric'
                                   })}
-                                </p>
-                                <p className="mb-1">
-                                  <strong>Hora:</strong><br />
-                                  {appointment.timeSlot}
-                                </p>
-                                <p className="mb-1">
-                                  <strong>Completada el:</strong><br />
+                                </span>
+                              </div>
+                              <div className="col-6 col-md-3">
+                                <small className="text-muted d-block">Hora</small>
+                                <span className="fw-semibold small">{appointment.timeSlot}</span>
+                              </div>
+                              <div className="col-6 col-md-3">
+                                <small className="text-muted d-block">Casilleros</small>
+                                <span className="fw-semibold small">
+                                  {[...new Set(appointment.itemsToPickup.map((item: any) => item.lockerNumber))].join(', ')}
+                                </span>
+                              </div>
+                              <div className="col-6 col-md-3">
+                                <small className="text-muted d-block">Completada</small>
+                                <span className="fw-semibold small">
                                   {appointment.completedAt ? new Date(appointment.completedAt).toLocaleDateString('es-CO', {
-                                    year: 'numeric',
-                                    month: 'long',
-                                    day: 'numeric',
-                                    hour: '2-digit',
-                                    minute: '2-digit'
+                                    year: 'numeric', month: 'short', day: 'numeric'
                                   }) : 'N/A'}
-                                </p>
+                                </span>
                               </div>
-                              <div className="col-md-3">
-                                <p className="mb-1">
-                                  <strong>Casilleros utilizados:</strong><br />
-                                  {appointment.itemsToPickup.map((item: any) => item.lockerNumber).join(', ')}
-                                </p>
-                                <p className="mb-1">
-                                  <strong>Productos recogidos:</strong><br />
-                                  {appointment.itemsToPickup.length} producto{appointment.itemsToPickup.length > 1 ? 's' : ''}
-                                </p>
-                              </div>
-                              <div className="col-md-6">
-                                <div className="alert alert-success mb-3">
-                                  <i className="bi bi-info-circle me-2"></i>
-                                  <strong>Reserva Finalizada:</strong> Esta reserva fue completada exitosamente.
-                                  Los productos han sido recogidos y los casilleros liberados.
+                            </div>
+
+                            {/* Productos recogidos */}
+                            <div className="row mt-2 g-2">
+                              <div className="col-12">
+                                <div className="alert alert-success py-2 px-3 mb-2 small">
+                                  <i className="bi bi-check-circle me-1"></i>
+                                  <strong>{appointment.itemsToPickup.length} producto{appointment.itemsToPickup.length > 1 ? 's' : ''}</strong> recogido{appointment.itemsToPickup.length > 1 ? 's' : ''}. Casilleros liberados.
                                 </div>
-
-                                {/* Productos de la reserva completada */}
-                                <div className="mt-3">
-                                  <h6 className="mb-2">
-                                    <i className="bi bi-box-seam me-2"></i>
-                                    Productos Recogidos:
-                                    <small className="text-muted ms-2">
-                                      <i className="bi bi-cursor me-1"></i>
-                                      Haz clic en cualquier producto para verlo
-                                    </small>
-                                  </h6>
-                                  <div className="row">
-                                    {appointment.itemsToPickup.map((item: any, itemIndex: number) => (
-                                      <div key={itemIndex} className="col-md-6 mb-2">
-                                        <div
-                                          className="card border-success product-item-card"
-                                          style={{ cursor: 'pointer' }}
-                                          onClick={() => {
-                                            let productId = null;
-
-                                            if (item.product?._id) {
-                                              productId = item.product._id;
-                                            } else if (item.individualProduct?._id) {
-                                              productId = item.individualProduct._id;
-                                            } else if (item.originalProduct?._id) {
-                                              productId = item.originalProduct._id;
-                                            } else {
-                                              const searchName = item.product?.nombre ||
-                                                (item.individualProduct as any)?.product?.nombre ||
-                                                (item.originalProduct as any)?.nombre;
+                              </div>
+                              {appointment.itemsToPickup.map((item: any, itemIndex: number) => (
+                                <div key={itemIndex} className="col-12 col-sm-6">
+                                  <div
+                                    className="card border-success product-item-card h-100"
+                                    style={{ cursor: 'pointer' }}
+                                    onClick={() => {
+                                      let productId = null;
+                                      if (item.product?._id) {
+                                        productId = item.product._id;
+                                      } else if (item.individualProduct?._id) {
+                                        productId = item.individualProduct._id;
+                                      } else if (item.originalProduct?._id) {
+                                        productId = item.originalProduct._id;
+                                      } else {
+                                        const searchName = item.product?.nombre ||
+                                          (item.individualProduct as any)?.product?.nombre ||
+                                          (item.originalProduct as any)?.nombre;
+                                        if (searchName) {
+                                          const found = purchasedProducts.find(p => p.product?.nombre === searchName);
+                                          if (found?.product?._id) productId = found.product._id;
+                                        }
+                                      }
+                                      if (productId) {
+                                        navigate(`/productos/${productId}`);
+                                      } else {
+                                        showAlert('Información', 'No se pudo encontrar la información del producto.', 'info');
+                                      }
+                                    }}
+                                  >
+                                    <div className="card-body p-2">
+                                      <div className="d-flex align-items-center gap-2">
+                                        {/* Imagen */}
+                                        <div className="flex-shrink-0">
+                                          {(() => {
+                                            let productImage = null;
+                                            let productName = '';
+                                            if (item.product?.imagen_url) { productImage = item.product.imagen_url; productName = item.product.nombre; }
+                                            else if (item.individualProduct?.product?.imagen_url) { productImage = item.individualProduct.product.imagen_url; productName = item.individualProduct.product.nombre; }
+                                            else if (item.originalProduct?.imagen_url) { productImage = item.originalProduct.imagen_url; productName = item.originalProduct.nombre; }
+                                            else {
+                                              const searchName = item.product?.nombre || (item.individualProduct as any)?.product?.nombre || (item.originalProduct as any)?.nombre;
                                               if (searchName) {
-                                                const found = purchasedProducts.find(p => p.product?.nombre === searchName);
-                                                if (found?.product?._id) productId = found.product._id;
+                                                const foundProduct = purchasedProducts.find(p => p.product?.nombre === searchName);
+                                                if (foundProduct?.product?.imagen_url) { productImage = foundProduct.product.imagen_url; productName = foundProduct.product.nombre; }
                                               }
                                             }
-
-                                            if (productId) {
-                                              navigate(`/productos/${productId}`);
-                                            } else {
-                                              showAlert('Información', 'No se pudo encontrar la información del producto detallada para este catálogo.', 'info');
+                                            if (productImage) {
+                                              return <img src={productImage} alt={productName} className="product-thumbnail" style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #d4edda' }} />;
                                             }
-                                          }}
-                                          title="Haz clic para ver el producto"
-                                        >
-                                          <div className="card-body p-2">
-                                            <div className="d-flex align-items-center">
-                                              {/* Imagen del producto */}
-                                              <div className="product-image-container me-3">
-                                                {(() => {
-                                                  // Buscar la imagen del producto
-                                                  let productImage = null;
-                                                  let productName = '';
-
-                                                  // Estrategia 1: Imagen del producto directo
-                                                  if (item.product?.imagen_url) {
-                                                    productImage = item.product.imagen_url;
-                                                    productName = item.product.nombre;
-                                                  }
-                                                  // Estrategia 2: Imagen del IndividualProduct
-                                                  else if (item.individualProduct?.product?.imagen_url) {
-                                                    productImage = item.individualProduct.product.imagen_url;
-                                                    productName = item.individualProduct.product.nombre;
-                                                  }
-                                                  // Estrategia 3: Imagen del OriginalProduct
-                                                  else if (item.originalProduct?.imagen_url) {
-                                                    productImage = item.originalProduct.imagen_url;
-                                                    productName = item.originalProduct.nombre;
-                                                  }
-                                                  // Estrategia 4: Buscar en productos comprados
-                                                  else {
-                                                    const searchName = item.product?.nombre ||
-                                                      (item.individualProduct as any)?.product?.nombre ||
-                                                      (item.originalProduct as any)?.nombre;
-                                                    if (searchName) {
-                                                      const foundProduct = purchasedProducts.find(p =>
-                                                        p.product?.nombre === searchName
-                                                      );
-                                                      if (foundProduct?.product?.imagen_url) {
-                                                        productImage = foundProduct.product.imagen_url;
-                                                        productName = foundProduct.product.nombre;
-                                                      }
-                                                    }
-                                                  }
-
-                                                  if (productImage) {
-                                                    return (
-                                                      <img
-                                                        src={productImage}
-                                                        alt={productName}
-                                                        className="product-thumbnail"
-                                                        style={{
-                                                          width: '44px',
-                                                          height: '44px',
-                                                          objectFit: 'cover',
-                                                          borderRadius: '6px',
-                                                          border: '1px solid #d4edda'
-                                                        }}
-                                                        onError={(e) => {
-                                                          e.currentTarget.style.display = 'none';
-                                                          const placeholder = e.currentTarget.nextElementSibling as HTMLElement;
-                                                          if (placeholder) placeholder.style.display = 'flex';
-                                                        }}
-                                                      />
-                                                    );
-                                                  } else {
-                                                    return (
-                                                      <div className="bg-success-light rounded d-flex align-items-center justify-content-center product-placeholder"
-                                                        style={{ width: '44px', height: '44px', backgroundColor: '#f8fff9' }}
-                                                        title="Imagen no disponible">
-                                                        <i className="bi bi-box text-success" style={{ fontSize: '18px' }}></i>
-                                                      </div>
-                                                    );
-                                                  }
-                                                })()}
-                                              </div>
-
-                                              <div className="flex-grow-1">
-                                                <h6 className="mb-0 text-success">
-                                                  {item.product?.nombre ||
-                                                    (item.individualProduct as any)?.product?.nombre ||
-                                                    (item.originalProduct as any)?.nombre || 'Producto sin nombre'}
-                                                </h6>
-                                                <small className="text-muted">
-                                                  Cantidad: {item.quantity} | Casillero: {item.lockerNumber}
-                                                </small>
-                                              </div>
-                                              <div className="text-end">
-                                                <i className="bi bi-arrow-right-circle text-success"></i>
-                                              </div>
-                                            </div>
-                                          </div>
+                                            return <div className="d-flex align-items-center justify-content-center bg-light rounded" style={{ width: '40px', height: '40px' }}><i className="bi bi-box text-success"></i></div>;
+                                          })()}
                                         </div>
+                                        {/* Info */}
+                                        <div className="flex-grow-1 min-w-0">
+                                          <h6 className="mb-0 text-success small fw-semibold text-truncate">
+                                            {item.product?.nombre || (item.individualProduct as any)?.product?.nombre || (item.originalProduct as any)?.nombre || 'Producto'}
+                                          </h6>
+                                          <small className="text-muted">Cant: {item.quantity} • Cas: {item.lockerNumber}</small>
+                                        </div>
+                                        <i className="bi bi-arrow-right-circle text-success flex-shrink-0"></i>
                                       </div>
-                                    ))}
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
+                              ))}
                             </div>
                           </div>
                         </div>

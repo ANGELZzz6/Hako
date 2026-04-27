@@ -339,3 +339,44 @@
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
+
+/* ── Utilidades mobile-first ───────────────────────────────────────────────── */
+
+/* Permite text-truncate dentro de un flex container */
+.min-w-0 { min-width: 0; }
+
+/* Botones a ancho completo en mobile, auto en sm+ */
+@media (min-width: 576px) {
+  .w-sm-auto { width: auto !important; }
+}
+
+/* Reservas activas: botones de acción apilados en mobile */
+@media (max-width: 575px) {
+  .appointment-card .btn {
+    font-size: 0.82rem;
+    padding: 0.35rem 0.65rem;
+  }
+}
+
+/* Card body compacto en mobile para todas las tarjetas */
+@media (max-width: 576px) {
+  .card-body.py-2.px-3 {
+    padding: 0.6rem !important;
+  }
+
+  /* Modal footer: botones en columna en mobile */
+  .modal-footer.flex-column {
+    gap: 0.5rem;
+  }
+
+  /* Ajuste del padding general en la página */
+  .container.py-5 {
+    padding-top: 1.5rem !important;
+    padding-bottom: 1.5rem !important;
+  }
+}
+
+/* Tabla dentro de modales con scroll horizontal en mobile */
+.modal-body .table-responsive {
+  -webkit-overflow-scrolling: touch;
+}

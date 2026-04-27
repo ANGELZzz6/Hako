@@ -292,8 +292,8 @@ const AppointmentCard: FC<AppointmentCardProps> = ({
                   </span>
                 </p>
               </div>
-              <div className="col-md-6">
-                <div className="d-flex justify-content-end gap-2 flex-wrap">
+              <div className="col-12 col-md-6 mt-3 mt-md-0">
+                <div className="d-flex flex-wrap justify-content-start justify-content-md-end gap-2">
                   {/* Botón QR - Solo visible si la cita está activa */}
                   {isAppointmentActive && (() => {
                     const isQRExpired = qrCode && (qrCode.status === 'vencido' || new Date(qrCode.vencimiento) < new Date());
@@ -407,7 +407,7 @@ const AppointmentCard: FC<AppointmentCardProps> = ({
       {/* Modal para mostrar el código QR */}
       {showQRModal && qrCode && (
         <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-          <div className="modal-dialog modal-dialog-centered modal-sm">
+          <div className="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-sm">
             <div className="modal-content">
               <div className="modal-header bg-primary text-white text-center py-2">
                 <h6 className="modal-title mb-0">
@@ -497,7 +497,7 @@ const AppointmentCard: FC<AppointmentCardProps> = ({
               </div>
               
               {/* Botón Cerrar Centrado */}
-              <div className="modal-footer justify-content-center py-2">
+              <div className="modal-footer flex-column flex-sm-row justify-content-center py-2 gap-2">
                 {/* Botón Recoger Test - Solo en modo desarrollo (oculto en producción) */}
                 {isAppointmentActive && import.meta.env.DEV && (
                   <button
@@ -535,24 +535,22 @@ const AppointmentCard: FC<AppointmentCardProps> = ({
       )}
       {showLockerModal && (
         <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}>
-          <div className="modal-dialog modal-lg modal-dialog-centered">
+          <div className="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
             <div className="modal-content shadow-lg border-0">
-              <div className="modal-header bg-success text-white py-3">
+              <div className="modal-header bg-success text-white py-2">
                 <div className="d-flex align-items-center">
-                  <div className="bg-white bg-opacity-25 rounded-circle p-2 me-3">
-                    <i className="bi bi-box-seam fs-4"></i>
-                  </div>
+                  <i className="bi bi-box-seam fs-5 me-2"></i>
                   <div>
-                    <h5 className="modal-title mb-0 fw-bold">Visualización del Casillero</h5>
-                    <small className="text-white-50">Distribución 3D de tus productos</small>
+                    <h6 className="modal-title mb-0 fw-bold">Visualización del Casillero</h6>
+                    <small className="text-white-50" style={{fontSize:'0.7rem'}}>Distribución 3D de tus productos</small>
                   </div>
                 </div>
-                <button type="button" className="btn-close btn-close-white" onClick={() => setShowLockerModal(false)}></button>
+                <button type="button" className="btn-close btn-close-white ms-auto" onClick={() => setShowLockerModal(false)}></button>
               </div>
-              <div className="modal-body p-4">
-                <div className="row mb-4">
-                  <div className="col-md-6 border-end">
-                    <div className="d-flex flex-column gap-2">
+              <div className="modal-body p-3">
+                <div className="row mb-3 g-2">
+                  <div className="col-12 col-md-6 border-md-end">
+                    <div className="d-flex flex-column gap-1">
                       <div className="d-flex align-items-center">
                         <i className="bi bi-hash text-success me-2"></i>
                         <span className="text-muted small me-2">Reserva:</span>
@@ -570,8 +568,8 @@ const AppointmentCard: FC<AppointmentCardProps> = ({
                       </div>
                     </div>
                   </div>
-                  <div className="col-md-6 ps-md-4">
-                    <div className="bg-light rounded p-3 h-100">
+                  <div className="col-12 col-md-6 mt-2 mt-md-0">
+                    <div className="bg-light rounded p-2 h-100">
                       <h6 className="fw-bold mb-2 small text-uppercase text-muted">Ubicación asignada</h6>
                       <div className="d-flex flex-wrap gap-2">
                         {lockerBins.map(l => {
@@ -635,11 +633,11 @@ const AppointmentCard: FC<AppointmentCardProps> = ({
                   </div>
                 </div>
               </div>
-              <div className="modal-footer bg-light border-0 py-3 mt-2">
-                <button type="button" className="btn btn-outline-secondary px-4 fw-bold" onClick={() => setShowLockerModal(false)}>
+              <div className="modal-footer bg-light border-0 py-2">
+                <button type="button" className="btn btn-outline-secondary px-3 fw-bold" onClick={() => setShowLockerModal(false)}>
                   Cerrar
                 </button>
-                <button type="button" className="btn btn-success px-4 fw-bold shadow-sm" onClick={() => setShowLockerModal(false)}>
+                <button type="button" className="btn btn-success px-3 fw-bold shadow-sm" onClick={() => setShowLockerModal(false)}>
                   <i className="bi bi-check2-circle me-1"></i> Entendido
                 </button>
               </div>
