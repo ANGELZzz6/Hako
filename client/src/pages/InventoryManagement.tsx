@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import './InventoryManagement.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
@@ -8,13 +8,14 @@ import EditProductModal from '../components/EditProductModal';
 import productService, { type Product, type UpdateProductData } from '../services/productService';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import ConfirmModal from '../components/ConfirmModal';
 
 type FilterType = 'all' | 'destacados' | 'ofertas' | 'destacados-ofertas';
 
 const InventoryManagement = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeFilter, setActiveFilter] = useState<FilterType>('all');
+  const [activeFilter] = useState<FilterType>('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -23,6 +24,47 @@ const InventoryManagement = () => {
 
   const { isAdmin, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+
+  // Estado para el modal de confirmación genérico
+  const [modalConfig, setModalConfig] = useState<{
+    show: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    onCancel?: () => void;
+    type: 'confirm' | 'alert';
+    variant: 'primary' | 'danger' | 'warning' | 'success' | 'info';
+    confirmText?: string;
+  }>({
+    show: false,
+    title: '',
+    message: '',
+    onConfirm: () => { },
+    type: 'alert',
+    variant: 'primary'
+  });
+
+  // Función auxiliar para mostrar el modal de confirmación
+  const showConfirm = (title: string, message: string, variant: 'primary' | 'danger' | 'warning' | 'success' | 'info' = 'primary', confirmText?: string) => {
+    return new Promise<boolean>((resolve) => {
+      setModalConfig({
+        show: true,
+        title,
+        message,
+        onConfirm: () => {
+          setModalConfig(prev => ({ ...prev, show: false }));
+          resolve(true);
+        },
+        onCancel: () => {
+          setModalConfig(prev => ({ ...prev, show: false }));
+          resolve(false);
+        },
+        type: 'confirm',
+        variant,
+        confirmText
+      });
+    });
+  };
 
   useEffect(() => {
     if (!isAuthenticated || !isAdmin) {
@@ -115,9 +157,13 @@ const InventoryManagement = () => {
 
   // Manejar eliminación de producto
   const handleDelete = async (productId: string) => {
-    const confirmation = window.prompt(
-      'Esta acción eliminará el producto permanentemente.\nEscribe CONFIRMAR para continuar:');
-    if (confirmation !== 'CONFIRMAR') return;
+    const confirmed = await showConfirm(
+      'Confirmar Eliminación',
+      'Esta acción eliminará el producto permanentemente. ¿Deseas continuar?',
+      'danger',
+      'Eliminar producto'
+    );
+    if (!confirmed) return;
 
     try {
       await productService.deleteProduct(productId);
@@ -298,6 +344,18 @@ const InventoryManagement = () => {
         isCreating={isCreating}
         onClose={handleCloseModal}
         onSave={handleSave}
+      />
+
+      {/* Modal de Confirmación Genérico */}
+      <ConfirmModal
+        show={modalConfig.show}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        onConfirm={modalConfig.onConfirm}
+        onCancel={modalConfig.onCancel}
+        type={modalConfig.type}
+        variant={modalConfig.variant}
+        confirmText={modalConfig.confirmText}
       />
     </div>
   );

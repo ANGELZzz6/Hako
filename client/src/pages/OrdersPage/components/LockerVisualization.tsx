@@ -10,7 +10,6 @@ interface LockerVisualizationProps {
 
 const LockerVisualization: React.FC<LockerVisualizationProps> = ({
   locker,
-  index,
   isExistingLocker,
   selectedProductId
 }) => {

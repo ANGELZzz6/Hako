@@ -17,7 +17,7 @@ const authLimiter = rateLimit({
 // Rutas de autenticación con rate limiting
 router.post('/register', authLimiter, userController.register);
 router.post('/login', authLimiter, userController.login);
-router.post('/verify-code', userController.verifyCode);
+router.post('/verify-code', authLimiter, userController.verifyCode); // MED-02: proteger contra fuerza bruta
 // Ruta de Google Auth
 router.post('/google-auth', authLimiter, userController.googleAuth);
 
@@ -39,9 +39,9 @@ router.get('/admins', auth, requireAdmin, userController.getAdmins);
 // Nueva ruta para cambiar la contraseña
 router.post('/change-password', auth, userController.changePassword);
 
-// Recuperación de contraseña
-router.post('/forgot-password', userController.forgotPassword);
-router.post('/reset-password', userController.resetPassword);
+// Recuperación de contraseña (MED-03: proteger contra fuerza bruta)
+router.post('/forgot-password', authLimiter, userController.forgotPassword);
+router.post('/reset-password', authLimiter, userController.resetPassword);
 
 // Rutas para tarjetas guardadas (requieren autenticación)
 router.post('/save-card', auth, userController.saveCard);

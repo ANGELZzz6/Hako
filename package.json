@@ -6,7 +6,8 @@
     "start": "node server/server.js",
     "dev": "node server/server.js",
     "server": "node server/server.js",
-    "cleanup-penalties": "node server/cleanup-expired-penalties.js"
+    "cleanup-penalties": "node server/cleanup-expired-penalties.js",
+    "reset-db": "node server/scripts/reset-and-seed.js"
   },
   "dependencies": {
     "3d-bin-packing": "^1.1.3",

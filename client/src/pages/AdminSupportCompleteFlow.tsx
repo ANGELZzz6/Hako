@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import * as supportService from '../services/supportService';
@@ -11,6 +11,7 @@ import type { User } from '../services/userService';
 import './AdminOrdersPage.css';
 import './AdminModalImprovements.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
+import ConfirmModal from '../components/ConfirmModal';
 
 // Tipos para productos individuales
 interface IndividualProduct {
@@ -61,7 +62,7 @@ interface DebugError {
   details?: any;
 }
 
-const AdminSupportCompleteFlow: React.FC = () => {
+const AdminSupportCompleteFlow = () => {
   const { isAuthenticated, isAdmin, isLoading } = useAuth();
   const navigate = useNavigate();
 
@@ -100,7 +101,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
   // Estados para debugging
   const [debugErrors, setDebugErrors] = useState<DebugError[]>([]);
   const [showDebugPanel, setShowDebugPanel] = useState(false);
-  const [debugLoading, setDebugLoading] = useState(false);
+
 
   // Estados para agregar productos a usuarios
   const [usersLoading, setUsersLoading] = useState(false);
@@ -132,6 +133,48 @@ const AdminSupportCompleteFlow: React.FC = () => {
   // Estados para debugging automático
   const [debugMode, setDebugMode] = useState(false);
   const [autoDebugEnabled, setAutoDebugEnabled] = useState(true);
+
+  // Estado para el modal de confirmación genérico
+  const [modalConfig, setModalConfig] = useState<{
+    show: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    onCancel?: () => void;
+    type: 'confirm' | 'alert';
+    variant: 'primary' | 'danger' | 'warning' | 'success' | 'info';
+    confirmText?: string;
+  }>({
+    show: false,
+    title: '',
+    message: '',
+    onConfirm: () => { },
+    type: 'alert',
+    variant: 'primary'
+  });
+
+
+
+  // Helper para mostrar alertas asíncronas
+  const showAlert = (title: string, message: string, variant: 'primary' | 'danger' | 'warning' | 'success' | 'info' = 'primary') => {
+    return new Promise<void>((resolve) => {
+      setModalConfig({
+        show: true,
+        title,
+        message,
+        onConfirm: () => {
+          setModalConfig(prev => ({ ...prev, show: false }));
+          resolve();
+        },
+        onCancel: () => {
+          setModalConfig(prev => ({ ...prev, show: false }));
+          resolve();
+        },
+        type: 'alert',
+        variant
+      });
+    });
+  };
 
   // Verificar autenticación y permisos
   useEffect(() => {
@@ -511,7 +554,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
       setShowAddProductModal(false);
 
       // Mostrar mensaje de éxito
-      alert(response.message || `Producto asignado a ${selectedUser.nombre} correctamente`);
+      await showAlert('Éxito', response.message || `Producto asignado a ${selectedUser.nombre} correctamente`, 'success');
 
       // Recargar la lista de productos individuales para mostrar el nuevo producto
       await fetchIndividualProducts();
@@ -556,7 +599,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
 
     } catch (err: any) {
       logDebugError('Error al cargar productos del usuario', err, 'error');
-      alert('Error al cargar productos del usuario: ' + (err.message || err.toString()));
+      await showAlert('Error', 'Error al cargar productos del usuario: ' + (err.message || err.toString()), 'danger');
     } finally {
       setUserProductsLoading(false);
     }
@@ -593,7 +636,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
 
     } catch (err: any) {
       logDebugError('Error al cargar estado de reservas', err, 'error');
-      alert('Error al cargar estado de reservas: ' + (err.message || err.toString()));
+      await showAlert('Error', 'Error al cargar estado de reservas: ' + (err.message || err.toString()), 'danger');
     } finally {
       setReservationStatusLoading(false);
     }
@@ -602,7 +645,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
   // Función para cambiar el estado de un producto
   const changeProductStatus = async (productId: string, newStatus: string, action: string) => {
     if (!newStatus && !action) {
-      alert('Debes seleccionar un nuevo estado o una acción');
+      await showAlert('Atención', 'Debes seleccionar un nuevo estado o una acción', 'warning');
       return;
     }
 
@@ -617,7 +660,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
 
     const finalStatus = newStatus || actionToStatus[action];
     if (!finalStatus) {
-      alert(`La acción '${action}' no está soportada aún`);
+      await showAlert('No soportado', `La acción '${action}' no está soportada aún`, 'warning');
       return;
     }
 
@@ -634,7 +677,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
         result
       }, 'info');
 
-      alert(result.message || `Estado actualizado a '${finalStatus}' correctamente`);
+      await showAlert('Éxito', result.message || `Estado actualizado a '${finalStatus}' correctamente`, 'success');
 
       // Refrescar la lista del modal
       if (selectedUserForReservations) {
@@ -643,7 +686,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
 
     } catch (err: any) {
       logDebugError('Error al cambiar estado del producto', err, 'error');
-      alert('Error al cambiar estado: ' + (err.message || err.toString()));
+      await showAlert('Error', 'Error al cambiar estado: ' + (err.message || err.toString()), 'danger');
     } finally {
       setManualActionLoading(false);
       setManualActionProduct(null);
@@ -709,7 +752,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
   };
 
   // Función para exportar a CSV
-  const handleExportCSV = () => {
+  const handleExportCSV = async () => {
     try {
       const headers = ['ID', 'Producto', 'Estado', 'Casillero', 'Precio Unitario', 'Fecha de Creación', 'Variantes'];
       const csvContent = [
@@ -736,7 +779,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
       logDebugError('Exportación CSV realizada', { count: individualProducts.length }, 'info');
     } catch (err: any) {
       logDebugError('Error al exportar CSV', err, 'error');
-      alert('Error al exportar: ' + (err.message || err.toString()));
+      await showAlert('Error', 'Error al exportar: ' + (err.message || err.toString()), 'danger');
     }
   };
 
@@ -1113,8 +1156,8 @@ const AdminSupportCompleteFlow: React.FC = () => {
                       <i className="bi bi-download"></i> Exportar CSV
                     </button>
                     <button
-                      className="btn btn-outline-info btn-sm"
-                      onClick={() => setShowDebugPanel(!showDebugPanel)}
+                      className="btn btn-sm btn-outline-info"
+                      onClick={async () => await showAlert('En desarrollo', 'Funcionalidad adicional no implementada', 'info')}
                     >
                       <i className="bi bi-bug"></i> Panel Debug
                     </button>
@@ -1455,10 +1498,7 @@ const AdminSupportCompleteFlow: React.FC = () => {
                 <button
                   type="button"
                   className="btn btn-primary"
-                  onClick={() => {
-                    // Aquí podrías implementar una acción específica para este producto
-                    alert('Funcionalidad adicional no implementada');
-                  }}
+                  onClick={async () => await showAlert('En desarrollo', 'Funcionalidad adicional no implementada', 'info')}
                 >
                   Acciones Adicionales
                 </button>
@@ -1671,12 +1711,8 @@ const AdminSupportCompleteFlow: React.FC = () => {
                   Cerrar
                 </button>
                 <button
-                  type="button"
                   className="btn btn-primary"
-                  onClick={() => {
-                    // Aplicar todos los cambios pendientes
-                    alert('Funcionalidad de aplicación masiva en desarrollo');
-                  }}
+                  onClick={async () => await showAlert('En desarrollo', 'Funcionalidad de aplicación masiva en desarrollo', 'info')}
                 >
                   Aplicar Todos los Cambios
                 </button>
@@ -1828,6 +1864,18 @@ const AdminSupportCompleteFlow: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Modal de confirmación genérico */}
+      <ConfirmModal
+        show={modalConfig.show}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        onConfirm={modalConfig.onConfirm}
+        onCancel={modalConfig.onCancel || (() => setModalConfig(prev => ({ ...prev, show: false })))}
+        variant={modalConfig.variant}
+        type={modalConfig.type}
+        confirmText={modalConfig.confirmText}
+      />
     </div>
   );
 };

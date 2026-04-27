@@ -10,7 +10,6 @@ if (isDev) console.log('RUTA DE PAGO CARGADA');
 
 // Rutas para Checkout Pro
 router.post('/create_preference', auth, paymentController.createPreference); // Crear preferencia de pago
-router.get('/status/:payment_id', paymentController.getPaymentStatus); // Obtener estado de pago
 
 // Webhook Mercado Pago
 router.post('/webhook/mercadopago', paymentController.mercadoPagoWebhook);

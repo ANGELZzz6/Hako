@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, type FC, type ChangeEvent, type FormEvent } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import './ProfilePage.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import userService from '../services/userService';
-import authService from '../services/authService';
 import LoadingSpinner from '../components/LoadingSpinner';
 import PasswordModal from '../components/PasswordModal';
 
@@ -20,7 +19,7 @@ interface ProfileData {
   createdAt: string;
 }
 
-const ProfilePage: React.FC = () => {
+const ProfilePage: FC = () => {
   const { currentUser, isAuthenticated, isLoading } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -72,7 +71,7 @@ const ProfilePage: React.FC = () => {
     fetchProfile();
   }, [currentUser, isAuthenticated, isLoading, navigate]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     if (name === 'email') return; // No permitir cambios en el email
     setProfileData(prev => ({
@@ -81,7 +80,7 @@ const ProfilePage: React.FC = () => {
     }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
@@ -91,7 +90,7 @@ const ProfilePage: React.FC = () => {
       if (!currentUser) throw new Error('Usuario no autenticado');
       // Excluir el email del objeto enviado para actualización
       const { email, ...restProfileData } = profileData;
-      const result = await userService.updateUser(currentUser.id, restProfileData);
+      await userService.updateUser(currentUser.id, restProfileData);
       const updatedUser = await userService.getUserById(currentUser.id);
       if (!updatedUser.id && updatedUser._id) updatedUser.id = updatedUser._id;
       localStorage.setItem('user', JSON.stringify(updatedUser));
@@ -320,7 +319,7 @@ const ProfilePage: React.FC = () => {
                   className="form-control"
                   name="bio"
                   value={profileData.bio ?? ''}
-                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => handleInputChange(e)}
+                  onChange={(e: ChangeEvent<HTMLTextAreaElement>) => handleInputChange(e)}
                   disabled={!isEditing}
                   rows={4}
                   placeholder="Cuéntanos un poco sobre ti..."

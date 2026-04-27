@@ -96,11 +96,11 @@ export const getAvailableTimeSlotsForDate = (date: string) => {
       const slotHour = parseInt(hours);
       const slotMinute = parseInt(minutes);
 
-      const isFuture = slotHour > currentHour || (slotHour === currentHour && slotMinute > currentMinute);
-
-
-
-      return isFuture;
+      // Tarea 6: Buffer de 1 hora (60 minutos)
+      const slotTotalMinutes = slotHour * 60 + slotMinute;
+      const currentTotalMinutes = currentHour * 60 + currentMinute;
+      
+      return (slotTotalMinutes - currentTotalMinutes) >= 60;
     });
 
     return filteredSlots;

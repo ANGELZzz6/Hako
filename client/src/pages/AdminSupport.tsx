@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import './SupportManagement.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import { useAuth } from '../contexts/AuthContext';
@@ -10,6 +10,7 @@ import { saveAs } from 'file-saver'; // Recuerda instalarlo: npm install file-sa
 import productService from '../services/productService';
 import { Link, useNavigate } from 'react-router-dom';
 import { showSuccessToast, showErrorToast } from '../utils/toast';
+import ConfirmModal from '../components/ConfirmModal';
 
 interface Ticket {
   _id: string;
@@ -46,6 +47,48 @@ const AdminSupportPage = () => {
   const [internalNote, setInternalNote] = useState('');
   const [internalNoteLoading, setInternalNoteLoading] = useState(false);
   const [sugerencias, setSugerencias] = useState<any[]>([]);
+
+  // Estado para el modal de confirmación
+  const [modalConfig, setModalConfig] = useState<{
+    show: boolean;
+    title: string;
+    message: string;
+    confirmText?: string;
+    cancelText?: string;
+    onConfirm: () => void;
+    onCancel: () => void;
+    variant?: 'primary' | 'danger' | 'warning' | 'success';
+    type?: 'confirm' | 'alert';
+  }>({
+    show: false,
+    title: '',
+    message: '',
+    onConfirm: () => { },
+    onCancel: () => { },
+  });
+
+  // Helper para mostrar confirmación asíncrona
+  const showConfirm = (title: string, message: string, variant: 'primary' | 'danger' | 'warning' | 'success' = 'primary', confirmText: string = 'Confirmar'): Promise<boolean> => {
+    return new Promise((resolve) => {
+      setModalConfig({
+        show: true,
+        title,
+        message,
+        variant,
+        confirmText,
+        type: 'confirm',
+        onConfirm: () => {
+          setModalConfig((prev: any) => ({ ...prev, show: false }));
+          resolve(true);
+        },
+        onCancel: () => {
+          setModalConfig((prev: any) => ({ ...prev, show: false }));
+          resolve(false);
+        }
+      });
+    });
+  };
+
 
   useEffect(() => {
     if (!isAuthenticated || !isAdmin) {
@@ -154,10 +197,14 @@ const AdminSupportPage = () => {
 
 
   const handleDeleteTicket = async (id: string) => {
-    const confirmation = window.prompt(
-      '¿Estás seguro de que quieres eliminar esta solicitud de soporte?\nEscribe CONFIRMAR para continuar:'
+    const confirmed = await showConfirm(
+      'Eliminar solicitud',
+      '¿Estás seguro de que quieres eliminar esta solicitud de soporte?',
+      'danger',
+      'Eliminar solicitud'
     );
-    if (confirmation !== 'CONFIRMAR') return;
+
+    if (!confirmed) return;
     setDeletingId(id);
     setStatusLoading(true);
     try {
@@ -203,10 +250,14 @@ const AdminSupportPage = () => {
   }
 
   const handleDeleteSuggestion = async (id: string) => {
-    const confirmation = window.prompt(
-      '¿Eliminar esta sugerencia?\nEscribe CONFIRMAR para continuar:'
+    const confirmed = await showConfirm(
+      'Eliminar sugerencia',
+      '¿Eliminar esta sugerencia?',
+      'danger',
+      'Eliminar sugerencia'
     );
-    if (confirmation !== 'CONFIRMAR') return;
+
+    if (!confirmed) return;
     try {
       await productService.deleteSuggestion(id);
       setSugerencias(sugerencias => sugerencias.filter(s => s._id !== id));
@@ -449,6 +500,7 @@ const AdminSupportPage = () => {
           </section>
         </div>
       </main>
+      <ConfirmModal {...modalConfig} />
     </div>
   );
 };

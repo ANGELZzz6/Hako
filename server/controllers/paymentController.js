@@ -1,4 +1,3 @@
-const { MercadoPagoConfig, Payment: MercadoPagoPayment, Preference, Refund } = require('mercadopago');
 const transporter = require('../config/nodemailer');
 const User = require('../models/User');
 const Order = require('../models/Order');
@@ -8,956 +7,289 @@ const Product = require('../models/Product');
 const Cart = require('../models/Cart');
 const axios = require('axios');
 const Appointment = require('../models/Appointment');
+const crypto = require('crypto');
+const mongoose = require('mongoose');
 
 const isDev = process.env.NODE_ENV === 'development';
-const mp = new MercadoPagoConfig({
-  accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN
-});
-
-const processingWebhooks = new Set();
-
-// Función para crear preferencias de pago (Checkout Pro)
-exports.createPreference = async (req, res) => {
-  try {
-
-    const { items, payer, external_reference, selected_items } = req.body;
-
-    // ✅ FIX IDOR: Extraer el user_id de la sesión validada del JWT
-    const user_id = req.user.id;
-
-    // Validar datos requeridos
-    if (!items || !Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Se requieren items para crear la preferencia'
-      });
-    }
-
-    if (!payer || !payer.email) {
-      return res.status(400).json({
-        success: false,
-        message: 'Se requiere información del pagador'
-      });
-    }
-
-    if (!user_id) {
-      return res.status(400).json({
-        success: false,
-        message: 'Se requiere ID del usuario'
-      });
-    }
-
-
-
-    // Buscar si el usuario tiene un pedido activo en estado 'paid' sin casillero confirmado
-    let activeOrder = await Order.findOne({
-      user: user_id,
-      status: 'paid' // Solo pedidos pagados pero sin casillero confirmado
-    });
-
-    // Si existe un pedido activo, usar su external_reference
-    let finalExternalReference = external_reference;
-    if (activeOrder) {
-      finalExternalReference = activeOrder.external_reference;
-
-    } else {
-      finalExternalReference = external_reference || `PREF_${Date.now()}`;
-    }
-
-    // Crear preferencia de pago
-    const preferenceData = {
-      items: items.map(item => ({
-        title: item.title,
-        unit_price: item.unit_price,
-        currency_id: 'COP',
-        quantity: item.quantity || 1
-      })),
-      payer: {
-        email: payer.email,
-        name: payer.name || 'Usuario',
-        surname: payer.surname || '',
-        identification: {
-          type: payer.identification?.type || 'CC',
-          number: payer.identification?.number || '12345678'
-        }
-      },
-      back_urls: {
-        success: `${process.env.FRONTEND_URL}/payment-result`,
-        failure: `${process.env.FRONTEND_URL}/payment-result`,
-        pending: `${process.env.FRONTEND_URL}/payment-result`
-      },
-      ...(process.env.NODE_ENV === 'production' ? { auto_return: 'all' } : {}),
-      notification_url: process.env.WEBHOOK_URL,
-      external_reference: finalExternalReference,
-      expires: true,
-      expiration_date_to: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 minutos
-      metadata: {
-        user_id: user_id,
-        selected_items: selected_items || items.map(item => ({
-          id: item.id,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          title: item.title,
-          variants: item.variants || {}
-        }))
-      }
-    };
-
-
-    const { Preference } = require('mercadopago');
-    const preferenceClient = new Preference(mp);
-
-    const preference = await preferenceClient.create({ body: preferenceData });
-
-
-    res.json({
-      success: true,
-      preference_id: preference.id,
-      init_point: preference.init_point,
-      sandbox_init_point: preference.sandbox_init_point,
-      message: 'Preferencia de pago creada correctamente'
-    });
-
-  } catch (error) {
-    console.error('❌ Error creando preferencia:', error);
-
-    if (error.error === 'bad_request' && error.cause && error.cause[0]) {
-      const errorCode = error.cause[0].code;
-      const errorDesc = error.cause[0].description;
-
-      console.error(`Error específico: ${errorCode} - ${errorDesc}`);
-
-      res.status(400).json({
-        success: false,
-        message: `Error en Mercado Pago: ${errorDesc}`,
-        error_code: errorCode,
-        error_description: errorDesc
-      });
-    } else {
-      res.status(500).json({
-        success: false,
-        message: 'Error interno del servidor',
-        error: error.message
-      });
-    }
-  }
-};
-
-// Función para obtener el estado de un pago
-exports.getPaymentStatus = async (req, res) => {
-  try {
-    const { payment_id } = req.params;
-
-    const paymentClient = new MercadoPagoPayment(mp);
-
-    const payment = await paymentClient.get({ id: payment_id });
-
-
-    res.json({
-      id: payment.id,
-      status: payment.status,
-      status_detail: payment.status_detail,
-      external_reference: payment.external_reference,
-      transaction_amount: payment.transaction_amount,
-      payment_method: payment.payment_method,
-      payer: payment.payer
-    });
-  } catch (error) {
-    console.error('Error al consultar estado del pago:', error);
-    res.status(500).json({ error: error.message });
-  }
-};
-
-
-
-exports.mercadoPagoWebhook = async (req, res) => {
-  // Declarar paymentId al inicio para que esté disponible en todo el scope
-  let paymentId = null;
-  const mpSignature = req.headers['x-signature'];
-  if (!mpSignature) {
-    return res.status(401).send('Unauthorized');
-  }
-
-  try {
-
-    // Validar que tenemos el access token
-    const { MERCADOPAGO_ACCESS_TOKEN } = process.env;
-    if (!MERCADOPAGO_ACCESS_TOKEN) {
-      if (isDev) console.error('❌ Error: MERCADOPAGO_ACCESS_TOKEN no está configurado');
-      return res.status(500).send('Error de configuración');
-    }
-
-    // Mercado Pago puede enviar info en body o query
-    paymentId = req.body.data && req.body.data.id
-      ? req.body.data.id
-      : req.query.id;
-    const topic = req.body.type || req.query.topic;
-
-    // Solo procesar si es un pago
-    if (topic === 'payment' && paymentId) {
-      // Verificar si este webhook ya está siendo procesado
-      if (processingWebhooks.has(paymentId)) {
-        if (isDev) console.log(`⏳ Webhook para pago ${paymentId} ya está siendo procesado. Saltando.`);
-        return res.status(200).send('OK');
-      }
-
-      // Marcar este webhook como en proceso
-      processingWebhooks.add(paymentId);
-
-      try {
-        // Consultar el estado real del pago usando la API de Mercado Pago
-        const url = `https://api.mercadopago.com/v1/payments/${paymentId}`;
-        const response = await axios.get(url, {
-          headers: {
-            Authorization: `Bearer ${MERCADOPAGO_ACCESS_TOKEN}`
-          }
-        });
-        const paymentInfo = response.data;
-
-
-        // Guardar información del pago en la base de datos
-
-        try {
-          // Extraer información del usuario y productos desde metadata
-          const user_id = paymentInfo.metadata?.user_id;
-          const selected_items = paymentInfo.metadata?.selected_items || [];
-
-          // Verificar si el pago ya fue procesado y usar findOneAndUpdate para evitar condiciones de carrera
-
-          const paymentData = {
-            user_id: user_id,
-            mp_payment_id: paymentInfo.id.toString(),
-            amount: paymentInfo.transaction_amount,
-            status: paymentInfo.status,
-            payment_method: {
-              type: paymentInfo.payment_method?.type || '',
-              id: paymentInfo.payment_method?.id || ''
-            },
-            currency: paymentInfo.currency || 'COP',
-            external_reference: paymentInfo.external_reference,
-            date_created: new Date(paymentInfo.date_created),
-            date_approved: paymentInfo.status === 'approved' ? new Date(paymentInfo.date_approved || Date.now()) : null,
-            // Agregar información del pagador
-            payer: {
-              email: paymentInfo.payer?.email || '',
-              name: paymentInfo.payer?.name || '',
-              surname: paymentInfo.payer?.surname || ''
-            },
-            // Agregar productos comprados específicos de este pago
-            purchased_items: selected_items.map(item => ({
-              product_id: item.id || item.product_id || item._id,
-              quantity: item.quantity,
-              unit_price: item.unit_price,
-              product_name: item.title || item.name,
-              variants: item.variants || {}
-            }))
-          };
-
-          // Usar findOneAndUpdate con upsert para evitar condiciones de carrera
-          const payment = await Payment.findOneAndUpdate(
-            { mp_payment_id: paymentInfo.id.toString() },
-            paymentData,
-            {
-              upsert: true,
-              new: true,
-              setDefaultsOnInsert: true
-            }
-          );
-
-          // Si el pago es nuevo o ya existía
-          if (payment.createdAt.getTime() !== payment.updatedAt.getTime()) {
-            // Si el pago está aprobado, siempre intentar crear productos individuales
-            // (la función maneja internamente la verificación de duplicados)
-            if (paymentInfo.status === 'approved') {
-              await createIndividualProductsForPayment(paymentInfo, payment);
-            }
-
-            return res.status(200).send('OK');
-          }
-
-          // Si el pago fue aprobado, limpiar productos del carrito
-          if (paymentInfo.status === 'approved' && user_id && selected_items.length > 0) {
-
-            try {
-
-              // Obtener IDs de productos comprados
-              const purchasedProductIds = selected_items.map(item => {
-                return item.id || item.product_id || item._id;
-              }).filter(id => id);
-
-              // Eliminar productos comprados del carrito del usuario
-              const result = await Cart.updateMany(
-                {
-                  id_usuario: user_id,
-                  'items.id_producto': { $in: purchasedProductIds }
-                },
-                {
-                  $pull: {
-                    items: {
-                      id_producto: { $in: purchasedProductIds }
-                    }
-                  }
-                }
-              );
-
-              if (isDev) console.log(`🧹 Carrito limpiado: ${result.modifiedCount} carritos actualizados`);
-
-            } catch (cartError) {
-              if (isDev) console.error('❌ Error limpiando carrito:', cartError);
-            }
-          }
-
-          // Si el pago fue aprobado, actualizar la orden
-          if (paymentInfo.status === 'approved' && paymentInfo.external_reference) {
-            // Buscar pedido activo en estado 'paid' (que no esté en ready_for_pickup)
-            let activeOrder = await Order.findOne({
-              user: user_id,
-              status: 'paid' // Solo pedidos pagados pero sin casillero confirmado
-            });
-
-            if (activeOrder) {
-              // Procesar cada producto nuevo
-              for (const newItem of selected_items) {
-                const productId = (newItem.id || newItem.product_id || newItem._id).toString();
-                const newItemVariants = newItem.variants || {};
-
-                // Buscar item existente que coincida tanto en producto como en variantes
-                const existingItemIndex = activeOrder.items.findIndex(item => {
-                  const itemVariants = item.variants ? Object.fromEntries(item.variants) : {};
-
-                  // Comparar producto ID
-                  if (item.product.toString() !== productId) return false;
-
-                  // Comparar variantes
-                  const newVariantsKeys = Object.keys(newItemVariants);
-                  const itemVariantsKeys = Object.keys(itemVariants);
-
-                  if (newVariantsKeys.length !== itemVariantsKeys.length) return false;
-
-                  return newVariantsKeys.every(key =>
-                    newItemVariants[key] === itemVariants[key]
-                  );
-                });
-
-                if (existingItemIndex !== -1) {
-                  // Producto con las mismas variantes ya existe, sumar cantidad
-                  const existingItem = activeOrder.items[existingItemIndex];
-                  const oldTotalPrice = existingItem.total_price; // Guardar el precio anterior
-                  const newQuantity = existingItem.quantity + newItem.quantity;
-                  const newTotalPrice = existingItem.unit_price * newQuantity;
-
-                  // Actualizar cantidad y precio total del item existente
-                  activeOrder.items[existingItemIndex].quantity = newQuantity;
-                  activeOrder.items[existingItemIndex].total_price = newTotalPrice;
-
-                  // Actualizar total del pedido (restar el precio anterior y sumar el nuevo)
-                  activeOrder.total_amount = activeOrder.total_amount - oldTotalPrice + newTotalPrice;
-
-                } else {
-                  // Producto nuevo, agregarlo
-                  const newItemToAdd = {
-                    product: newItem.id || newItem.product_id || newItem._id,
-                    quantity: newItem.quantity,
-                    unit_price: newItem.unit_price,
-                    total_price: newItem.unit_price * newItem.quantity,
-                    variants: newItem.variants || undefined
-                  };
-                  activeOrder.items.push(newItemToAdd);
-                  activeOrder.total_amount += newItemToAdd.total_price;
-                }
-              }
-
-              // Actualizar información de pago
-              activeOrder.paid_at = new Date();
-              activeOrder.payment = {
-                mp_payment_id: paymentInfo.id.toString(),
-                status: paymentInfo.status,
-                method: paymentInfo.payment_method?.type || '',
-                amount: paymentInfo.transaction_amount,
-                currency: paymentInfo.currency || 'COP'
-              };
-
-              await activeOrder.save();
-
-              // Crear productos individuales para el pedido actualizado
-              await createIndividualProductsForPayment(paymentInfo, payment);
-            } else {
-              // Si no hay pedido activo, buscar si existe una orden con este external_reference
-              let existingOrder = await Order.findOne({
-                external_reference: paymentInfo.external_reference
-              });
-
-              if (existingOrder) {
-                // Actualizar la orden existente
-                const orderUpdate = {
-                  status: 'paid',
-                  paid_at: new Date(),
-                  'payment.mp_payment_id': paymentInfo.id.toString(),
-                  'payment.status': paymentInfo.status,
-                  'payment.method': paymentInfo.payment_method?.type || '',
-                  'payment.amount': paymentInfo.transaction_amount,
-                  'payment.currency': paymentInfo.currency || 'COP'
-                };
-
-                let updatedOrder = await Order.findOneAndUpdate(
-                  { external_reference: paymentInfo.external_reference },
-                  orderUpdate,
-                  { new: true }
-                );
-
-                // Crear productos individuales para la orden actualizada
-                await createIndividualProductsForPayment(paymentInfo, payment);
-              } else {
-                // Si no existe la orden, la creamos
-                try {
-                  // Calcular el total de la orden
-                  const total_amount = selected_items.reduce((acc, item) => acc + (item.unit_price * item.quantity), 0);
-                  const items = selected_items.map(item => ({
-                    product: item.id || item.product_id || item._id,
-                    quantity: item.quantity,
-                    unit_price: item.unit_price,
-                    total_price: item.unit_price * item.quantity,
-                    variants: item.variants || undefined
-                  }));
-
-                  const newOrder = new Order({
-                    user: user_id,
-                    items,
-                    status: 'paid', // Estado inicial: pagado - productos disponibles para reclamar
-                    paid_at: new Date(),
-                    payment: {
-                      mp_payment_id: paymentInfo.id.toString(),
-                      status: paymentInfo.status,
-                      method: paymentInfo.payment_method?.type || '',
-                      amount: paymentInfo.transaction_amount,
-                      currency: paymentInfo.currency || 'COP'
-                    },
-                    external_reference: paymentInfo.external_reference,
-                    total_amount
-                    // No se asigna casillero automáticamente - el usuario lo hará al reclamar productos
-                  });
-                  await newOrder.save();
-
-                  // Crear productos individuales usando la función auxiliar
-                  await createIndividualProductsForPayment(paymentInfo, payment);
-
-                  if (newOrder) {
-                    try {
-                      const user = await User.findById(user_id);
-                      if (user) {
-                        // Correo de confirmación de compra
-                        await transporter.sendMail({
-                          to: user.email,
-                          subject: '¡Gracias por tu compra en Hako! 🎉',
-                          html: `
-                            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f9f9f9; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); padding: 32px 24px;">
-                              <div style="text-align: center; margin-bottom: 24px;">
-                                <div style="font-size: 26px; font-weight: 800; color: #d32f2f; letter-spacing: -1px; margin-bottom: 8px;">箱 hako</div>
-                                <h2 style="color: #d32f2f; margin: 0;">¡Gracias por tu compra!</h2>
-                              </div>
-                              <p style="font-size: 17px; color: #222;">Hola <b>${user.nombre}</b>,</p>
-                              <p style="font-size: 16px; color: #444;">Tu compra ha sido procesada exitosamente. Pronto podrás reservar tu casillero para recoger tus productos.</p>
-                              <div style="background: #fff; border-radius: 8px; padding: 16px 20px; margin: 24px 0; border-left: 4px solid #d32f2f;">
-                                <p style="margin: 0 0 8px 0; font-size: 15px;"><b>Número de pedido:</b> ${newOrder._id}</p>
-                                <p style="margin: 0 0 8px 0; font-size: 15px;"><b>Total pagado:</b> $${newOrder.total_amount.toLocaleString('es-CO')}</p>
-                                <p style="margin: 0 0 8px 0; font-size: 15px;"><b>Estado:</b> Pagado</p>
-                              </div>
-                              <p style="font-size: 15px; color: #444;">Te avisaremos por correo cuando puedas reservar tu casillero.</p>
-                              <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0 16px 0;"/>
-                              <footer style="font-size: 13px; color: #888; text-align: center;">
-                                <p>¿Tienes dudas? Contáctanos en <a href="mailto:soporte@hako.com" style="color: #d32f2f; text-decoration: none;">soporte@hako.com</a></p>
-                                <p>Equipo Hako &copy; ${new Date().getFullYear()}</p>
-                              </footer>
-                            </div>
-                          `
-                        });
-
-                        // Correo de aviso de reserva
-                        try {
-                          await transporter.sendMail({
-                            to: user.email,
-                            subject: '¡Ya puedes reservar tu casillero en Hako! 📦',
-                            html: `
-                              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f9f9f9; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); padding: 32px 24px;">
-                                <div style="text-align: center; margin-bottom: 24px;">
-                                  <div style="font-size: 26px; font-weight: 800; color: #d32f2f; letter-spacing: -1px; margin-bottom: 8px;">箱 hako</div>
-                                  <h2 style="color: #d32f2f; margin: 0;">¡Ya puedes reservar tu casillero!</h2>
-                                </div>
-                                <p style="font-size: 17px; color: #222;">Hola <b>${user.nombre}</b>,</p>
-                                <p style="font-size: 16px; color: #444;">Tu pedido ya está listo para que reserves tu casillero y programes la recogida de tus productos.</p>
-                                <div style="background: #fff; border-radius: 8px; padding: 16px 20px; margin: 24px 0; border-left: 4px solid #d32f2f;">
-                                  <p style="margin: 0 0 8px 0; font-size: 15px;"><b>Número de pedido:</b> ${newOrder._id}</p>
-                                  <p style="margin: 0 0 8px 0; font-size: 15px;"><b>Total pagado:</b> $${newOrder.total_amount.toLocaleString('es-CO')}</p>
-                                  <p style="margin: 0 0 8px 0; font-size: 15px;"><b>Estado:</b> Listo para reservar casillero</p>
-                                </div>
-                                <p style="font-size: 15px; color: #444;">Ingresa a tu cuenta en Hako y selecciona el casillero para tu pedido.</p>
-                                <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0 16px 0;"/>
-                                <footer style="font-size: 13px; color: #888; text-align: center;">
-                                  <p>¿Tienes dudas? Contáctanos en <a href="mailto:soporte@hako.com" style="color: #d32f2f; text-decoration: none;">soporte@hako.com</a></p>
-                                  <p>Equipo Hako &copy; ${new Date().getFullYear()}</p>
-                                </footer>
-                              </div>
-                            `
-                          });
-                        } catch (mailErr2) {
-                          if (isDev) console.error('❌ Error enviando correo de aviso de reserva:', mailErr2);
-                        }
-                      }
-                    } catch (mailErr) {
-                      if (isDev) console.error('❌ Error enviando correo post compra:', mailErr);
-                    }
-                  }
-                } catch (orderCreateError) {
-                  if (isDev) console.error('❌ Error creando la orden:', orderCreateError);
-                }
-              }
-            }
-          }
-
-        } catch (dbError) {
-          if (isDev) console.error('❌ Error guardando en base de datos:', dbError);
-        }
-
-        if (isDev) console.log('✅ Webhook procesado correctamente');
-
-      } catch (apiError) {
-        if (isDev) console.error('❌ Error al consultar API de Mercado Pago:', apiError.response ? apiError.response.data : apiError.message);
-        // No enviar 500 para no reintentar el webhook, ya que el error es de nuestra parte al consultar MP
-        return res.status(200).send('OK');
-      }
-    }
-
-    res.status(200).send('OK');
-  } catch (error) {
-    if (isDev) console.error('❌ Error general en webhook Mercado Pago:', error);
-    res.status(500).send('Error');
-  } finally {
-    // Siempre remover el pago del set de procesamiento, incluso si hay error
-    if (paymentId && processingWebhooks.has(paymentId)) {
-      processingWebhooks.delete(paymentId);
-    }
-  }
-};
-
-// Obtener todos los pagos (para admin)
-exports.getAllPayments = async (req, res) => {
-  try {
-
-
-
-    // Obtener todos los pagos para debug
-    const payments = await Payment.find()
-      .populate('user_id', 'nombre email')
-      .populate('purchased_items.product_id', 'title picture_url')
-      .sort({ date_created: -1 })
-      .exec();
-
-    // Para cada pago, usar los purchased_items del modelo Payment
-    const paymentsWithProducts = payments.map((payment) => {
-      const paymentObj = payment.toObject();
-
-      // Usar los purchased_items del modelo Payment
-      if (payment.purchased_items && payment.purchased_items.length > 0) {
-        paymentObj.purchased_items = payment.purchased_items
-          .filter(item => item.product_id) // Filtrar items sin product_id
-          .map(item => ({
-            id: item.product_id._id || item.product_id,
-            title: item.product_id?.title || item.product_name || 'Producto desconocido',
-            picture_url: item.product_id?.picture_url || '',
-            quantity: item.quantity,
-            unit_price: item.unit_price,
-            total_price: item.quantity * item.unit_price
-          }));
-      } else {
-        paymentObj.purchased_items = [];
-      }
-
-      return paymentObj;
-    });
-
-    res.json(paymentsWithProducts);
-  } catch (error) {
-    console.error('Error al obtener pagos:', error);
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-};
-
-// Obtener pago por ID (para admin)
-exports.getPaymentById = async (req, res) => {
-  try {
-    const { paymentId } = req.params;
-
-    // Verificar que no sea "stats"
-    if (paymentId === 'stats') {
-      return res.status(400).json({ message: 'ID de pago inválido' });
-    }
-
-    const payment = await Payment.findById(paymentId)
-      .populate('user_id', 'nombre email')
-      .populate('purchased_items.product_id', 'title picture_url')
-      .exec();
-
-    if (!payment) {
-      return res.status(404).json({ message: 'Pago no encontrado' });
-    }
-
-    const paymentObj = payment.toObject();
-
-    // Usar los purchased_items del modelo Payment
-    if (payment.purchased_items && payment.purchased_items.length > 0) {
-      paymentObj.purchased_items = payment.purchased_items
-        .filter(item => item.product_id) // Filtrar items sin product_id
-        .map(item => ({
-          id: item.product_id._id || item.product_id,
-          title: item.product_id?.title || item.product_name || 'Producto desconocido',
-          picture_url: item.product_id?.picture_url || '',
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          total_price: item.quantity * item.unit_price
-        }));
-    } else {
-      paymentObj.purchased_items = [];
-    }
-
-    res.json(paymentObj);
-  } catch (error) {
-    console.error('Error al obtener pago:', error);
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-};
-
-// Obtener estadísticas de pagos (para admin)
-exports.getPaymentStats = async (req, res) => {
-  try {
-
-    const totalPayments = await Payment.countDocuments();
-    const approvedPayments = await Payment.countDocuments({ status: 'approved' });
-    const pendingPayments = await Payment.countDocuments({ status: 'pending' });
-    const rejectedPayments = await Payment.countDocuments({ status: 'rejected' });
-
-
-    const totalAmount = await Payment.aggregate([
-      { $match: { status: 'approved' } },
-      { $group: { _id: null, total: { $sum: '$amount' } } }
-    ]);
-
-    const averageAmount = await Payment.aggregate([
-      { $match: { status: 'approved' } },
-      { $group: { _id: null, average: { $avg: '$amount' } } }
-    ]);
-
-    const stats = {
-      totalPayments,
-      approvedPayments,
-      pendingPayments,
-      rejectedPayments,
-      totalAmount: totalAmount[0]?.total || 0,
-      averageAmount: averageAmount[0]?.average || 0
-    };
-
-
-
-    res.json(stats);
-  } catch (error) {
-    console.error('Error al obtener estadísticas:', error);
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-};
-
-// Actualizar estado de pago (para admin)
-exports.updatePaymentStatus = async (req, res) => {
-  try {
-    const { paymentId } = req.params;
-    const { status } = req.body;
-
-    const payment = await Payment.findById(paymentId);
-    if (!payment) {
-      return res.status(404).json({ message: 'Pago no encontrado' });
-    }
-
-    payment.status = status;
-    if (status === 'approved' && !payment.date_approved) {
-      payment.date_approved = new Date();
-    } else if (status !== 'approved') {
-      payment.date_approved = null;
-    }
-
-    await payment.save();
-
-    // Poblar datos del usuario para la respuesta
-    await payment.populate('user_id', 'nombre email');
-
-    res.json(payment);
-  } catch (error) {
-    console.error('Error al actualizar estado del pago:', error);
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-};
-
-// Eliminar pago (para admin)
-exports.deletePayment = async (req, res) => {
-  try {
-    const { paymentId } = req.params;
-
-    const payment = await Payment.findById(paymentId);
-    if (!payment) {
-      return res.status(404).json({ message: 'Pago no encontrado' });
-    }
-
-    await Payment.findByIdAndDelete(paymentId);
-
-    res.json({ message: 'Pago eliminado correctamente' });
-  } catch (error) {
-    console.error('Error al eliminar pago:', error);
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-};
-
-
-// Reembolsar pago (para admin)
-exports.refundPayment = async (req, res) => {
-  try {
-    const { paymentId } = req.params;
-
-    const payment = await Payment.findById(paymentId);
-    if (!payment) {
-      return res.status(404).json({ message: 'Pago no encontrado en la base de datos' });
-    }
-
-    if (!payment.mp_payment_id) {
-      return res.status(400).json({ message: 'El pago no tiene un ID de Mercado Pago válido' });
-    }
-
-    // --- VALIDACIONES DE REEMBOLSO ANTES DE LLAMAR A MERCADO PAGO ---
-    const order = await Order.findOne({ 'payment.mp_payment_id': payment.mp_payment_id });
-    
-    if (order) {
-      // 1. Validar estado del pedido
-      if (order.status === 'picked_up') {
-        return res.status(400).json({ message: 'No se puede reembolsar un pedido ya recogido' });
-      }
-      if (order.status !== 'paid' && order.status !== 'ready_for_pickup') {
-        return res.status(400).json({ message: `No se puede reembolsar un pedido en estado: ${order.status}` });
-      }
-
-      // 2. Validar si existen productos ya reclamados
-      const indivProducts = await IndividualProduct.find({ order: order._id });
-      const hasPickedUpProducts = indivProducts.some(ip => ip.status === 'picked_up');
-      
-      // La regla especifica: "Check if ALL IndividualProducts... status 'picked_up'" => BLOCK.
-      // E iterando un poco más seguro, basta con que haya un picked up (o si TODOS, entonces every).
-      // El prompt dice: "Check if ALL IndividualProducts linked to the Order have status 'picked_up'"
-      // "If yes -> BLOCK refund ... 'No se puede reembolsar un pedido que ya fue reclamado'"
-      // Vamos a verificar si *todos* los productos individuales de este pedido están recogidos.
-      // (aunque la regla posterior de order.status === 'picked_up' cubra esto, igual lo verificamos explícitamente).
-      const allPickedUp = indivProducts.length > 0 && indivProducts.every(ip => ip.status === 'picked_up');
-      if (allPickedUp || hasPickedUpProducts) {
-        return res.status(400).json({ message: 'No se puede reembolsar un pedido que ya fue reclamado' });
-      }
-
-      // 3. Validar citas (Appointment)
-      const appointment = await Appointment.findOne({
-        order: order._id,
-        status: { $in: ['scheduled', 'confirmed'] }
-      });
-
-      if (appointment) {
-        const aptDate = new Date(appointment.scheduledDate);
-        const [hours, minutes] = appointment.timeSlot.split(':').map(Number);
-        aptDate.setHours(hours, minutes, 0, 0);
-
-        const timeDiffMs = aptDate.getTime() - Date.now();
-        const timeDiffHours = timeDiffMs / (1000 * 60 * 60);
-
-        if (timeDiffHours < 1) {
-          return res.status(400).json({ message: 'No se puede reembolsar con menos de 1 hora antes de la cita programada' });
-        }
-      }
-    }
-    // --- FIN VALIDACIONES ---
-
-    let refundResult;
+const WOMPI_PUB_KEY = process.env.WOMPI_PUBLIC_KEY_TEST;
+const WOMPI_PRIV_KEY = process.env.WOMPI_PRIVATE_KEY_TEST;
+const WOMPI_EVENTS_SECRET = process.env.WOMPI_EVENTS_SECRET;
+const API_BASE_URL = 'https://sandbox.wompi.co/v1';
+// CRIT-03: Guard de idempotencia movido a DB (resistente a reinicios del servidor)
+
+async function getAcceptanceToken() {
     try {
-      const refundClient = new Refund(mp);
-      refundResult = await refundClient.create({ payment_id: payment.mp_payment_id });
-      
-      // Actualizar historial del pago
-      payment.refund_history.push({
-        status: refundResult.status || 'success',
-        amount: refundResult.amount || payment.amount,
-        error: ''
-      });
-
-      // El pago se cancela/reembolsa
-      payment.status = 'refunded';
-      payment.status_detail = 'refunded';
-      await payment.save();
-
-      // Buscar si existe un pedido asociado a este pago
-      const order = await Order.findOne({ 'payment.mp_payment_id': payment.mp_payment_id });
-      
-      if (order) {
-        order.status = 'cancelled';
-        order.order_history.push({
-          action: 'Refund',
-          details: `Reembolso exitoso por ${refundResult.amount || payment.amount} ${payment.currency}. Pedido cancelado automáticamente.`
-        });
-        await order.save();
-      }
-
-      return res.json({ message: 'Reembolso procesado exitosamente', payment });
-      
-    } catch (mpError) {
-      console.error('Error en API Refund MP:', mpError);
-      
-      let errorMsg = 'Error desconocido al procesar reembolso en Mercado Pago';
-      if (mpError.cause && mpError.cause.length > 0) {
-        errorMsg = mpError.cause[0].description || mpError.cause[0].code || errorMsg;
-      } else if (mpError.message) {
-        errorMsg = mpError.message;
-      }
-      
-      payment.refund_history.push({
-        status: 'failed',
-        amount: payment.amount,
-        error: errorMsg
-      });
-      await payment.save();
-
-      const order = await Order.findOne({ 'payment.mp_payment_id': payment.mp_payment_id });
-      if (order) {
-        order.order_history.push({
-          action: 'Refund Attempt Failed',
-          details: `Fallo al procesar reembolso en MercadoPago: ${errorMsg}`
-        });
-        await order.save();
-      }
-
-      return res.status(400).json({ 
-        message: 'No se pudo procesar el reembolso con Mercado Pago', 
-        error: errorMsg 
-      });
+        const response = await axios.get(`${API_BASE_URL}/merchants/${WOMPI_PUB_KEY}`);
+        return response.data.data.presigned_acceptance.acceptance_token;
+    } catch (error) {
+        console.error('❌ Error Wompi Acceptance Token:', error.message);
+        return null;
     }
-
-  } catch (error) {
-    console.error('Error general al reembolsar pago:', error);
-    res.status(500).json({ message: 'Error interno del servidor al intentar reembolsar' });
-  }
-};
-
-async function createIndividualProductsForPayment(paymentInfo, payment) {
-  const paymentId = paymentInfo.id.toString();
-
-  // Verificar si este pago ya está siendo procesado
-  if (processingWebhooks.has(paymentId)) {
-    if (isDev) console.log(`⏳ Pago ${paymentId} ya está siendo procesado. Saltando creación duplicada.`);
-    return;
-  }
-
-  // Marcar este pago como en proceso
-  processingWebhooks.add(paymentId);
-
-  try {
-
-    // Extraer información del usuario y productos desde metadata
-    const user_id = paymentInfo.metadata?.user_id;
-    const selected_items = paymentInfo.metadata?.selected_items || [];
-
-    if (!user_id || selected_items.length === 0) {
-      if (isDev) console.log('⚠️ No se pueden crear productos individuales: faltan datos del usuario o productos');
-      return;
-    }
-
-    // Buscar la orden asociada al pago
-    const order = await Order.findOne({
-      'payment.mp_payment_id': paymentId
-    });
-
-    if (!order) {
-      if (isDev) console.log('⚠️ No se encontró orden asociada al pago:', paymentId);
-      return;
-    }
-
-    // Crear productos individuales para cada item comprado, sin agrupar por productoId ni variantes
-    let nuevosCreados = 0;
-    for (const selectedItem of selected_items) {
-      const productId = selectedItem.id || selectedItem.product_id;
-      const selectedVariants = selectedItem.variants || {};
-
-      // Busca el producto original para dimensiones
-      const originalProduct = await Product.findById(productId);
-      if (!originalProduct) {
-        if (isDev) console.log(`❌ Producto original no encontrado: ${productId}`);
-        continue;
-      }
-
-      let finalDimensiones = originalProduct.dimensiones;
-      if (originalProduct.variants && originalProduct.variants.enabled && Object.keys(selectedVariants).length > 0) {
-        const variantDimensiones = originalProduct.getVariantOrProductDimensions(selectedVariants);
-        if (variantDimensiones) finalDimensiones = variantDimensiones;
-      }
-
-      // Busca el siguiente índice individual para la orden
-      const allProducts = await IndividualProduct.find({ order: order._id });
-      const nextIndex = allProducts.length > 0
-        ? Math.max(...allProducts.map(p => p.individualIndex || 0)) + 1
-        : 1;
-
-      // LOG: Verificar si ya existe un producto individual exacto (debug)
-      const yaExiste = allProducts.some(p => {
-        if (p.product.toString() !== productId.toString()) return false;
-        const pVariants = p.variants ? Object.fromEntries(p.variants) : {};
-        const sKeys = Object.keys(selectedVariants);
-        const pKeys = Object.keys(pVariants);
-        if (sKeys.length !== pKeys.length) return false;
-        return sKeys.every(key => selectedVariants[key] === pVariants[key]);
-      });
-      if (yaExiste) {
-        if (isDev) console.log(`⚠️ Producto individual duplicado omitido para variantes:`, selectedVariants);
-        continue;
-      }
-
-      const individualProduct = new IndividualProduct({
-        user: user_id,
-        order: order._id,
-        product: productId,
-        individualIndex: nextIndex,
-        status: 'available',
-        unitPrice: selectedItem.unit_price,
-        dimensiones: finalDimensiones,
-        variants: Object.keys(selectedVariants).length > 0 ? selectedVariants : undefined,
-        payment: {
-          mp_payment_id: paymentId,
-          status: paymentInfo.status
-        }
-      });
-      await individualProduct.save();
-      nuevosCreados++;
-      if (isDev) console.log(`✅ Producto individual creado para "${originalProduct.nombre}" con variantes:`, selectedVariants);
-    }
-    if (nuevosCreados === 0) {
-      if (isDev) console.log('ℹ️ No se crearon productos individuales nuevos.');
-    } else {
-      if (isDev) console.log(`🎉 Total de productos individuales nuevos creados: ${nuevosCreados}`);
-    }
-    if (isDev) console.log('✅ Proceso de creación de productos individuales finalizado para el pago:', paymentId);
-  } catch (error) {
-    if (isDev) console.error('❌ Error creando productos individuales:', error);
-  } finally {
-    // Siempre remover el pago del set de procesamiento, incluso si hay error
-    processingWebhooks.delete(paymentId);
-  }
 }
 
-// Exportar todas las funciones
+function validateWompiSignature(data, checksum) {
+    const orderStr = data.transaction.id + data.transaction.status + data.transaction.amount_in_cents + data.timestamp + WOMPI_EVENTS_SECRET;
+    const hash = crypto.createHash('sha256').update(orderStr).digest('hex');
+    return hash === checksum;
+}
+
+exports.createPreference = async (req, res) => {
+    try {
+        if (WOMPI_PUB_KEY?.includes('PENDING')) {
+            return res.status(503).json({ success: false, message: 'Wompi no configurado' });
+        }
+
+        const { items, payer, selected_items } = req.body;
+        const user_id = req.user.id;
+
+        if (!items || items.length === 0) {
+            return res.status(400).json({ success: false, message: 'Faltan items' });
+        }
+
+        const totalAmount = items.reduce((acc, item) => acc + (item.unit_price * item.quantity), 0);
+        const reference = `HAKO-${Date.now()}-${user_id}`;
+
+        // Crear/Actualizar Orden Pendiente para persistir items antes del pago
+        const orderData = {
+            user: user_id,
+            items: items.map(item => ({
+                product: item.id || item.product_id,
+                quantity: item.quantity,
+                unit_price: item.unit_price,
+                total_price: item.unit_price * item.quantity,
+                variants: item.variants
+            })),
+            total_amount: totalAmount,
+            status: 'pending',
+            external_reference: reference
+        };
+
+        await Order.findOneAndUpdate({ external_reference: reference }, orderData, { upsert: true });
+
+        res.json({
+            success: true,
+            payment_data: {
+                publicKey: WOMPI_PUB_KEY,
+                currency: 'COP',
+                amountInCents: totalAmount * 100,
+                reference: reference,
+                redirectUrl: `${process.env.FRONTEND_URL}/payment-result`
+            }
+        });
+
+    } catch (error) {
+        console.error('❌ Error createPreference:', error.message);
+        res.status(500).json({ success: false, message: 'Error interno' });
+    }
+};
+
+exports.mercadoPagoWebhook = async (req, res) => {
+    // CRIT-04: Validar estructura del payload antes de procesar (previene DoS por crash)
+    const { data, timestamp, signature } = req.body;
+    if (!data?.transaction || !timestamp || !signature?.checksum) {
+        console.error('❌ Webhook: Payload malformado o incompleto');
+        return res.status(400).send('Malformed payload');
+    }
+
+    if (!validateWompiSignature(req.body, signature.checksum)) {
+        return res.status(401).send('Unauthorized');
+    }
+
+    const tx = data.transaction;
+    const reference = tx.reference;
+
+    // CRIT-03: Idempotencia basada en DB — resiste reinicios del servidor
+    const existingPayment = await Payment.findOne({ wompi_transaction_id: tx.id });
+    if (existingPayment) {
+        if (isDev) console.log(`⚠️ Webhook duplicado ignorado para tx: ${tx.id}`);
+        return res.status(200).send('OK');
+    }
+
+    try {
+        const hakoStatusMap = { 'APPROVED': 'approved', 'DECLINED': 'declined', 'VOIDED': 'voided', 'ERROR': 'failed' };
+        const hakoStatus = hakoStatusMap[tx.status] || 'pending';
+
+        // HIGH-02: Castear userId a ObjectId correctamente
+        const userIdStr = reference.split('-')[2];
+        const userId = mongoose.Types.ObjectId.isValid(userIdStr)
+            ? new mongoose.Types.ObjectId(userIdStr)
+            : userIdStr;
+
+        // 1. Registrar/Actualizar Pago
+        await Payment.findOneAndUpdate(
+            { payment_id: reference },
+            {
+                payment_id: reference,
+                wompi_transaction_id: tx.id,
+                amount: tx.amount_in_cents / 100,
+                status: hakoStatus,
+                date_created: new Date(timestamp),
+                date_approved: tx.status === 'APPROVED' ? new Date() : null,
+                external_reference: reference,
+                user_id: userId
+            },
+            { upsert: true }
+        );
+
+        // 2. Procesar Orden aprobada
+        if (tx.status === 'APPROVED') {
+            const order = await Order.findOne({ external_reference: reference });
+            if (order) {
+                order.status = 'paid';
+                order.paid_at = new Date();
+                order.payment = {
+                    payment_id: reference,
+                    wompi_transaction_id: tx.id,
+                    status: 'approved',
+                    amount: tx.amount_in_cents / 100,
+                    reference: reference
+                };
+                await order.save();
+
+                // Crear productos individuales
+                await createIndividualProductsForPayment(order, tx);
+
+                // Limpiar Carrito
+                await Cart.updateOne({ id_usuario: order.user }, { $set: { items: [] } });
+
+                // Notificar por correo
+                const user = await User.findById(order.user);
+                if (user) {
+                    await transporter.sendMail({
+                        to: user.email,
+                        subject: 'Confirmación de Pago - Hako',
+                        html: `<h2>¡Pago recibido!</h2><p>Tu orden ${order._id} ha sido confirmada.</p>`
+                    });
+                }
+            }
+        }
+
+        res.status(200).send('OK');
+    } catch (error) {
+        console.error('❌ Error Webhook:', error.message);
+        res.status(500).send('Error');
+    }
+};
+
+async function createIndividualProductsForPayment(order, tx) {
+    try {
+        const itemsToCreate = [];
+        for (const item of order.items) {
+            const product = await Product.findById(item.product);
+            if (!product) continue;
+
+            for (let i = 0; i < item.quantity; i++) {
+                itemsToCreate.push({
+                    user: order.user,
+                    order: order._id,
+                    product: item.product,
+                    individualIndex: itemsToCreate.length + 1,
+                    status: 'available',
+                    unitPrice: item.unit_price,
+                    dimensiones: product.dimensiones,
+                    variants: item.variants,
+                    payment: { payment_id: order.external_reference, wompi_transaction_id: tx.id, status: 'approved' }
+                });
+            }
+        }
+        await IndividualProduct.insertMany(itemsToCreate);
+    } catch (error) {
+        console.error('❌ Error creando productos individuales:', error.message);
+    }
+}
+
+exports.refundPayment = async (req, res) => {
+    try {
+        const { paymentId } = req.params;
+        const payment = await Payment.findById(paymentId);
+
+        if (!payment) return res.status(404).json({ message: 'Pago no encontrado' });
+        if (!payment.wompi_transaction_id) return res.status(400).json({ message: 'El pago no tiene transacción Wompi asociada' });
+
+        // CRIT-05: Regla — no reembolsar si ya fue reembolsado
+        if (['refunded', 'voided'].includes(payment.status)) {
+            return res.status(400).json({ message: 'Este pago ya fue anulado o reembolsado' });
+        }
+
+        // CRIT-05: Buscar la orden asociada
+        const order = await Order.findOne({ external_reference: payment.payment_id });
+        if (!order) return res.status(404).json({ message: 'Orden asociada no encontrada' });
+
+        // CRIT-05: Regla — no reembolsar si la orden ya está cancelada
+        if (order.status === 'cancelled') {
+            return res.status(400).json({ message: 'La orden ya está cancelada' });
+        }
+
+        // CRIT-05: Regla — no reembolsar si algún producto ya fue recogido
+        const pickedUpCount = await IndividualProduct.countDocuments({
+            order: order._id,
+            status: 'picked_up'
+        });
+        if (pickedUpCount > 0) {
+            return res.status(400).json({
+                message: `No se puede reembolsar: ${pickedUpCount} producto(s) ya fueron recogidos`
+            });
+        }
+
+        // CRIT-05: Regla — bloquear si la cita activa comienza en menos de 1 hora
+        const appointment = await Appointment.findOne({
+            order: order._id,
+            status: { $in: ['scheduled', 'confirmed'] }
+        });
+        if (appointment) {
+            const now = new Date();
+            const appointmentTime = new Date(appointment.scheduledDate);
+            const [h, m] = appointment.timeSlot.split(':');
+            appointmentTime.setHours(parseInt(h), parseInt(m), 0, 0);
+            const hoursDiff = (appointmentTime.getTime() - now.getTime()) / 3600000;
+            if (hoursDiff < 1) {
+                return res.status(400).json({
+                    message: 'No se puede reembolsar: la cita comienza en menos de 1 hora'
+                });
+            }
+        }
+
+        // Procesar void en Wompi
+        await axios.post(`${API_BASE_URL}/transactions/${payment.wompi_transaction_id}/void`, {}, {
+            headers: { Authorization: `Bearer ${WOMPI_PRIV_KEY}` }
+        });
+
+        // Actualizar estados
+        payment.status = 'refunded';
+        await payment.save();
+
+        await Order.updateOne({ external_reference: payment.payment_id }, { $set: { status: 'cancelled' } });
+
+        // Liberar productos individuales no recogidos
+        await IndividualProduct.updateMany(
+            { order: order._id, status: { $nin: ['picked_up'] } },
+            { $set: { status: 'available' }, $unset: { assignedLocker: '', reservedAt: '' } }
+        );
+
+        // Cancelar cita si existe
+        if (appointment) {
+            appointment.status = 'cancelled';
+            appointment.cancelledBy = 'admin';
+            appointment.cancellationReason = 'Reembolso procesado por administrador';
+            appointment.cancelledAt = new Date();
+            await appointment.save();
+        }
+
+        if (isDev) console.log(`✅ Reembolso procesado para pago ${paymentId}`);
+        res.json({ success: true, message: 'Pago anulado exitosamente' });
+    } catch (error) {
+        console.error('❌ Error refundPayment:', error.message);
+        res.status(400).json({ message: 'Error al anular el pago', details: error.response?.data || error.message });
+    }
+};
+
 module.exports = {
-  createPreference: exports.createPreference,
-  getPaymentStatus: exports.getPaymentStatus,
-  mercadoPagoWebhook: exports.mercadoPagoWebhook,
-  getAllPayments: exports.getAllPayments,
-  getPaymentById: exports.getPaymentById,
-  getPaymentStats: exports.getPaymentStats,
-  updatePaymentStatus: exports.updatePaymentStatus,
-  deletePayment: exports.deletePayment,
-  refundPayment: exports.refundPayment
+    createPreference: exports.createPreference,
+    mercadoPagoWebhook: exports.mercadoPagoWebhook,
+    refundPayment: exports.refundPayment,
+    getAllPayments: async (req, res) => res.json(await Payment.find().populate('user_id')),
+    getPaymentById: async (req, res) => res.json(await Payment.findById(req.params.paymentId).populate('user_id')),
+    updatePaymentStatus: async (req, res) => res.json(await Payment.findByIdAndUpdate(req.params.paymentId, req.body, { new: true })),
+    deletePayment: async (req, res) => { await Payment.findByIdAndDelete(req.params.paymentId); res.send('OK'); },
+    getPaymentStats: async (req, res) => res.json({ total: await Payment.countDocuments() })
 };

@@ -32,7 +32,7 @@ Hako is an innovative store management system that integrates physical smart loc
 - **Frontend:** React, TypeScript, Vite, Vanilla CSS.
 - **Backend:** Node.js, Express.js.
 - **Database:** MongoDB (using Mongoose ODM).
-- **Payment Gateway:** Mercado Pago (v1 SDK / Checkout Pro).
+- **Payment Gateway:** Wompi (Web Checkout Redirect flow).
 - **Automation:** `node-cron` for scheduled cleanups and status updates.
 - **3D Visualization:** Integrated locker viewer in the frontend.
 
@@ -45,7 +45,8 @@ Hako is an innovative store management system that integrates physical smart loc
 - `/docs`: Project documentation.
 
 ### Key Dependencies
-- `mercadopago`: Payment processing and refunds.
+- `axios`: For backend-to-Wompi communication.
+- `crypto`: For Wompi Webhook signature validation.
 - `qrcode`: Token-to-image generation for pickup.
 - `node-cron`: Handles expired QRs and penalty resets.
 - `nodemailer`: Email notifications for payments and QR delivery.
@@ -56,9 +57,9 @@ Hako is an innovative store management system that integrates physical smart loc
 ## 3. Business Rules & Logic
 
 ### Payment Flow Rules
-- **Pre-Payment:** Preference created with 30-minute expiration.
-- **Metadata:** All payment tokens must include `user_id` and `selected_items` with variant details.
-- **Validation:** Only `approved` status from Mercado Pago triggers the creation of `IndividualProduct` and clears the cart.
+- **Pre-Payment:** "Pending Order" created in DB with a unique reference before redirecting to Wompi.
+- **Reference:** Every Wompi transaction must include a unique `reference` following the pattern `HAKO-{timestamp}-{userId}`.
+- **Validation:** Only `APPROVED` status from Wompi (verified via SHA-256 checksum) triggers the creation of `IndividualProduct` and marks the order as `paid`.
 
 ### Refund Eligibility Rules
 - **Timing:** Refund is blocked if the pickup appointment starts in less than 1 hour.
@@ -95,9 +96,9 @@ Hako is an innovative store management system that integrates physical smart loc
 - `PATCH /api/producto/admin/:id/toggle-status`: (Admin) Activate/Deactivate.
 
 ### Orders & Payments
-- `POST /api/payment/create-preference`: Initiate Mercado Pago flow.
-- `POST /api/payment/webhook`: Handle async status updates.
-- `POST /api/payment/refund/:paymentId`: (Admin) Process refund with validation.
+- `POST /api/payment/create-preference`: Initiate Wompi Redirect flow.
+- `POST /api/payment/webhook`: Handle async status updates from Wompi.
+- `POST /api/payment/refund/:paymentId`: (Admin) Process Wompi Void/Refund with validation.
 
 ### Appointments
 - `GET /api/appointment/available-slots`: Check availability per date.
@@ -144,7 +145,8 @@ The spatial record. Maps products to physical lockers using the slot-calculation
 ## 7. Environment & Configuration
 
 ### Required .env Variables
-- `MERCADOPAGO_ACCESS_TOKEN`: API key for payments.
+- `WOMPI_PUBLIC_KEY_TEST / WOMPI_PRIVATE_KEY_TEST`: API keys for payments.
+- `WOMPI_EVENTS_SECRET`: Secret for webhook SHA-256 validation.
 - `MONGODB_URI`: Connection string.
 - `FRONTEND_URL`: URL for redirection callbacks.
 - `WEBHOOK_URL`: Public URL (ngrok in dev) for payment notifications.
@@ -160,5 +162,73 @@ The spatial record. Maps products to physical lockers using the slot-calculation
 - **Testing:** Unit tests for slot-calculation logic are recommended.
 - **ProductVariantManager:** Known UI/Logic inconsistencies identified in recent audits.
 
+
 ---
 *Document generated on: 2026-03-30*
+
+## Comandos de Diagnóstico en Terminal
+
+### Verificar estado general de la DB
+```javascript
+node -e "
+const mongoose = require('mongoose');
+const fs = require('fs');
+const path = require('path');
+function loadEnv() {
+  const content = fs.readFileSync(path.resolve(__dirname, '../../.env'), 'utf-8');
+  const config = {};
+  content.split('\n').forEach(line => {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) return;
+    const [key, ...v] = trimmed.split('=');
+    if (key && v.length > 0) config[key.trim()] = v.join('=').trim();
+  });
+  return config;
+}
+const env = loadEnv();
+mongoose.connect(env.MONGODB_URI, { dbName: 'HAKO' }).then(async () => {
+  const db = mongoose.connection.db;
+  const cols = await db.listCollections().toArray();
+  for (const col of cols) {
+    const count = await db.collection(col.name).countDocuments();
+    console.log(col.name.padEnd(25), ':', count);
+  }
+  await mongoose.disconnect();
+}).catch(e => console.error(e.message));
+"
+```
+
+### Verificar datos de un usuario específico
+```javascript
+node -e "
+const mongoose = require('mongoose');
+const fs = require('fs');
+const path = require('path');
+function loadEnv() {
+  const content = fs.readFileSync(path.resolve(__dirname, '../../.env'), 'utf-8');
+  const config = {};
+  content.split('\n').forEach(line => {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) return;
+    const [key, ...v] = trimmed.split('=');
+    if (key && v.length > 0) config[key.trim()] = v.join('=').trim();
+  });
+  return config;
+}
+const env = loadEnv();
+const EMAIL = 'test@gmail.com';
+mongoose.connect(env.MONGODB_URI, { dbName: 'HAKO' }).then(async () => {
+  const db = mongoose.connection.db;
+  const user = (await db.collection('usuarios').find({ email: EMAIL }).toArray())[0];
+  if (!user) { console.log('Usuario no encontrado'); process.exit(0); }
+  console.log('Usuario:', user.email, '| ID:', user._id);
+  const appts = await db.collection('appointments').find({ user: user._id }).sort({ createdAt: -1 }).toArray();
+  console.log('Reservas totales:', appts.length);
+  appts.forEach(a => console.log(' -', a.status, '|', a.scheduledDate, '| items:', a.itemsToPickup?.length || 0));
+  const prods = await db.collection('individualproducts').find({ user: user._id }).toArray();
+  console.log('Productos individuales:', prods.length);
+  prods.forEach(p => console.log(' -', p.status, '|', p._id));
+  await mongoose.disconnect();
+}).catch(e => console.error(e.message));
+"
+```

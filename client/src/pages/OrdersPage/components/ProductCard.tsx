@@ -74,7 +74,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
             </div>
             <div className="mb-1">
               <span className={`badge ${isClaimed ? 'bg-success' : yaEstaEnReserva ? 'bg-warning' : item.assigned_locker ? 'bg-warning' : isRecentlyUnlocked ? 'bg-success' : 'bg-info'}`}>
-                {isClaimed ? 'Reclamado' : yaEstaEnReserva ? 'En Reserva' : item.assigned_locker ? 'Reservado' : isRecentlyUnlocked ? 'Disponible (Recién Desbloqueado)' : 'Disponible'}
+                {isClaimed ? 'Listo para recoger' : yaEstaEnReserva ? 'En Reserva' : item.assigned_locker ? 'Reservado' : isRecentlyUnlocked ? 'Disponible (Recién Desbloqueado)' : 'Disponible'}
               </span>
             </div>
             {isClaimed && item.assigned_locker && (
@@ -129,7 +129,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
               </div>
             ) : isClaimed ? (
               <div className="text-center">
-                <span className="badge bg-success">Ya reclamado</span>
+                <span className="badge bg-success">Listo para recoger</span>
               </div>
             ) : item.assigned_locker ? (
               <div className="text-center">

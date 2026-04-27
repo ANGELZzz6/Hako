@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Routes, Route, Link, useLocation, useNavigate, Navigate } from 'react-router-dom';
+import { useState, useRef, useEffect } from 'react';
+import { Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
-import 'bootstrap-icons/font/bootstrap-icons.css'; // Para los íconos como el del carrito
+import 'bootstrap-icons/font/bootstrap-icons.css';
 import BoxAnimation from './components/BoxAnimation';
 import ProductCard from './components/ProductCard';
 import appointmentService from './services/appointmentService';
@@ -10,28 +10,21 @@ import Productos from './pages/Productos';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import CartPage from './pages/CartPage';
-
-import PaymentSuccessPage from './pages/PaymentSuccessPage';
-import PaymentResultPage from './pages/PaymentResultPage';
-import PaymentTestPage from './pages/PaymentTestPage';
 import AdminDashboard from './pages/AdminDashboard';
 import UserManagement from './pages/UserManagement';
 import InventoryManagement from './pages/InventoryManagement';
 import SupportPage from './pages/SupportManagement';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminOnly from './components/AdminOnly';
-import './App.css'; // Puedes mover los estilos en línea aquí
+import './App.css';
 import anuncioVideo from './assets/anuncio.mp4';
 import ubicacion from './assets/ubicacion.png';
 import productService from './services/productService';
 import type { Product } from './services/productService';
 import { useAuth } from './contexts/AuthContext';
-import cartService from './services/cartService';
-import type { Cart } from './services/cartService';
 import ProductDetail from './pages/ProductDetail';
 import ProfilePage from './pages/ProfilePage';
 import CartManagement from './pages/CartManagement';
-import { useMobileViewport } from './hooks/useMobileViewport';
 import AdminSupportPage from './pages/AdminSupport';
 import PaymentManagement from './pages/PaymentManagement';
 import { CartProvider, useCart } from './contexts/CartContext';
@@ -39,9 +32,8 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import SplashScreen from './components/SplashScreen';
 import SugerenciasPage from './pages/SugerenciasPage';
-import PaymentFailurePage from './pages/PaymentFailurePage';
-import PaymentPendingPage from './pages/PaymentPendingPage';
 import CheckoutPage from './pages/CheckoutPage';
+import PaymentResultPage from './pages/PaymentResultPage';
 import OrdersPage from './pages/OrdersPage';
 import AdminOrdersPage from './pages/AdminOrdersPage';
 import AdminLockersPage from './pages/AdminLockersPage';
@@ -51,7 +43,7 @@ import AdminProductTestPage from './pages/AdminProductTestPage';
 import AdminMonitoringPage from './pages/AdminMonitoringPage';
 import AdminContentEditorPage from './pages/AdminContentEditorPage';
 import orderService from './services/orderService';
-import { showSuccessToast } from './utils/toast';
+
 import { SiteSettingsProvider, useSiteSettings } from './contexts/SiteSettingsContext';
 
 // Importar fuente Montserrat
@@ -67,19 +59,13 @@ const AppContent = () => {
   const [isVideoPlaying, setIsVideoPlaying] = useState(true);
   const [isDarkTheme, setIsDarkTheme] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
-  const [showPaymentSuccess, setShowPaymentSuccess] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const location = useLocation();
   const navigate = useNavigate();
 
   // Usar el contexto de autenticación
-  const { currentUser, isAuthenticated, logout, isAdmin } = useAuth();
-
-  // Forzar resolución móvil
-  useMobileViewport();
-
-  // Forzar el contexto de carrito
-  const { cart, refreshCart, setCart, clearCart } = useCart();
+  const { isAuthenticated, logout } = useAuth();
+  const { cart, setCart, clearCart } = useCart();
 
   const { settings } = useSiteSettings();
 
@@ -109,40 +95,11 @@ const AppContent = () => {
     }
   }, []);
 
-  // Efecto para detectar si el usuario viene de un pago exitoso
+  // Efecto para detectar si el usuario viene de un pago
   useEffect(() => {
-    // Verificar si viene de Mercado Pago (detectar por referrer o parámetros de URL)
-    const referrer = document.referrer;
     const urlParams = new URLSearchParams(window.location.search);
-
-    // Si hay parámetros de pago en la URL, redirigir a la página de resultado
-    if (urlParams.get('payment_id') ||
-      urlParams.get('collection_id') ||
-      urlParams.get('status') ||
-      urlParams.get('collection_status')) {
-
-      // Mantener los parámetros de URL al redirigir
-      const currentUrl = window.location.href;
-      const baseUrl = currentUrl.split('?')[0];
-      const params = currentUrl.split('?')[1];
-
-      if (params) {
-        navigate(`/payment-result?${params}`);
-      } else {
-        navigate('/payment-result');
-      }
-      return;
-    }
-
-    if (referrer.includes('mercadopago.com') ||
-      referrer.includes('mercadolibre.com') ||
-      urlParams.get('payment_status') === 'success' ||
-      urlParams.get('status') === 'success' ||
-      urlParams.get('collection_status') === 'approved') {
-
-      setShowPaymentSuccess(true);
-      // Limpiar la URL
-      window.history.replaceState({}, document.title, window.location.pathname);
+    if (urlParams.get('id') && urlParams.get('status') && urlParams.get('reference')) {
+      navigate(`/payment-result?${urlParams.toString()}`);
     }
   }, [navigate]);
 
@@ -159,7 +116,7 @@ const AppContent = () => {
       if (isAuthenticated && location.pathname === '/') {
         try {
           const items = await orderService.getMyPurchasedProducts();
-          const hasUnreserved = items.some(item => !item.isReserved);
+          const hasUnreserved = items.some(item => (item as any).status === 'available');
           setShowReservationAlert(hasUnreserved);
           // Cargar reservas activas del usuario para colorear casilleros
           const myApps = await appointmentService.getMyAppointments();
@@ -220,49 +177,10 @@ const AppContent = () => {
   // Filtrar solo productos destacados para la sección de inicio
   const productosDestacados = products.filter(p => p.isDestacado);
 
-  // Función para limpiar el estado de pago
+  // Función para limpiar el estado
   const cleanupPaymentState = () => {
-    try {
-      // Limpiar cualquier instancia del SDK de Mercado Pago
-      if ((window as any).mp) {
-        delete (window as any).mp;
-      }
-
-      // Limpiar cualquier script del SDK
-      const scripts = document.querySelectorAll('script[src*="mercadopago"]');
-      scripts.forEach(script => script.remove());
-
-      // Limpiar cualquier contenedor de formularios
-      const containers = document.querySelectorAll('#cardFormContainer, #moneyFormContainer');
-      containers.forEach(container => {
-        if (container) {
-          container.innerHTML = '';
-        }
-      });
-
-      // Limpiar cualquier elemento con clase de Mercado Pago
-      const mpElements = document.querySelectorAll('[class*="mercadopago"], [class*="mp-"]');
-      mpElements.forEach(element => {
-        if (element.parentNode) {
-          element.parentNode.removeChild(element);
-        }
-      });
-
-      // Limpiar cualquier iframe de Mercado Pago
-      const iframes = document.querySelectorAll('iframe[src*="mercadopago"]');
-      iframes.forEach(iframe => {
-        if (iframe.parentNode) {
-          iframe.parentNode.removeChild(iframe);
-        }
-      });
-
-      // Limpiar localStorage relacionado con pagos
-      localStorage.removeItem('payment_auto_reload');
-      localStorage.removeItem('mp_');
-
-    } catch (error) {
-      // Error silencioso en producción
-    }
+    // Wompi no requiere limpieza compleja de SDK en el lado del cliente (Redirect Flow)
+    localStorage.removeItem('payment_auto_reload');
   };
 
   // Función para manejar el logout
@@ -281,32 +199,9 @@ const AppContent = () => {
     navigate(`/productos/${productId}`);
   };
 
-  // Función para agregar producto al carrito
-  const handleAddToCart = async (e: React.MouseEvent, productId: string) => {
-    e.stopPropagation();
-    if (!isAuthenticated) {
-      navigate('/login');
-      return;
-    }
-    try {
-      await cartService.addToCart(productId, 1);
-      await refreshCart(); // Actualiza el carrito global
-
-      // Mostrar toast de éxito
-      showSuccessToast('¡Producto agregado al box! 🎉');
-
-    } catch (error) {
-      console.error('Error al agregar al box:', error);
-      alert('Error al agregar al box. Intenta de nuevo.');
-    }
-  };
 
   // Renderizar el contenido según la ruta
   const renderContent = () => {
-    // Si el usuario viene de un pago exitoso, mostrar la página de confirmación
-    if (showPaymentSuccess) {
-      return <PaymentSuccessPage />;
-    }
 
     if (location.pathname === '/productos') {
       return <Productos products={products} />;
@@ -373,9 +268,9 @@ const AppContent = () => {
                   <Link to="/productos" className="btn btn-danger btn-lg">
                     <i className="bi bi-shop me-2"></i>{settings?.heroCtaText || 'Ver Productos'}
                   </Link>
-                  <a href="#ofertas" className="btn btn-outline-primary btn-lg">
+                  <Link to="/productos?filtro=ofertas" className="btn btn-outline-primary btn-lg">
                     <i className="bi bi-tag me-2"></i>Ver Ofertas
-                  </a>
+                  </Link>
                 </div>
               </div>
             </div>
@@ -449,6 +344,7 @@ const AppContent = () => {
                   <ProductCard 
                     producto={producto}
                     onClick={handleProductClick}
+                    showStars={true}
                   />
                 </div>
               ))}
@@ -585,21 +481,6 @@ const AppContent = () => {
           </ProtectedRoute>
         } />
 
-        <Route path="/payment-success" element={
-          <ProtectedRoute>
-            <PaymentSuccessPage />
-          </ProtectedRoute>
-        } />
-        <Route path="/payment-result" element={
-          <ProtectedRoute>
-            <PaymentResultPage />
-          </ProtectedRoute>
-        } />
-        <Route path="/payment-test" element={
-          <ProtectedRoute requireAdmin>
-            <PaymentTestPage />
-          </ProtectedRoute>
-        } />
         <Route path="/admin" element={
           <ProtectedRoute requireAdmin>
             <AdminDashboard />
@@ -643,8 +524,11 @@ const AppContent = () => {
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
         <Route path="/sugerencias" element={<SugerenciasPage />} />
-        <Route path="/payment-failure" element={<Navigate to="/payment-result" replace />} />
-        <Route path="/payment-pending" element={<Navigate to="/payment-result" replace />} />
+        <Route path="/payment-result" element={
+          <ProtectedRoute>
+            <PaymentResultPage />
+          </ProtectedRoute>
+        } />
         <Route path="/checkout" element={<ProtectedRoute><CheckoutPage /></ProtectedRoute>} />
         <Route path="/mis-pedidos" element={<ProtectedRoute><OrdersPage /></ProtectedRoute>} />
 

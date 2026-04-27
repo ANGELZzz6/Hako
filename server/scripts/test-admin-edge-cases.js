@@ -108,6 +108,7 @@ async function runEdgeTests() {
   // 2. CITAS
   logHeader("CITAS");
   await testCase("Citas - Fecha pasada", "/api/appointments/available-slots/2020-01-01", 400);
+  await testCase("Slots - Hora sin casilleros disponibles no retorna available", "/api/appointments/available-slots/" + new Date().toISOString().split('T')[0], 200);
 
   // 3. IDs & EXISTENCIA
   const validNoId = "000000000000000000000000";

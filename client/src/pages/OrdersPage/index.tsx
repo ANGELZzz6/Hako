@@ -1,26 +1,25 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { useOrdersPage } from './hooks/useOrdersPage';
 import orderService from '../../services/orderService';
 import appointmentService from '../../services/appointmentService';
 import AppointmentScheduler from '../../components/AppointmentScheduler';
-import PackingOptimizationTips from '../../components/PackingOptimizationTips';
-import gridPackingService from '../../services/gridPackingService';
-import type { CreateAppointmentData } from '../../services/appointmentService';
-import type { Appointment } from '../../services/appointmentService';
-import { getDimensiones, getVolumen, tieneDimensiones, hasLockerSpace } from './utils/productUtils';
-import { createLocalDate, hasExpiredAppointments } from './utils/dateUtils';
-import { useOrdersPage } from './hooks/useOrdersPage';
+import type { CreateAppointmentData, Appointment } from '../../services/appointmentService';
+import { tieneDimensiones, getVolumen, getDimensiones } from './utils/productUtils';
+import { hasExpiredAppointments } from './utils/dateUtils';
 import ProductCard from './components/ProductCard';
 import LockerVisualization from './components/LockerVisualization';
 import AppointmentCard from './components/AppointmentCard';
 import EditAppointmentModal from './components/EditAppointmentModal';
 import LoadingOverlay from './components/LoadingOverlay';
+import ConfirmModal from '../../components/ConfirmModal';
 import './OrdersPage.css';
+import gridPackingService from '../../services/gridPackingService';
 
 const isDev = import.meta.env.DEV;
 
-const OrdersPage: React.FC = () => {
+const OrdersPage = () => {
   const { isAuthenticated, isLoading } = useAuth();
   const navigate = useNavigate();
   const {
@@ -30,14 +29,11 @@ const OrdersPage: React.FC = () => {
     error,
     selectedProducts,
     lockerAssignments,
-    claimingProducts,
-    availableLockers,
     showAppointmentScheduler,
     schedulingAppointment,
     myAppointments,
     loadingAppointments,
     packingResult,
-    showPackingOptimization,
     recentlyUnlockedProducts,
     cancellingAppointment,
     reservingLocker,
@@ -46,19 +42,15 @@ const OrdersPage: React.FC = () => {
     selectedAppointmentForEdit,
     editAppointmentDate,
     editAppointmentTime,
-    editAppointmentLocker,
     penalizedDates,
     penaltyWarning,
     visualizationKey,
-
-    // Setters
+    claimingProducts,
     setPurchasedProducts,
     setSelectedProducts,
     setLockerAssignments,
     setPackingResult,
-    setRecentlyUnlockedProducts,
     setShowAppointmentScheduler,
-    setShowPackingOptimization,
     setCancellingAppointment,
     setReservingLocker,
     setUpdatingAppointment,
@@ -67,18 +59,90 @@ const OrdersPage: React.FC = () => {
     setSelectedAppointmentForEdit,
     setEditAppointmentDate,
     setEditAppointmentTime,
-    setEditAppointmentLocker,
     setPenaltyWarning,
     setMyAppointments,
-
-    // Funciones
     forceCleanupStates,
-    fetchMyAppointments,
     selectAllAvailableProducts,
-    updateLockerAssignments,
-    canAddProductsToAppointment,
     forceVisualizationUpdate,
   } = useOrdersPage();
+
+  // Función para verificar errores de validación
+  const getValidationErrors = () => {
+    const errors: string[] = [];
+
+    // Si el algoritmo de packing ya generó lockers, no hay errores de validación de espacio
+    if (packingResult && packingResult.lockers.length > 0) {
+      return errors;
+    }
+
+    selectedProducts.forEach((_, itemIndex) => {
+      const item = purchasedProducts[itemIndex];
+      if (item.isClaimed || item.assigned_locker) return;
+
+      if (!tieneDimensiones(item)) {
+        errors.push(`El producto ${item.product?.nombre || 'sin nombre'} no tiene dimensiones configuradas.`);
+      }
+    });
+
+    return errors;
+  };
+
+  // Estado para el modal de confirmación/alerta personalizado
+  const [modalConfig, setModalConfig] = useState<{
+    show: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    onCancel?: () => void;
+    type: 'confirm' | 'alert';
+    variant: 'primary' | 'danger' | 'warning' | 'success' | 'info';
+    confirmText?: string;
+  }>({
+    show: false,
+    title: '',
+    message: '',
+    onConfirm: () => { },
+    type: 'alert',
+    variant: 'primary'
+  });
+
+  // Funciones auxiliares para mostrar el modal
+  const showAlert = (title: string, message: string, variant: 'primary' | 'danger' | 'warning' | 'success' | 'info' = 'primary') => {
+    return new Promise<void>((resolve) => {
+      setModalConfig({
+        show: true,
+        title,
+        message,
+        onConfirm: () => {
+          setModalConfig(prev => ({ ...prev, show: false }));
+          resolve();
+        },
+        type: 'alert',
+        variant
+      });
+    });
+  };
+
+  const showConfirm = (title: string, message: string, variant: 'primary' | 'danger' | 'warning' | 'success' | 'info' = 'primary', confirmText?: string) => {
+    return new Promise<boolean>((resolve) => {
+      setModalConfig({
+        show: true,
+        title,
+        message,
+        onConfirm: () => {
+          setModalConfig(prev => ({ ...prev, show: false }));
+          resolve(true);
+        },
+        onCancel: () => {
+          setModalConfig(prev => ({ ...prev, show: false }));
+          resolve(false);
+        },
+        type: 'confirm',
+        variant,
+        confirmText
+      });
+    });
+  };
 
   // Mostrar solo 5 completadas inicialmente
   const [completedVisibleCount, setCompletedVisibleCount] = useState(5);
@@ -90,152 +154,22 @@ const OrdersPage: React.FC = () => {
     }
   }, [isAuthenticated, isLoading, navigate]);
 
-  // Función para manejar selección de productos individuales
-  const handleQuantityChange = (itemIndex: number, quantity: number) => {
-    const item = purchasedProducts[itemIndex];
-
-    if (item.isClaimed || item.assigned_locker) {
-      return;
-    }
-
-    if (quantity !== 0 && quantity !== 1) {
-      quantity = quantity > 0 ? 1 : 0;
-    }
-
-    if (quantity === 0) {
-      const newSelectedProducts = new Map(selectedProducts);
-      newSelectedProducts.delete(itemIndex);
-      setSelectedProducts(newSelectedProducts);
-      updateLockerAssignments(newSelectedProducts);
-      return;
-    }
-
-    const currentSelection = selectedProducts.get(itemIndex);
-    const newSelectedProducts = new Map(selectedProducts);
-    const defaultLocker = availableLockers.length > 0 ? availableLockers[0] : 1;
-
-    newSelectedProducts.set(itemIndex, {
-      quantity: 1,
-      lockerNumber: currentSelection?.lockerNumber || defaultLocker
-    });
-
-    setSelectedProducts(newSelectedProducts);
-    updateLockerAssignments(newSelectedProducts);
-  };
-
-  // Función para manejar cambio de locker
-  const handleLockerChange = (itemIndex: number, lockerNumber: number) => {
-    const currentSelection = selectedProducts.get(itemIndex);
-    if (!currentSelection) return;
-
-    const newSelectedProducts = new Map(selectedProducts);
-    newSelectedProducts.set(itemIndex, {
-      ...currentSelection,
-      lockerNumber
-    });
-
-    setSelectedProducts(newSelectedProducts);
-    updateLockerAssignments(newSelectedProducts);
-  };
-
-  // Función para verificar errores de validación
-  const getValidationErrors = () => {
-    const errors: string[] = [];
-
-    if (packingResult && packingResult.lockers.length > 0) {
-      return errors;
-    }
-
-    selectedProducts.forEach((selection, itemIndex) => {
-      const item = purchasedProducts[itemIndex];
-      if (item.isClaimed || item.assigned_locker) return;
-      if (!tieneDimensiones(item)) {
-        errors.push(`El producto ${item.product?.nombre} no tiene dimensiones configuradas`);
-      }
-      const itemVolume = getVolumen(item) * selection.quantity;
-      if (!hasLockerSpace(selection.lockerNumber, itemVolume, lockerAssignments)) {
-        errors.push(`Los productos en el casillero ${selection.lockerNumber} exceden el espacio disponible`);
-      }
-    });
-    return errors;
-  };
-
-  // Función para manejar envío de reclamación
-  const handleClaimSubmit = async () => {
-    const errors = getValidationErrors();
-    if (errors.length > 0) {
-      alert('Errores de validación:\n' + errors.join('\n'));
-      return;
-    }
-
-    if (selectedProducts.size === 0) {
-      alert('Por favor selecciona al menos un producto para reclamar');
-      return;
-    }
-
-    try {
-      const selectedItemsArray = Array.from(selectedProducts.entries()).map(([itemIndex, selection]) => {
-        const item = purchasedProducts[itemIndex];
-        return {
-          individualProductId: item._id || '',
-          lockerNumber: selection.lockerNumber
-        };
-      });
-
-      const result = await orderService.claimIndividualProducts(selectedItemsArray);
-
-      alert(`Productos reclamados exitosamente!\n\nCasilleros asignados:\n${result.lockerAssignments.map((la: any) =>
-        `Casillero ${la.locker}: ${la.volumePercentage}% de uso (${la.volume.toLocaleString()} cm³)`
-      ).join('\n')}`);
-
-      const products = await orderService.getMyPurchasedProducts();
-      setPurchasedProducts(products);
-      setSelectedProducts(new Map());
-      setLockerAssignments(new Map());
-
-    } catch (err: any) {
-      alert(err.message || 'Error al reclamar productos');
-    }
-  };
-
   // Función para limpiar selección
   const handleClearSelection = () => {
     setSelectedProducts(new Map());
     setLockerAssignments(new Map());
   };
 
-  // Función para mostrar información de optimización
-  const showOptimizationInfo = () => {
-    if (!packingResult || packingResult.lockers.length === 0) return;
-
-    const totalSlots = packingResult.lockers.reduce((sum, locker) => sum + locker.usedSlots, 0);
-    const totalCapacity = packingResult.lockers.length * 27;
-    const overallUsage = (totalSlots / totalCapacity) * 100;
-
-    const hasFullLocker = packingResult.lockers.some(locker => {
-      const usagePercentage = (locker.usedSlots / 27) * 100;
-      return usagePercentage >= 80;
-    });
-
-    let message = `📊 Información de Optimización\n\n`;
-    message += `Casilleros utilizados: ${packingResult.lockers.length}\n`;
-    message += `Slots ocupados: ${totalSlots}/${totalCapacity}\n`;
-    message += `Uso total: ${overallUsage.toFixed(1)}%\n\n`;
-
-    if (hasFullLocker) {
-      message += `✅ Excelente optimización: Al menos un casillero está bien lleno.`;
-    } else if (overallUsage >= 50) {
-      message += `⚠️ Optimización moderada: Considera agregar más productos para llenar completamente un casillero.`;
-    } else {
-      message += `⚠️ Optimización baja: El espacio no se está aprovechando eficientemente.`;
-    }
-
-    alert(message);
-  };
-
   // Función para cancelar reserva
   const handleCancelAppointment = async (appointmentId: string) => {
-    if (!confirm('¿Estás seguro de que quieres cancelar esta reserva?')) {
+    const confirmed = await showConfirm(
+      'Confirmar Cancelación',
+      '¿Estás seguro de que quieres cancelar esta reserva? Esta acción no se puede deshacer.',
+      'danger',
+      'Cancelar Reserva'
+    );
+
+    if (!confirmed) {
       return;
     }
 
@@ -259,21 +193,21 @@ const OrdersPage: React.FC = () => {
         ? `✅ Reserva cancelada exitosamente\n\n📦 ${productsInReservation.length} producto${productsInReservation.length > 1 ? 's' : ''} han sido desbloqueado${productsInReservation.length > 1 ? 's' : ''} y están disponibles para nueva reserva.`
         : '✅ Reserva cancelada exitosamente';
 
-      alert(message);
+      setCancellingAppointment(false);
+      await showAlert('¡Éxito!', message, 'success');
 
     } catch (err: any) {
-      alert(err.message || 'Error al cancelar la reserva');
+      setCancellingAppointment(false);
+      await showAlert('Error', err.message || 'Error al cancelar la reserva', 'danger');
     } finally {
       setCancellingAppointment(false);
     }
   };
 
   // Función para editar reserva
-  const handleEditAppointment = (appointment: Appointment, forceEdit = false) => {
+  const handleEditAppointment = (appointment: Appointment, _forceEdit = false) => {
     let initialDate = '';
     let initialTime = '';
-    let initialLocker = appointment.itemsToPickup[0]?.lockerNumber || 1;
-
     // Siempre usar la fecha actual al abrir el modal de edición
     const today = new Date();
     const year = today.getFullYear();
@@ -287,7 +221,6 @@ const OrdersPage: React.FC = () => {
     setSelectedAppointmentForEdit(appointment);
     setEditAppointmentDate(initialDate);
     setEditAppointmentTime(initialTime);
-    setEditAppointmentLocker(initialLocker);
     setShowEditAppointmentModal(true);
   };
 
@@ -305,12 +238,13 @@ const OrdersPage: React.FC = () => {
       setSelectedAppointmentForEdit(null);
       setEditAppointmentDate('');
       setEditAppointmentTime('');
-      setEditAppointmentLocker(1);
 
-      alert(result.message);
+      setUpdatingAppointment(false);
+      await showAlert('¡Éxito!', result.message, 'success');
 
     } catch (err: any) {
-      alert(err.message || 'Error al actualizar la reserva');
+      setUpdatingAppointment(false);
+      await showAlert('Error', err.message || 'Error al actualizar la reserva', 'danger');
     } finally {
       setUpdatingAppointment(false);
     }
@@ -322,7 +256,7 @@ const OrdersPage: React.FC = () => {
       setReservingLocker(true);
 
       if (!packingResult || !packingResult.lockers.length) {
-        alert('No hay casilleros para reservar');
+        await showAlert('Atención', 'No hay casilleros para reservar', 'warning');
         return;
       }
 
@@ -336,11 +270,13 @@ const OrdersPage: React.FC = () => {
         const totalCapacity = packingResult.lockers.length * 27;
         const overallUsage = (totalSlots / totalCapacity) * 100;
 
-        const shouldContinue = confirm(
-          `⚠️ Optimización de espacio\n\n` +
-          `Tu selección actual usa ${overallUsage.toFixed(1)}% del espacio total.\n` +
+        const shouldContinue = await showConfirm(
+          'Optimización de Espacio',
+          `⚠️ Tu selección actual usa ${overallUsage.toFixed(1)}% del espacio total.\n\n` +
           `Para una mejor optimización, considera agregar más productos para llenar completamente al menos un casillero.\n\n` +
-          `¿Deseas continuar con la reserva de todas formas?`
+          `¿Deseas continuar con la reserva de todas formas?`,
+          'warning',
+          'Continuar'
         );
 
         if (!shouldContinue) {
@@ -351,14 +287,15 @@ const OrdersPage: React.FC = () => {
       setShowAppointmentScheduler(true);
 
     } catch (error: any) {
-      alert(error.message || 'Error al procesar la reserva inteligente');
+      await showAlert('Error', error.message || 'Error al procesar la reserva inteligente', 'danger');
     } finally {
       setReservingLocker(false);
     }
   };
-
   // Función para generar datos de packing combinados para todas las reservas activas
-  const generateCombinedPackingForAllAppointments = () => {
+  // @ts-ignore
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _generateCombinedPackingForAllAppointments = () => {
     // Usar visualizationKey para forzar la actualización cuando cambie
     if (isDev) console.log('🔄 Generando visualización combinada (key:', visualizationKey, ')');
     try {
@@ -560,9 +497,10 @@ const OrdersPage: React.FC = () => {
       return [];
     }
   };
-
   // Función para generar datos de packing para una reserva (mantener para compatibilidad)
-  const generatePackingForAppointment = (appointment: Appointment) => {
+  // @ts-ignore
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _generatePackingForAppointment = (appointment: Appointment) => {
     try {
       if (isDev) console.log('🔍 Generando packing para reserva individual:', appointment._id);
       if (isDev) console.log('📦 Productos en la reserva:', appointment.itemsToPickup);
@@ -766,8 +704,8 @@ const OrdersPage: React.FC = () => {
 
           if (existingAppointment) {
             const productsForThisLocker = Array.from(selectedProducts.entries())
-              .filter(([itemIndex, selection]) => selection.lockerNumber === lockerNumber)
-              .map(([itemIndex, selection]) => {
+              .filter(([_, selection]) => selection.lockerNumber === lockerNumber)
+              .map(([itemIndex]) => {
                 const item = purchasedProducts[itemIndex];
                 return {
                   productId: item._id || '',
@@ -802,9 +740,11 @@ const OrdersPage: React.FC = () => {
           });
         }
 
-        alert(message);
+        setSchedulingAppointment(false);
+        await showAlert('¡Reservas creadas!', message, 'success');
       } else if (existingLockers.length > 0) {
-        alert('✅ Productos agregados exitosamente a tus reservas existentes');
+        setSchedulingAppointment(false);
+        await showAlert('¡Éxito!', '✅ Productos agregados exitosamente a tus reservas existentes', 'success');
       }
 
       // Recargar los datos
@@ -822,7 +762,8 @@ const OrdersPage: React.FC = () => {
       forceVisualizationUpdate();
 
     } catch (err: any) {
-      alert(err.message || 'Error al agendar las reservas');
+      setSchedulingAppointment(false);
+      await showAlert('Error', err.message || 'Error al agendar las reservas', 'danger');
     } finally {
       setSchedulingAppointment(false);
     }
@@ -938,10 +879,25 @@ const OrdersPage: React.FC = () => {
           </div>
 
           {loading ? (
-            <div className="text-center py-5">
-              <div className="spinner-border" role="status">
-                <span className="visually-hidden">Cargando...</span>
-              </div>
+            <div className="mb-5">
+              <h4 className="mb-3 skeleton-shimmer" style={{ width: '200px', height: '24px', borderRadius: '4px' }}></h4>
+              {[1, 2, 3].map(i => (
+                <div key={i} className="product-card--skeleton">
+                  <div className="skeleton-shimmer"></div>
+                  <div className="skeleton-content">
+                    <div className="skeleton-box skeleton-img"></div>
+                    <div className="skeleton-info">
+                      <div className="skeleton-box skeleton-title"></div>
+                      <div className="skeleton-box skeleton-text"></div>
+                      <div className="skeleton-box skeleton-text" style={{ width: '60%' }}></div>
+                      <div className="skeleton-badge-row">
+                        <div className="skeleton-box skeleton-badge"></div>
+                        <div className="skeleton-box skeleton-badge"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           ) : error ? (
             <div className="alert alert-danger text-center">{error}</div>
@@ -1045,10 +1001,21 @@ const OrdersPage: React.FC = () => {
                 </h4>
 
                 {loadingAppointments ? (
-                  <div className="text-center py-3">
-                    <div className="spinner-border spinner-border-sm" role="status">
-                      <span className="visually-hidden">Cargando reservas...</span>
-                    </div>
+                  <div className="row mb-4">
+                    {[1, 2].map(i => (
+                      <div key={i} className="col-12 mb-3">
+                        <div className="product-card--skeleton" style={{ minHeight: '100px' }}>
+                          <div className="skeleton-shimmer"></div>
+                          <div className="skeleton-content">
+                            <div className="skeleton-info">
+                              <div className="skeleton-box skeleton-title" style={{ width: '30%' }}></div>
+                              <div className="skeleton-box skeleton-text" style={{ width: '70%' }}></div>
+                              <div className="skeleton-box skeleton-text" style={{ width: '50%' }}></div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 ) : myAppointments.length > 0 ? (
                   <div className="row mb-4">
@@ -1092,11 +1059,7 @@ const OrdersPage: React.FC = () => {
               <i className="bi bi-check-circle me-2"></i>
               Mis Reservas Completadas
             </h4>
-            {(() => {
-              // Estado local para mostrar 5 y cargar más
-              // Nota: React no permite hooks condicionales; definimos fuera del render condicional
-              return null;
-            })()}
+
 
             {loadingAppointments ? (
               <div className="text-center py-3">
@@ -1207,7 +1170,7 @@ const OrdersPage: React.FC = () => {
                                             if (productId) {
                                               navigate(`/productos/${productId}`);
                                             } else {
-                                              alert('No se pudo encontrar la información del producto.');
+                                              showAlert('Información', 'No se pudo encontrar la información del producto detallada para este catálogo.', 'info');
                                             }
                                           }}
                                           title="Haz clic para ver el producto"
@@ -1339,21 +1302,17 @@ const OrdersPage: React.FC = () => {
         appointment={selectedAppointmentForEdit}
         editAppointmentDate={editAppointmentDate}
         editAppointmentTime={editAppointmentTime}
-        editAppointmentLocker={editAppointmentLocker}
         penalizedDates={penalizedDates}
-        myAppointments={myAppointments}
         updatingAppointment={updatingAppointment}
         onClose={() => {
           setShowEditAppointmentModal(false);
           setSelectedAppointmentForEdit(null);
           setEditAppointmentDate('');
           setEditAppointmentTime('');
-          setEditAppointmentLocker(1);
         }}
         onUpdate={handleUpdateAppointment}
         onDateChange={setEditAppointmentDate}
         onTimeChange={setEditAppointmentTime}
-        onLockerChange={setEditAppointmentLocker}
       />
 
       {/* Modal de Agendamiento de Citas */}
@@ -1383,8 +1342,8 @@ const OrdersPage: React.FC = () => {
               const lockerNumber = parseInt(locker.id.replace('locker_', ''));
 
               const productsInThisLocker = Array.from(selectedProducts.entries())
-                .filter(([itemIndex, selection]) => selection.lockerNumber === lockerNumber)
-                .map(([itemIndex, selection]) => {
+                .filter(([_, selection]) => selection.lockerNumber === lockerNumber)
+                .map(([itemIndex]) => {
                   const item = purchasedProducts[itemIndex];
                   return {
                     name: item.product?.nombre || `Producto ${itemIndex + 1}`,
@@ -1407,6 +1366,18 @@ const OrdersPage: React.FC = () => {
           existingLockersCount={0}
         />
       )}
+
+      {/* Modal de Confirmación Genérico */}
+      <ConfirmModal
+        show={modalConfig.show}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        onConfirm={modalConfig.onConfirm}
+        onCancel={modalConfig.onCancel}
+        type={modalConfig.type}
+        variant={modalConfig.variant}
+        confirmText={modalConfig.confirmText}
+      />
 
       {/* Loading Overlays */}
       <LoadingOverlay

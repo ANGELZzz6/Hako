@@ -12,6 +12,7 @@ import authService from '../services/authService';
 
 import './AdminLockersPage.css';
 import './AdminModalImprovements.css';
+import ConfirmModal from '../components/ConfirmModal';
 
 interface LockerReservation {
   lockerNumber: number;
@@ -67,6 +68,68 @@ const AdminLockersPage: React.FC = () => {
     userSearch: '',
     lockerNumber: ''
   });
+
+  // Estado para el modal de confirmación
+  const [modalConfig, setModalConfig] = useState<{
+    show: boolean;
+    title: string;
+    message: string;
+    confirmText?: string;
+    cancelText?: string;
+    onConfirm: () => void;
+    onCancel: () => void;
+    variant?: 'primary' | 'danger' | 'warning' | 'success';
+    type?: 'confirm' | 'alert';
+  }>({
+    show: false,
+    title: '',
+    message: '',
+    onConfirm: () => { },
+    onCancel: () => { },
+  });
+
+  // Helper para mostrar confirmación asíncrona
+  const showConfirm = (title: string, message: string, variant: 'primary' | 'danger' | 'warning' | 'success' = 'primary', confirmText: string = 'Confirmar'): Promise<boolean> => {
+    return new Promise((resolve) => {
+      setModalConfig({
+        show: true,
+        title,
+        message,
+        variant,
+        confirmText,
+        type: 'confirm',
+        onConfirm: () => {
+          setModalConfig(prev => ({ ...prev, show: false }));
+          resolve(true);
+        },
+        onCancel: () => {
+          setModalConfig(prev => ({ ...prev, show: false }));
+          resolve(false);
+        }
+      });
+    });
+  };
+
+  // Helper para mostrar alertas
+  const showAlert = (title: string, message: string, variant: 'primary' | 'danger' | 'warning' | 'success' = 'primary'): Promise<void> => {
+    return new Promise((resolve) => {
+      setModalConfig({
+        show: true,
+        title,
+        message,
+        variant,
+        type: 'alert',
+        onConfirm: () => {
+          setModalConfig(prev => ({ ...prev, show: false }));
+          resolve();
+        },
+        onCancel: () => {
+          setModalConfig(prev => ({ ...prev, show: false }));
+          resolve();
+        }
+      });
+    });
+  };
 
   // Horarios disponibles
   const timeSlots = [
@@ -243,10 +306,10 @@ const AdminLockersPage: React.FC = () => {
         date: selectedDate || new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' })
       });
       console.log('🔍 API funcionando, datos recibidos:', testData.length);
-      alert(`API funcionando correctamente. Citas encontradas: ${testData.length}`);
+      await showAlert('Éxito', `API funcionando correctamente. Citas encontradas: ${testData.length}`, 'success');
     } catch (error) {
       console.error('🔍 Error en API:', error);
-      alert(`Error en API: ${error}`);
+      await showAlert('Error', `Error en API: ${error}`, 'danger');
     }
   };
 
@@ -266,7 +329,7 @@ const AdminLockersPage: React.FC = () => {
         await loadReservationsForDateTime(selectedDate, selectedTime);
       }
 
-      alert(`Sincronización completada. ${assignments.length} asignaciones procesadas.`);
+      await showAlert('Éxito', `Sincronización completada. ${assignments.length} asignaciones procesadas.`, 'success');
 
     } catch (err: any) {
       setError('Error al sincronizar: ' + err.message);
@@ -824,6 +887,7 @@ const AdminLockersPage: React.FC = () => {
     }
   };
 
+
   // Función para toggle de auto-refresh
   const toggleAutoRefresh = () => {
     setAutoRefresh(!autoRefresh);
@@ -831,9 +895,9 @@ const AdminLockersPage: React.FC = () => {
     console.log('🔄 Auto-refresh:', !autoRefresh ? 'activado' : 'desactivado');
   };
 
-  const exportToCSV = () => {
+  const exportToCSV = async () => {
     if (filteredReservations.length === 0) {
-      alert('No hay datos para exportar');
+      await showAlert('Aviso', 'No hay datos para exportar', 'warning');
       return;
     }
 
@@ -912,15 +976,19 @@ const AdminLockersPage: React.FC = () => {
 
       if (!allowedTransitions.includes(newStatus)) {
         const errorMessage = `No se puede cambiar el estado de "${getStatusLabel(currentStatus)}" a "${getStatusLabel(newStatus)}". Transiciones permitidas: ${allowedTransitions.map(s => getStatusLabel(s)).join(', ')}`;
-        alert(errorMessage);
+        await showAlert('Cambio no permitido', errorMessage, 'warning');
         return false;
       }
 
       // Confirmar cambio de estado
-      const confirmation = window.prompt(
-        `¿Estás seguro de que quieres cambiar el estado de la reserva del casillero ${reservation.lockerNumber} a "${getStatusLabel(newStatus)}"?\nEscribe CONFIRMAR para continuar:`
+      const confirmed = await showConfirm(
+        'Confirmar cambio',
+        `¿Estás seguro de que quieres cambiar el estado de la reserva del casillero ${reservation.lockerNumber} a "${getStatusLabel(newStatus)}"?`,
+        'warning',
+        'Confirmar Cambio'
       );
-      if (confirmation !== 'CONFIRMAR') {
+      
+      if (!confirmed) {
         return false;
       }
 
@@ -952,12 +1020,12 @@ const AdminLockersPage: React.FC = () => {
       );
 
       // Mostrar mensaje de éxito
-      alert(`Estado de la reserva actualizado exitosamente a "${getStatusLabel(newStatus)}"`);
+      await showAlert('Éxito', `Estado de la reserva actualizado exitosamente a "${getStatusLabel(newStatus)}"`, 'success');
 
       return true;
     } catch (error) {
       console.error('Error actualizando estado de reserva:', error);
-      alert('Error al actualizar el estado de la reserva: ' + error);
+      await showAlert('Error', 'Error al actualizar el estado de la reserva: ' + error, 'danger');
       return false;
     }
   };
@@ -2100,6 +2168,8 @@ const AdminLockersPage: React.FC = () => {
           </div>
         </div>
       )}
+      {/* Modal de Confirmación Global */}
+      <ConfirmModal {...modalConfig} />
     </div>
   );
 };

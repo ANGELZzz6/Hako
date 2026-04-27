@@ -1,10 +1,8 @@
-import { useNavigate } from 'react-router-dom';
-import MercadoPagoCheckout from '../components/MercadoPagoCheckout';
+import WompiCheckout from '../components/WompiCheckout';
+import { useLocation, useNavigate } from 'react-router-dom';
 import './CheckoutPage.css';
 import { useAuth } from '../contexts/AuthContext';
-import React, { useEffect } from 'react';
-
-const isDev = import.meta.env.DEV;
+import { useEffect } from 'react';
 
 const CheckoutPage: React.FC = () => {
   const navigate = useNavigate();
@@ -18,26 +16,26 @@ const CheckoutPage: React.FC = () => {
 
   if (!currentUser) return null;
 
-  const handlePaymentSuccess = (paymentData: any) => {
-    if (isDev) console.log('Pago exitoso:', paymentData);
-    // El componente MercadoPagoCheckout maneja la redirección
-  };
-
-  const handlePaymentError = (error: string) => {
-    if (isDev) console.error('Error en el pago:', error);
-    // El componente MercadoPagoCheckout maneja los errores
-  };
+  const location = useLocation();
+  const checkoutData = location.state || {};
+  const { items = [], payer = {} } = checkoutData;
 
   return (
     <div className="checkout-page container py-5">
-      <div className="row">
-        <div className="col-12">
-          <h2 className="mb-4">Checkout - Mercado Pago</h2>
+      <div className="row justify-content-center">
+        <div className="col-md-8 col-lg-6">
+          <div className="card shadow-sm border-0 rounded-4 p-4">
+            <h2 className="mb-4 text-center fw-bold">Finalizar Compra</h2>
+            <p className="text-muted text-center mb-4">
+              Estás a un paso de completar tu pedido. Haz clic abajo para pagar de forma segura con Wompi.
+            </p>
 
-          <MercadoPagoCheckout
-            onSuccess={handlePaymentSuccess}
-            onError={handlePaymentError}
-          />
+            <WompiCheckout
+              items={items}
+              payer={payer}
+              selectedItems={items}
+            />
+          </div>
         </div>
       </div>
     </div>

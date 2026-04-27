@@ -54,7 +54,7 @@ exports.getMyPurchasedProducts = async (req, res) => {
     // Obtener todos los productos individuales del usuario
     let individualProducts = await IndividualProduct.find({
       user: req.user.id,
-      status: { $in: ['available', 'reserved', 'claimed'] }
+      status: { $in: ['available', 'reserved'] }
     }).populate('product order');
 
     // Filtrar productos donde el producto base fue eliminado
@@ -109,7 +109,7 @@ exports.getMyPurchasedProducts = async (req, res) => {
           quantity: 1, // Cada producto individual tiene cantidad 1
           remaining_quantity: individualProduct.status === 'available' ? 1 : 0,
           isClaimed: individualProduct.status === 'claimed',
-          isReserved: individualProduct.status === 'reserved',
+          isReserved: individualProduct.status === 'reserved', status: individualProduct.status, status: individualProduct.status,
           originalItemId: individualProduct._id, // ID del producto individual
           individualIndex: individualProduct.individualIndex,
           totalInOrder: 1, // Cada producto individual es único
@@ -141,7 +141,7 @@ exports.getUserProducts = async (req, res) => {
     // Obtener todos los productos individuales del usuario especificado
     let individualProducts = await IndividualProduct.find({
       user: userId,
-      status: { $in: ['available', 'reserved', 'claimed'] }
+      status: { $in: ['available', 'reserved'] }
     }).populate('product order user');
 
     // Filtrar productos donde el producto base fue eliminado
@@ -196,7 +196,7 @@ exports.getUserProducts = async (req, res) => {
           quantity: 1, // Cada producto individual tiene cantidad 1
           remaining_quantity: individualProduct.status === 'available' ? 1 : 0,
           isClaimed: individualProduct.status === 'claimed',
-          isReserved: individualProduct.status === 'reserved',
+          isReserved: individualProduct.status === 'reserved', status: individualProduct.status, status: individualProduct.status,
           originalItemId: individualProduct._id, // ID del producto individual
           individualIndex: individualProduct.individualIndex,
           totalInOrder: 1, // Cada producto individual es único

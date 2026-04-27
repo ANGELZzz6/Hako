@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import './SupportManagement.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import supportService, { closeByUser, rateTicket } from '../services/supportService';
+import supportService, { closeByUser } from '../services/supportService';
 import LoadingSpinner from '../components/LoadingSpinner';
+import ConfirmModal from '../components/ConfirmModal';
 
 interface Ticket {
   _id: string;
@@ -19,41 +20,54 @@ interface Ticket {
 }
 
 const SupportPage = () => {
-  const { currentUser, isAdmin, isLoading } = useAuth();
+  const { currentUser, isLoading } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState({ asunto: '', mensaje: '' });
   const [enviado, setEnviado] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Admin state
-  const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [filter, setFilter] = useState('todos');
-  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
-  const [reply, setReply] = useState('');
-  const [statusLoading, setStatusLoading] = useState(false);
-
   // Para adjuntos y valoración
-  const [showTracking, setShowTracking] = useState(false);
   const [userTickets, setUserTickets] = useState<Ticket[]>([]);
-  const [selectedUserTicket, setSelectedUserTicket] = useState<Ticket | null>(null);
   const [closingTicket, setClosingTicket] = useState(false);
-  const [rating, setRating] = useState(0);
-  const [ratingComment, setRatingComment] = useState('');
-  const [ratingLoading, setRatingLoading] = useState(false);
-  const [attachment, setAttachment] = useState<File | null>(null);
-  const [replyAttachment, setReplyAttachment] = useState<File | null>(null);
-  const attachmentInputRef = useRef<HTMLInputElement>(null);
-  const replyAttachmentInputRef = useRef<HTMLInputElement>(null);
+  const [modalConfig, setModalConfig] = useState<{
+    show: boolean;
+    title: string;
+    message: string;
+    confirmText?: string;
+    cancelText?: string;
+    onConfirm: () => void;
+    onCancel: () => void;
+    variant?: 'primary' | 'danger' | 'warning' | 'success';
+    type?: 'confirm' | 'alert';
+  }>({
+    show: false,
+    title: '',
+    message: '',
+    onConfirm: () => { },
+    onCancel: () => { },
+  });
 
-  // Redirigir si no está autenticado (cuando termine de cargar)
-  const fetchTickets = async () => {
-    try {
-      const data = await supportService.getTickets();
-      setTickets(Array.isArray(data) ? data : []);
-    } catch (err) {
-      setTickets([]);
-    }
+  // Helper para mostrar confirmación asíncrona
+  const showConfirm = (title: string, message: string, variant: 'primary' | 'danger' | 'warning' | 'success' = 'primary', confirmText: string = 'Confirmar'): Promise<boolean> => {
+    return new Promise((resolve) => {
+      setModalConfig({
+        show: true,
+        title,
+        message,
+        variant,
+        confirmText,
+        type: 'confirm',
+        onConfirm: () => {
+          setModalConfig((prev: any) => ({ ...prev, show: false }));
+          resolve(true);
+        },
+        onCancel: () => {
+          setModalConfig((prev: any) => ({ ...prev, show: false }));
+          resolve(false);
+        }
+      });
+    });
   };
 
   const fetchUserTickets = async () => {
@@ -66,23 +80,20 @@ const SupportPage = () => {
   };
 
   // 2. Después los 3 useEffect:
-  React.useEffect(() => {
+  useEffect(() => {
     if (!isLoading && !currentUser) {
       navigate('/login', { replace: true });
     }
   }, [currentUser, isLoading, navigate]);
 
   useEffect(() => {
-    if (isAdmin) {
-      fetchTickets();
-    }
-  }, [isAdmin]);
-
-  useEffect(() => {
     if (currentUser) {
       fetchUserTickets();
     }
   }, [currentUser]);
+
+  // Contar tickets activos
+  const activeTicketsCount = userTickets.filter(t => t.status !== 'cerrado' && t.status !== 'cerrado por usuario').length;
 
   // 3. Return condicional:
   if (isLoading || !currentUser) {
@@ -107,78 +118,24 @@ const SupportPage = () => {
     }
   };
 
-  // Admin: filtrar tickets
-  const filteredTickets = tickets.filter(ticket => {
-    if (filter === 'todos') return true;
-    if (filter === 'abierto') return ticket.status === 'abierto';
-    if (filter === 'en proceso') return ticket.status === 'en proceso';
-    if (filter === 'cerrado') return ticket.status === 'cerrado';
-    return true;
-  });
-
-  // Admin: responder ticket
-  const handleReply = async () => {
-    if (!selectedTicket || !reply.trim()) return;
-    setStatusLoading(true);
-    try {
-      await supportService.replyTicket(selectedTicket._id, reply);
-      setReply('');
-      await fetchTickets();
-      setSelectedTicket(null);
-    } catch (err) {
-      // Manejo de error opcional
-    } finally {
-      setStatusLoading(false);
-    }
-  };
-
-  // Admin: cambiar estado
-  const handleChangeStatus = async (ticketId: string, status: string) => {
-    setStatusLoading(true);
-    try {
-      await supportService.changeStatus(ticketId, status);
-      await fetchTickets();
-    } catch (err) {
-      // Manejo de error opcional
-    } finally {
-      setStatusLoading(false);
-    }
-  };
-
-  // Contar tickets activos
-  const activeTicketsCount = userTickets.filter(t => t.status !== 'cerrado' && t.status !== 'cerrado por usuario').length;
-
   const handleDeleteUserTicket = async (ticketId: string) => {
-    if (!window.confirm('¿Estás seguro de que quieres eliminar esta solicitud?')) return;
+    const confirmed = await showConfirm(
+      'Eliminar solicitud',
+      '¿Estás seguro de que quieres eliminar esta solicitud?',
+      'danger',
+      'Eliminar solicitud'
+    );
+    
+    if (!confirmed) return;
     setClosingTicket(true);
     try {
       await closeByUser(ticketId);
       await fetchUserTickets();
-      setSelectedUserTicket(null);
     } catch (err) {
       // Manejo de error opcional
     } finally {
       setClosingTicket(false);
     }
-  };
-
-  const handleSendRating = async (ticketId: string) => {
-    setRatingLoading(true);
-    try {
-      await rateTicket(ticketId, rating, ratingComment);
-      await fetchUserTickets();
-      setSelectedUserTicket(null);
-      setRating(0);
-      setRatingComment('');
-    } catch (err) {
-      // Manejo de error opcional
-    } finally {
-      setRatingLoading(false);
-    }
-  };
-
-  const handleSelectUserTicket = (ticket: Ticket) => {
-    setSelectedUserTicket(ticket);
   };
 
   return (
@@ -272,6 +229,7 @@ const SupportPage = () => {
           </div>
         </div>
       </main>
+      <ConfirmModal {...modalConfig} />
     </div>
   );
 };

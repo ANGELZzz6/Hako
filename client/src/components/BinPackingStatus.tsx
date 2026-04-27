@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import orderService from '../services/orderService';
+import ConfirmModal from './ConfirmModal';
 import './BinPackingStatus.css';
 
 interface BinPackingStatusProps {
@@ -12,6 +13,46 @@ const BinPackingStatus: React.FC<BinPackingStatusProps> = ({ orders }) => {
   const [selectedLocker, setSelectedLocker] = useState<number | null>(null);
   const [testProduct, setTestProduct] = useState<any>(null);
   const [testResult, setTestResult] = useState<any>(null);
+
+  // Estado para el modal de confirmación genérico
+  const [modalConfig, setModalConfig] = useState<{
+    show: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    onCancel?: () => void;
+    type: 'alert';
+    variant: 'primary' | 'danger' | 'warning' | 'success' | 'info';
+  }>({
+    show: false,
+    title: '',
+    message: '',
+    onConfirm: () => { },
+    type: 'alert',
+    variant: 'primary'
+  });
+
+
+  // Helper para mostrar alertas asíncronas
+  const showAlert = (title: string, message: string, variant: 'primary' | 'danger' | 'warning' | 'success' | 'info' = 'primary') => {
+    return new Promise<void>((resolve) => {
+      setModalConfig({
+        show: true,
+        title,
+        message,
+        onConfirm: () => {
+          setModalConfig(prev => ({ ...prev, show: false }));
+          resolve();
+        },
+        onCancel: () => {
+          setModalConfig(prev => ({ ...prev, show: false }));
+          resolve();
+        },
+        type: 'alert',
+        variant
+      });
+    });
+  };
 
   useEffect(() => {
     fetchLockerStats();
@@ -28,6 +69,8 @@ const BinPackingStatus: React.FC<BinPackingStatusProps> = ({ orders }) => {
       setLoading(false);
     }
   };
+
+
 
   const handleLockerClick = (lockerNumber: number) => {
     setSelectedLocker(selectedLocker === lockerNumber ? null : lockerNumber);
@@ -58,7 +101,7 @@ const BinPackingStatus: React.FC<BinPackingStatusProps> = ({ orders }) => {
       setTestResult(result);
     } catch (error) {
       console.error('Error testing locker capacity:', error);
-      alert('Error al probar capacidad del casillero');
+      await showAlert('Error', 'Error al probar capacidad del casillero', 'danger');
     }
   };
 
@@ -68,13 +111,13 @@ const BinPackingStatus: React.FC<BinPackingStatusProps> = ({ orders }) => {
     try {
       const result = await orderService.findBestLocker(testProduct);
       if (result.success) {
-        alert(`Mejor casillero: ${result.bestLocker?.number} (Score: ${result.bestLocker?.score})`);
+        await showAlert('Resultado', `Mejor casillero: ${result.bestLocker?.number} (Score: ${result.bestLocker?.score})`, 'success');
       } else {
-        alert('No hay casilleros disponibles para este producto');
+        await showAlert('Información', 'No hay casilleros disponibles para este producto', 'info');
       }
     } catch (error) {
       console.error('Error finding best locker:', error);
-      alert('Error al encontrar mejor casillero');
+      await showAlert('Error', 'Error al encontrar mejor casillero', 'danger');
     }
   };
 
@@ -115,19 +158,19 @@ const BinPackingStatus: React.FC<BinPackingStatusProps> = ({ orders }) => {
           <input
             type="number"
             placeholder="Largo (cm)"
-            onChange={(e) => setTestProduct(prev => ({ ...prev, dimensiones: { ...prev?.dimensiones, largo: Number(e.target.value) } }))}
+            onChange={(e) => setTestProduct((prev: any) => ({ ...prev, dimensiones: { ...prev?.dimensiones, largo: Number(e.target.value) } }))}
           />
           <input
             type="number"
             placeholder="Ancho (cm)"
-            onChange={(e) => setTestProduct(prev => ({ ...prev, dimensiones: { ...prev?.dimensiones, ancho: Number(e.target.value) } }))}
+            onChange={(e) => setTestProduct((prev: any) => ({ ...prev, dimensiones: { ...prev?.dimensiones, ancho: Number(e.target.value) } }))}
           />
           <input
             type="number"
             placeholder="Alto (cm)"
-            onChange={(e) => setTestProduct(prev => ({ ...prev, dimensiones: { ...prev?.dimensiones, alto: Number(e.target.value) } }))}
+            onChange={(e) => setTestProduct((prev: any) => ({ ...prev, dimensiones: { ...prev?.dimensiones, alto: Number(e.target.value) } }))}
           />
-          <button 
+          <button
             onClick={findBestLockerForProduct}
             disabled={!testProduct?.dimensiones?.largo || !testProduct?.dimensiones?.ancho || !testProduct?.dimensiones?.alto}
           >
@@ -148,17 +191,17 @@ const BinPackingStatus: React.FC<BinPackingStatusProps> = ({ orders }) => {
               <span className="locker-number">Casillero {locker.number}</span>
               <span className="locker-usage">{locker.usagePercentage}%</span>
             </div>
-            
+
             <div className="locker-progress">
-              <div 
+              <div
                 className="progress-bar"
-                style={{ 
+                style={{
                   width: `${locker.usagePercentage}%`,
                   backgroundColor: getLockerColor(locker.usagePercentage, locker.canFitMore)
                 }}
               />
             </div>
-            
+
             <div className="locker-info">
               <div className="volume-info">
                 <small>{formatVolume(locker.usedVolume)} / {formatVolume(locker.maxVolume)}</small>
@@ -175,7 +218,7 @@ const BinPackingStatus: React.FC<BinPackingStatusProps> = ({ orders }) => {
             )}
 
             {testProduct && (
-              <button 
+              <button
                 className="test-button"
                 onClick={(e) => {
                   e.stopPropagation();
@@ -245,6 +288,17 @@ const BinPackingStatus: React.FC<BinPackingStatusProps> = ({ orders }) => {
           <span>LLENO (Bin Packing)</span>
         </div>
       </div>
+
+      {/* Modal de confirmación genérico */}
+      <ConfirmModal
+        show={modalConfig.show}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        onConfirm={modalConfig.onConfirm}
+        onCancel={modalConfig.onCancel || (() => setModalConfig((prev: any) => ({ ...prev, show: false })))}
+        variant={modalConfig.variant}
+        type={modalConfig.type}
+      />
     </div>
   );
 };

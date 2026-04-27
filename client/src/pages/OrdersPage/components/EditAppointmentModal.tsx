@@ -1,41 +1,75 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, type FC } from 'react';
 import { getAvailableDates, createLocalDate } from '../utils/dateUtils';
-import { getAvailableLockersForEdit } from '../utils/productUtils';
 import appointmentService from '../../../services/appointmentService';
+import ConfirmModal from '../../../components/ConfirmModal';
 
 interface EditAppointmentModalProps {
   isOpen: boolean;
   appointment: any;
   editAppointmentDate: string;
   editAppointmentTime: string;
-  editAppointmentLocker: number;
   penalizedDates: string[];
-  myAppointments: any[];
   updatingAppointment: boolean;
   onClose: () => void;
   onUpdate: (appointmentId: string, data: any) => void;
   onDateChange: (date: string) => void;
   onTimeChange: (time: string) => void;
-  onLockerChange: (locker: number) => void;
 }
 
-const EditAppointmentModal: React.FC<EditAppointmentModalProps> = ({
+const EditAppointmentModal: FC<EditAppointmentModalProps> = ({
   isOpen,
   appointment,
   editAppointmentDate,
   editAppointmentTime,
-  editAppointmentLocker,
   penalizedDates,
-  myAppointments,
   updatingAppointment,
   onClose,
   onUpdate,
   onDateChange,
-  onTimeChange,
-  onLockerChange
+  onTimeChange
 }) => {
   const [availableTimeSlots, setAvailableTimeSlots] = useState<string[]>([]);
   const [loadingTimeSlots, setLoadingTimeSlots] = useState(false);
+
+  // Estado para el modal de confirmación genérico
+  const [modalConfig, setModalConfig] = useState<{
+    show: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    onCancel?: () => void;
+    type: 'confirm' | 'alert';
+    variant: 'primary' | 'danger' | 'warning' | 'success' | 'info';
+    confirmText?: string;
+  }>({
+    show: false,
+    title: '',
+    message: '',
+    onConfirm: () => { },
+    type: 'alert',
+    variant: 'primary'
+  });
+
+  // Helper para mostrar alertas asíncronas
+  const showAlert = (title: string, message: string, variant: 'primary' | 'danger' | 'warning' | 'success' | 'info' = 'primary') => {
+    return new Promise<void>((resolve) => {
+      setModalConfig({
+        show: true,
+        title,
+        message,
+        onConfirm: () => {
+          setModalConfig(prev => ({ ...prev, show: false }));
+          resolve();
+        },
+        onCancel: () => {
+          setModalConfig(prev => ({ ...prev, show: false }));
+          resolve();
+        },
+        type: 'alert',
+        variant
+      });
+    });
+  };
 
   // Cargar horarios disponibles cuando cambie la fecha
   useEffect(() => {
@@ -110,9 +144,9 @@ const EditAppointmentModal: React.FC<EditAppointmentModalProps> = ({
 
   if (!isOpen || !appointment) return null;
 
-  const handleUpdate = () => {
+  const handleUpdate = async () => {
     if (!editAppointmentDate || !editAppointmentTime) {
-      alert('Por favor completa todos los campos');
+      await showAlert('Atención', 'Por favor completa todos los campos', 'warning');
       return;
     }
     
@@ -125,7 +159,7 @@ const EditAppointmentModal: React.FC<EditAppointmentModalProps> = ({
     maxDate.setHours(23, 59, 59, 999);
     
     if (selectedDate > maxDate) {
-      alert('No se pueden programar reservas con más de 7 días de anticipación');
+      await showAlert('Fecha no válida', 'No se pueden programar reservas con más de 7 días de anticipación', 'warning');
       return;
     }
     
@@ -139,15 +173,14 @@ const EditAppointmentModal: React.FC<EditAppointmentModalProps> = ({
       selectedTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
       
       if (selectedTime <= now) {
-        alert('No se pueden agendar citas en horas que ya han pasado');
+        await showAlert('Hora no válida', 'No se pueden agendar citas en horas que ya han pasado', 'warning');
         return;
       }
     }
     
     onUpdate(appointment._id, {
       scheduledDate: editAppointmentDate,
-      timeSlot: editAppointmentTime,
-      lockerNumber: editAppointmentLocker
+      timeSlot: editAppointmentTime
     });
   };
 
@@ -236,20 +269,6 @@ const EditAppointmentModal: React.FC<EditAppointmentModalProps> = ({
                     </select>
                   )}
                 </div>
-                <div className="mb-3">
-                  <label htmlFor="newLocker" className="form-label">
-                    <strong>Nuevo Casillero:</strong>
-                  </label>
-                  <select 
-                    className="form-select" 
-                    value={editAppointmentLocker}
-                    onChange={(e) => onLockerChange(parseInt(e.target.value))}
-                  >
-                    {getAvailableLockersForEdit(editAppointmentDate, editAppointmentTime, appointment._id, myAppointments).map((num: number) => (
-                      <option key={num} value={num}>Casillero {num}</option>
-                    ))}
-                  </select>
-                </div>
               </div>
             </div>
             
@@ -290,6 +309,18 @@ const EditAppointmentModal: React.FC<EditAppointmentModalProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Modal de confirmación genérico */}
+      <ConfirmModal
+        show={modalConfig.show}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        onConfirm={modalConfig.onConfirm}
+        onCancel={modalConfig.onCancel || (() => setModalConfig(prev => ({ ...prev, show: false })))}
+        variant={modalConfig.variant}
+        type={modalConfig.type}
+        confirmText={modalConfig.confirmText}
+      />
     </div>
   );
 };

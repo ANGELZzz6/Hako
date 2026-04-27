@@ -1,10 +1,11 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState, type FC } from 'react';
 import { getTimeUntilAppointment, canModifyAppointment, isAppointmentExpired, formatAppointmentDate } from '../utils/dateUtils';
 import qrService from '../../../services/qrService';
 import appointmentService from '../../../services/appointmentService';
 import type { QRCode } from '../../../services/qrService';
 import './AppointmentCard.css';
 import Locker3DCanvas from '../../../components/Locker3DCanvas';
+import ConfirmModal from '../../../components/ConfirmModal';
 import gridPackingService, { type Locker3D, type Product3D } from '../../../services/gridPackingService';
 import { getDimensiones, getVolumen } from '../utils/productUtils';
 
@@ -32,7 +33,7 @@ interface AppointmentCardProps {
   purchasedProducts?: any[];
 }
 
-const AppointmentCard: React.FC<AppointmentCardProps> = ({
+const AppointmentCard: FC<AppointmentCardProps> = ({
   appointment,
   onEdit,
   onCancel,
@@ -45,6 +46,46 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
   const [showQRModal, setShowQRModal] = useState(false);
   const [pickingUp, setPickingUp] = useState(false);
   const [showLockerModal, setShowLockerModal] = useState(false);
+
+  // Estado para el modal de confirmación genérico
+  const [modalConfig, setModalConfig] = useState<{
+    show: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    onCancel?: () => void;
+    type: 'confirm' | 'alert';
+    variant: 'primary' | 'danger' | 'warning' | 'success' | 'info';
+    confirmText?: string;
+  }>({
+    show: false,
+    title: '',
+    message: '',
+    onConfirm: () => { },
+    type: 'alert',
+    variant: 'primary'
+  });
+
+  // Helper para mostrar alertas asíncronas
+  const showAlert = (title: string, message: string, variant: 'primary' | 'danger' | 'warning' | 'success' | 'info' = 'primary') => {
+    return new Promise<void>((resolve) => {
+      setModalConfig({
+        show: true,
+        title,
+        message,
+        onConfirm: () => {
+          setModalConfig(prev => ({ ...prev, show: false }));
+          resolve();
+        },
+        onCancel: () => {
+          setModalConfig(prev => ({ ...prev, show: false }));
+          resolve();
+        },
+        type: 'alert',
+        variant
+      });
+    });
+  };
 
   const lockerBins = useMemo(() => {
     try {
@@ -128,18 +169,23 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
       try {
         const existingQR = await qrService.getQRByAppointment(appointment._id);
         if (existingQR.success && existingQR.qr) {
-          console.log('✅ QR existente encontrado:', existingQR.qr);
-          // Convertir el QR del backend al tipo completo
-          const fullQR: QRCode = {
-            ...existingQR.qr,
-            status: existingQR.qr.status as 'disponible' | 'vencido' | 'recogido',
-            generado_en: new Date().toISOString(),
-            order: appointment.order?._id || '',
-            appointment: appointment._id
-          };
-          setQrCode(fullQR);
-          setShowQRModal(true);
-          return;
+          const isQRExpired = existingQR.qr.status === 'vencido' || new Date(existingQR.qr.vencimiento) < new Date();
+          
+          if (!isQRExpired) {
+            console.log('✅ QR existente activo encontrado:', existingQR.qr);
+            // Convertir el QR del backend al tipo completo
+            const fullQR: QRCode = {
+              ...existingQR.qr,
+              status: existingQR.qr.status as 'disponible' | 'vencido' | 'recogido',
+              generado_en: new Date().toISOString(),
+              order: appointment.order?._id || '',
+              appointment: appointment._id
+            };
+            setQrCode(fullQR);
+            setShowQRModal(true);
+            return;
+          }
+          console.log('⚠️ QR existente está vencido, se requiere uno nuevo');
         }
       } catch (error) {
         // Si no existe, continuar con la generación
@@ -163,7 +209,7 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
       }
     } catch (error: any) {
       console.error('Error al generar QR:', error);
-      alert(`Error al generar QR: ${error.message}`);
+      await showAlert('Error', `Error al generar QR: ${error.message}`, 'danger');
     } finally {
       setGeneratingQR(false);
     }
@@ -183,7 +229,7 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
         setShowQRModal(false);
         
         // Mostrar mensaje de éxito
-        alert('✅ Productos marcados como recogidos exitosamente. La reserva se moverá a tu historial.');
+        await showAlert('Éxito', 'Productos marcados como recogidos exitosamente. La reserva se moverá a tu historial.', 'success');
         
         // Opción 1: Recargar la página para reflejar los cambios
         window.location.reload();
@@ -196,7 +242,7 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
       }
     } catch (error: any) {
       console.error('Error al marcar como recogida:', error);
-      alert(`❌ Error al marcar como recogida: ${error.message}`);
+      await showAlert('Error', `Error al marcar como recogida: ${error.message}`, 'danger');
     } finally {
       setPickingUp(false);
     }
@@ -249,25 +295,54 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
               <div className="col-md-6">
                 <div className="d-flex justify-content-end gap-2 flex-wrap">
                   {/* Botón QR - Solo visible si la cita está activa */}
-                  {isAppointmentActive && (
-                    <button
-                      className="btn btn-outline-info btn-sm"
-                      onClick={handleGenerateQR}
-                      disabled={generatingQR}
-                    >
-                      {generatingQR ? (
-                        <>
-                          <span className="spinner-border spinner-border-sm me-1" role="status"></span>
-                          Generando QR...
-                        </>
-                      ) : (
-                        <>
-                          <i className="bi bi-qr-code me-1"></i>
-                          QR
-                        </>
-                      )}
-                    </button>
-                  )}
+                  {isAppointmentActive && (() => {
+                    const isQRExpired = qrCode && (qrCode.status === 'vencido' || new Date(qrCode.vencimiento) < new Date());
+                    
+                    if (qrCode && isQRExpired) {
+                      return (
+                        <button
+                          className="btn btn-warning btn-sm"
+                          onClick={() => {
+                            setQrCode(null); // Limpiar para forzar nueva generación
+                            handleGenerateQR();
+                          }}
+                          disabled={generatingQR}
+                        >
+                          {generatingQR ? (
+                            <>
+                              <span className="spinner-border spinner-border-sm me-1" role="status"></span>
+                              Solicitando...
+                            </>
+                          ) : (
+                            <>
+                              <i className="bi bi-arrow-clockwise me-1"></i>
+                              Solicitar nuevo QR
+                            </>
+                          )}
+                        </button>
+                      );
+                    }
+                    
+                    return (
+                      <button
+                        className="btn btn-outline-info btn-sm"
+                        onClick={handleGenerateQR}
+                        disabled={generatingQR}
+                      >
+                        {generatingQR ? (
+                          <>
+                            <span className="spinner-border spinner-border-sm me-1" role="status"></span>
+                            Generando QR...
+                          </>
+                        ) : (
+                          <>
+                            <i className="bi bi-qr-code me-1"></i>
+                            {qrCode ? 'Ver QR' : 'QR'}
+                          </>
+                        )}
+                      </button>
+                    );
+                  })()}
                   {/* Ver casillero */}
                   <button
                     className="btn btn-outline-success btn-sm"
@@ -280,10 +355,10 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
                   {isAppointmentExpired(appointment) ? (
                     <button
                       className="btn btn-outline-warning btn-sm"
-                      onClick={() => {
+                      onClick={async () => {
                         onEdit(appointment);
-                        setTimeout(() => {
-                          alert('Debes reclamar tus productos, si no lo haces no podrás reservar para el día de hoy.');
+                        setTimeout(async () => {
+                          await showAlert('Importante', 'Debes reclamar tus productos, si no lo haces no podrás reservar para el día de hoy.', 'warning');
                         }, 300);
                       }}
                     >
@@ -347,6 +422,27 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
               </div>
               
               <div className="modal-body text-center p-4">
+                {/* Tarea 5: Mostrar número de casillero destacado */}
+                <div className="bg-primary-subtle rounded p-3 mb-4 shadow-sm border border-primary-subtle">
+                  <h5 className="mb-0 fw-bold text-primary">
+                    {(() => {
+                      const lockers = Array.from(new Set(
+                        (appointment.itemsToPickup || [])
+                          .map((item: any) => item.lockerNumber)
+                          .filter((num: any) => num !== undefined && num !== null)
+                      ));
+                      
+                      if (lockers.length === 0) {
+                        return "CASILLERO POR ASIGNAR";
+                      }
+                      
+                      return lockers.length > 1 
+                        ? `CASILLEROS: ${lockers.sort((a, b) => (a as number) - (b as number)).join(', ')}`
+                        : `CASILLERO: ${lockers[0]}`;
+                    })()}
+                  </h5>
+                </div>
+
                 {/* Información básica de la reserva */}
                 <div className="mb-3">
                   <div className="row">
@@ -362,11 +458,6 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
                         {appointment.timeSlot}
                       </small>
                     </div>
-                  </div>
-                  <div className="mt-2">
-                    <small className="text-muted">
-                      <strong>Casilleros:</strong> {appointment.itemsToPickup.map((item: any) => item.lockerNumber).join(', ')}
-                    </small>
                   </div>
                 </div>
 
@@ -407,8 +498,8 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
               
               {/* Botón Cerrar Centrado */}
               <div className="modal-footer justify-content-center py-2">
-                {/* Botón Recoger Test - Solo visible si la cita está activa */}
-                {isAppointmentActive && (
+                {/* Botón Recoger Test - Solo en modo desarrollo (oculto en producción) */}
+                {isAppointmentActive && import.meta.env.DEV && (
                   <button
                     type="button"
                     className="btn btn-success btn-sm me-2"
@@ -556,6 +647,18 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
           </div>
         </div>
       )}
+
+      {/* Modal de confirmación genérico */}
+      <ConfirmModal
+        show={modalConfig.show}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        onConfirm={modalConfig.onConfirm}
+        onCancel={modalConfig.onCancel || (() => setModalConfig(prev => ({ ...prev, show: false })))}
+        variant={modalConfig.variant}
+        type={modalConfig.type}
+        confirmText={modalConfig.confirmText}
+      />
     </>
   );
 };

@@ -10,7 +10,9 @@ validateEnvironment();
 const REQUIRED_ENV_VARS = [
   'MONGODB_URI',
   'JWT_SECRET',
-  'MERCADOPAGO_ACCESS_TOKEN',
+  'WOMPI_PRIVATE_KEY_TEST',
+  'WOMPI_PUBLIC_KEY_TEST',
+  'WOMPI_EVENTS_SECRET',
   'GOOGLE_CLIENT_ID',
   'FRONTEND_URL',
   'WEBHOOK_URL',
@@ -70,9 +72,13 @@ app.use((req, res, next) => {
   next();
 });
 
-// Configuración de CORS específica para Google OAuth
+// CRIT-02: CORS condicional — abierto en dev para testing local, restringido en prod
+const corsOrigin = process.env.NODE_ENV === 'production'
+  ? process.env.FRONTEND_URL
+  : true;
+
 app.use(cors({
-  origin: true,
+  origin: corsOrigin,
   credentials: true
 }));
 
@@ -84,9 +90,20 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "https://accounts.google.com"],
-      frameSrc: ["'self'", "https://accounts.google.com"],
-      connectSrc: ["'self'", "https://accounts.google.com"]
+      // HIGH-03: Incluir dominios de Wompi y Google para que el checkout funcione
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://accounts.google.com", "https://checkout.wompi.co"],
+      frameSrc: ["'self'", "https://accounts.google.com", "https://checkout.wompi.co"],
+      connectSrc: [
+        "'self'",
+        "https://accounts.google.com",
+        "https://sandbox.wompi.co",
+        "https://production.wompi.co",
+        "https://api.wompi.co"
+      ],
+      // Cloudinary para imágenes de productos
+      imgSrc: ["'self'", "data:", "https://res.cloudinary.com", "https://lh3.googleusercontent.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"]
     }
   },
   hsts: true,

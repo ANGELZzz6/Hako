@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, type FC } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import productService, { type Product } from '../services/productService';
 import cartService from '../services/cartService';
 import { useMobileViewport } from '../hooks/useMobileViewport';
 import './ProductDetail.css';
 import ProductVariantModal from '../components/ProductVariantModal';
+import ConfirmModal from '../components/ConfirmModal';
 import { useCart } from '../contexts/CartContext';
 import { showSuccessToast } from '../utils/toast.ts';
 
@@ -20,7 +21,7 @@ const estrellas = (valor: number) => (
 
 
 
-const ProductDetail: React.FC = () => {
+const ProductDetail: FC = () => {
   const { id } = useParams<{ id: string }>();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
@@ -30,11 +31,51 @@ const ProductDetail: React.FC = () => {
   const [adminRating, setAdminRating] = useState<number | null>(null);
   const [related, setRelated] = useState<Product[]>([]);
   const navigate = useNavigate();
-  const reviewsRef = React.useRef<HTMLDivElement>(null);
+  const reviewsRef = useRef<HTMLDivElement>(null);
   const [showVariantModal, setShowVariantModal] = useState(false);
   const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
   const [quantity] = useState(1);
   const { refreshCart } = useCart();
+
+  // Estado para el modal de confirmación genérico
+  const [modalConfig, setModalConfig] = useState<{
+    show: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    onCancel?: () => void;
+    type: 'confirm' | 'alert';
+    variant: 'primary' | 'danger' | 'warning' | 'success' | 'info';
+    confirmText?: string;
+  }>({
+    show: false,
+    title: '',
+    message: '',
+    onConfirm: () => { },
+    type: 'alert',
+    variant: 'primary'
+  });
+
+  // Helper para mostrar alertas asíncronas
+  const showAlert = (title: string, message: string, variant: 'primary' | 'danger' | 'warning' | 'success' | 'info' = 'primary') => {
+    return new Promise<void>((resolve) => {
+      setModalConfig({
+        show: true,
+        title,
+        message,
+        onConfirm: () => {
+          setModalConfig(prev => ({ ...prev, show: false }));
+          resolve();
+        },
+        onCancel: () => {
+          setModalConfig(prev => ({ ...prev, show: false }));
+          resolve();
+        },
+        type: 'alert',
+        variant
+      });
+    });
+  };
 
   const hasVariants = product?.variants?.enabled && product?.variants?.attributes?.length > 0;
 
@@ -123,7 +164,7 @@ const ProductDetail: React.FC = () => {
       showSuccessToast('¡Producto agregado al box! 🎉');
     } catch (error) {
       console.error('Error al agregar al box:', error);
-      alert('Error al agregar al box. Intenta de nuevo.');
+      await showAlert('Error', 'Error al agregar al box. Intenta de nuevo.', 'danger');
     } finally {
       setAddingToBox(false);
     }
@@ -152,7 +193,7 @@ const ProductDetail: React.FC = () => {
       showSuccessToast('¡Producto agregado al box! 🎉');
     } catch (error) {
       console.error('Error al agregar al box con variantes:', error);
-      alert('Error al agregar al box. Intenta de nuevo.');
+      await showAlert('Error', 'Error al agregar al box. Intenta de nuevo.', 'danger');
     } finally {
       setAddingToBox(false);
     }
@@ -378,6 +419,18 @@ const ProductDetail: React.FC = () => {
           />
         )}
       </div>
+
+      {/* Modal de confirmación genérico */}
+      <ConfirmModal
+        show={modalConfig.show}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        onConfirm={modalConfig.onConfirm}
+        onCancel={modalConfig.onCancel || (() => setModalConfig(prev => ({ ...prev, show: false })))}
+        variant={modalConfig.variant}
+        type={modalConfig.type}
+        confirmText={modalConfig.confirmText}
+      />
     </div>
   );
 };

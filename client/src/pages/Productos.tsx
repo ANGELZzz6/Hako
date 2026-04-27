@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { Container, Row, Col, Card, Button, Form } from 'react-bootstrap';
+import { useState, useEffect, type FC, type MouseEvent } from 'react';
+import { Container, Row, Col, Card, Form } from 'react-bootstrap';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import FallingLines from '../components/FallingLines';
 import ProductVariantModal from '../components/ProductVariantModal';
+import ConfirmModal from '../components/ConfirmModal';
 import './Productos.css';
 import type { Product } from '../services/productService';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import cartService from '../services/cartService';
 import { useCart } from '../contexts/CartContext';
@@ -14,10 +15,10 @@ import { showSuccessToast } from '../utils/toast.ts';
 interface ProductCardItemProps {
   product: Product;
   onCardClick: (id: string) => void;
-  onButtonClick: (e: React.MouseEvent, id: string) => void;
+  onButtonClick: (e: MouseEvent, id: string) => void;
 }
 
-const ProductCardItem: React.FC<ProductCardItemProps> = ({ product, onCardClick, onButtonClick }) => (
+const ProductCardItem: FC<ProductCardItemProps> = ({ product, onCardClick, onButtonClick }) => (
   <Col xs={4} sm={6} md={4} lg={3} className="px-1">
     <Card
       className="h-100 product-card"
@@ -67,22 +68,68 @@ interface ProductosProps {
   products: Product[];
 }
 
-const Productos: React.FC<ProductosProps> = ({ products }) => {
+const Productos: FC<ProductosProps> = ({ products }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('todos');
   const [sortAndFilter, setSortAndFilter] = useState<string>('default');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [priceRange, setPriceRange] = useState<{ min: string; max: string }>({ min: '', max: '' });
-  const [addingToCart, setAddingToCart] = useState<string | null>(null);
   const [showVariantModal, setShowVariantModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { isAuthenticated } = useAuth();
   const { refreshCart } = useCart();
 
-  // Hacer scroll hacia arriba cuando se carga la página
+  // Estado para el modal de confirmación genérico
+  const [modalConfig, setModalConfig] = useState<{
+    show: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    onCancel?: () => void;
+    type: 'confirm' | 'alert';
+    variant: 'primary' | 'danger' | 'warning' | 'success' | 'info';
+    confirmText?: string;
+  }>({
+    show: false,
+    title: '',
+    message: '',
+    onConfirm: () => { },
+    type: 'alert',
+    variant: 'primary'
+  });
+
+  // Helper para mostrar alertas asíncronas
+  const showAlert = (title: string, message: string, variant: 'primary' | 'danger' | 'warning' | 'success' | 'info' = 'primary') => {
+    return new Promise<void>((resolve) => {
+      setModalConfig({
+        show: true,
+        title,
+        message,
+        onConfirm: () => {
+          setModalConfig(prev => ({ ...prev, show: false }));
+          resolve();
+        },
+        onCancel: () => {
+          setModalConfig(prev => ({ ...prev, show: false }));
+          resolve();
+        },
+        type: 'alert',
+        variant
+      });
+    });
+  };
+
+  // Hacer scroll hacia arriba cuando se carga la página y manejar query params
   useEffect(() => {
     window.scrollTo(0, 0);
-  }, []);
+    
+    // Si viene de "Ver Ofertas" en la landing
+    const filtro = searchParams.get('filtro');
+    if (filtro === 'ofertas') {
+      setSortAndFilter('oferta');
+    }
+  }, [searchParams]);
 
   // Obtener categorías únicas
   const categories = ['todos', ...Array.from(new Set(products.map(p => p.categoria).filter(Boolean)))];
@@ -128,30 +175,10 @@ const Productos: React.FC<ProductosProps> = ({ products }) => {
     setPriceRange({ min: '', max: '' });
   };
 
-  // Función para agregar al carrito
-  const handleAddToCart = async (e: React.MouseEvent, productId: string) => {
-    e.stopPropagation(); // Evitar que se active el onClick de la tarjeta
-
-    if (!isAuthenticated) {
-      navigate('/login');
-      return;
-    }
-
-    const product = products.find(p => p._id === productId);
-    if (!product) return;
-
-    // Mostrar el modal para todos los productos (con o sin variantes)
-    console.log('[USUARIO] Abriendo modal para producto:', product.nombre);
-    setSelectedProduct(product);
-    setShowVariantModal(true);
-  };
-
   // Función para manejar la adición al carrito desde el modal de variantes
   const handleAddToCartWithVariants = async (selectedVariants: Record<string, string>, quantity: number) => {
     if (!selectedProduct) return;
     try {
-      setAddingToCart(selectedProduct._id);
-
       // Si el producto tiene variantes, usar addToCartWithVariants, sino usar addToCart
       if (selectedProduct.variants && selectedProduct.variants.enabled) {
         const cartItem = {
@@ -171,9 +198,9 @@ const Productos: React.FC<ProductosProps> = ({ products }) => {
       showSuccessToast('¡Producto agregado al box! 🎉');
     } catch (error) {
       console.error('Error al agregar al box:', error);
-      alert('Error al agregar al box. Intenta de nuevo.');
+      await showAlert('Error', 'Error al agregar al box. Intenta de nuevo.', 'danger');
     } finally {
-      setAddingToCart(null);
+      // finalizado
     }
   };
 
@@ -368,6 +395,18 @@ const Productos: React.FC<ProductosProps> = ({ products }) => {
           onAddToCart={handleAddToCartWithVariants}
         />
       )}
+
+      {/* Modal de confirmación genérico */}
+      <ConfirmModal
+        show={modalConfig.show}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        onConfirm={modalConfig.onConfirm}
+        onCancel={modalConfig.onCancel || (() => setModalConfig(prev => ({ ...prev, show: false })))}
+        variant={modalConfig.variant}
+        type={modalConfig.type}
+        confirmText={modalConfig.confirmText}
+      />
     </Container>
   );
 };

@@ -595,6 +595,59 @@ class LockerAssignmentService {
       throw error;
     }
   }
+
+  // Encontrar el mejor casillero disponible (el que tenga más espacio libre)
+  async findBestLocker(date, timeSlot) {
+    try {
+      console.log(`🔍 Buscando el mejor casillero para ${date} a las ${timeSlot}`);
+      
+      // Obtener asignaciones actuales para ese bloque
+      const assignments = await LockerAssignment.find({
+        scheduledDate: date,
+        timeSlot: timeSlot,
+        status: { $in: ['reserved', 'active'] }
+      });
+
+      // Mapear ocupación por casillero
+      const lockerUsage = {};
+      for (let i = 1; i <= 12; i++) {
+        lockerUsage[i] = 0;
+      }
+
+      assignments.forEach(asg => {
+        if (asg.lockerNumber <= 12) {
+          lockerUsage[asg.lockerNumber] += asg.totalSlotsUsed || 0;
+        }
+      });
+
+      // Encontrar casilleros con espacio (máximo 27 slots)
+      const availableLockers = [];
+      for (let i = 1; i <= 12; i++) {
+        if (lockerUsage[i] < 27) {
+          availableLockers.push({
+            number: i,
+            used: lockerUsage[i],
+            free: 27 - lockerUsage[i]
+          });
+        }
+      }
+
+      if (availableLockers.length === 0) {
+        return null; // No hay casilleros con espacio
+      }
+
+      // Ordenar por más espacio libre (free desc)
+      availableLockers.sort((a, b) => b.free - a.free);
+
+      const bestLocker = availableLockers[0].number;
+      console.log(`✅ Mejor casillero encontrado: ${bestLocker} (${availableLockers[0].free} slots libres)`);
+      
+      return bestLocker;
+    } catch (error) {
+      console.error('Error en findBestLocker:', error);
+      throw error;
+    }
+  }
 }
 
 module.exports = new LockerAssignmentService();

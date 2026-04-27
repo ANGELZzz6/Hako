@@ -1,117 +1,94 @@
-# Hako — E-commerce con Sistema de Recogida en Lockers
+# Hako — Smart Locker & 3D Bin Packing System
 
-Hako es una plataforma completa de comercio electrónico que integra un sistema de compra de productos con un innovador sistema de recogida en taquillas o casilleros inteligentes (lockers). Permite a los usuarios comprar productos en línea y reservarlos para recogerlos en un momento específico, evitando los tiempos de espera de los envíos tradicionales.
+Hako (箱) es una plataforma avanzada de gestión de casilleros inteligentes que combina una experiencia de compra e-commerce con una logística de retiro físico automatizada. El sistema utiliza un motor de empaquetado 3D (3D Bin Packing) para optimizar el espacio de los casilleros y una visualización en tiempo real para el usuario.
 
-## Descripción del Proyecto
+## 🚀 Propuesta de Valor
 
-Hako está diseñado para ofrecer una experiencia de compra rápida y sin fricciones. Desde la selección de productos y el pago seguro en línea, hasta la reserva de un locker para recoger la compra escaneando un código QR.
+Hako automatiza el ciclo de vida completo de un producto físico: desde la compra segura en línea hasta la asignación inteligente de un espacio físico en un casillero y su posterior retiro mediante tecnología QR.
 
-**Usuarios Principales:**
-*   **Administradores:** Tienen control total sobre el inventario, gestión de usuarios, asignación de lockers, soporte, control de pagos, y personalización del contenido de la web.
-*   **Clientes:** Pueden explorar productos, agregarlos a su "Box" (carrito), realizar pagos, gestionar sus reservas de lockers y revisar su historial de pedidos.
+**Diferenciadores Clave:**
+*   **Motor 3D Real:** Visualización interactiva del casillero usando Three.js.
+*   **Optimización de Espacio:** Algoritmo de Bin Packing que calcula la disposición óptima de productos según dimensiones reales (cm).
+*   **Seguridad Transaccional:** Integración robusta con Wompi (Colombia) y validación de firmas SHA-256.
 
-**Valor Principal:**
-Comodidad y rapidez. Los clientes no tienen que esperar días por un envío. Compran, eligen el momento para recoger, se les asigna un locker y van a retirar sus productos cuando les sea más conveniente.
+## 🛠️ Stack Tecnológico
 
-## Funcionalidades Principales
-
-### Plataforma Cliente
-*   **Catálogo de Productos:** Exploración de productos disponibles, con detalles, precios e imágenes.
-*   **Sistema de Carrito ("Tu Box"):** Gestión de productos a comprar.
-*   **Recogida en Lockers:** Tras la compra, el sistema permite reservar una fecha y hora para la recogida, asignando automáticamente un locker disponible.
-*   **Pagos Seguros:** Integración con Mercado Pago para transacciones seguras.
-*   **Perfil de Usuario y Mis Pedidos:** Historial de compras, reservas activas, y códigos QR para abrir los lockers.
-*   **Diseño Responsivo:** Optimizado tanto para dispositivos móviles como de escritorio, con modo claro y oscuro.
-
-### Panel de Administración (Admin Dashboard)
-*   **Gestión de Inventario (Productos):** Agregar, editar y eliminar productos.
-*   **Gestión de Lockers y Asignaciones:** Supervisión de los lockers, su estado, y las reservas de los clientes.
-*   **Monitorización de Pedidos y Pagos:** Ver pedidos realizados y su estado de pago.
-*   **Gestión de Usuarios:** Ver información de los clientes registrados.
-*   **Sistema de Soporte:** Responder a sugerencias o problemas reportados por los clientes.
-*   **Editor de Contenido:** Personalizar títulos, descripciones y banners de la página principal directamente desde el panel, sin tocar código.
-
-## Tecnologías Utilizadas (Tech Stack)
-
-*   **Frontend:** React 18, TypeScript, Vite, Vanilla CSS, Bootstrap (para estructura).
+*   **Frontend:** React 18, TypeScript, Vite, Three.js (Locker3DCanvas), Vanilla CSS.
 *   **Backend:** Node.js, Express.js.
-*   **Base de Datos:** MongoDB con Mongoose ODM.
-*   **Autenticación:** JWT (JSON Web Tokens) & Google OAuth 2.0.
-*   **Pagos:** Integración con Mercado Pago.
-*   **Generación de QR:** `qrcode` para los códigos de acceso a los lockers.
+*   **Base de Datos:** MongoDB + Mongoose (Modelos complejos de asignación de espacio).
+*   **Pagos:** Wompi API (Tarjetas, PSE, Nequi).
+*   **Autenticación:** JWT + Google OAuth 2.0.
+*   **Comunicaciones:** Nodemailer para envío de QRs de acceso.
 
-## Estructura del Proyecto
+## 📦 Características Principales
+
+### Flujo del Usuario
+1.  **Compra:** Selección de productos físicos con dimensiones específicas.
+2.  **Pago:** Checkout seguro vía Wompi con estados en tiempo real (Webhooks).
+3.  **Agendamiento:** Selección de slots de tiempo y asignación automática del mejor casillero disponible.
+4.  **Retiro:** Recepción de un QR único que permite el acceso físico al casillero asignado.
+
+### Panel Administrativo
+*   **Monitoreo de Casilleros:** Vista en tiempo real del estado de ocupación (1-12 casilleros).
+*   **Gestión de Inventario:** Control de productos individuales y sus dimensiones (Largo/Ancho/Alto).
+*   **Auditoría de Pagos:** Control de transacciones, estados de Wompi y gestión de reembolsos.
+*   **Sistema de Penalizaciones:** Bloqueo automático de usuarios por incumplimiento en retiros (24h).
+*   **Editor de Contenido:** Personalizar la página principal directamente desde el panel, sin tocar código.
+*   **Sistema de Soporte:** Gestión de tickets y sugerencias de clientes.
+
+## 🔧 Instalación y Configuración
+
+1. **Clonar el repositorio:** `git clone <repo-url>`
+2. **Instalar dependencias:** `npm install` en root, `client/` y `server/`.
+3. **Variables de Entorno (`.env` en raíz):**
+   * `MONGODB_URI`: Conexión a la base de datos.
+   * `WOMPI_PUBLIC_KEY_TEST` / `WOMPI_PRIVATE_KEY_TEST`: Credenciales de la pasarela.
+   * `WOMPI_EVENTS_SECRET`: Secret para validación de webhooks.
+   * `WEBHOOK_URL`: URL pública para recibir notificaciones de pago.
+   * `JWT_SECRET`: Llave para sesiones de usuario.
+   * `GOOGLE_CLIENT_ID`: Para autenticación con Google.
+4. **Levantar en desarrollo:**
+   ```bash
+   # Terminal 1 — Backend
+   npm run dev       # → http://localhost:5000
+
+   # Terminal 2 — Frontend
+   cd client
+   npm run dev       # → http://localhost:5173
+   ```
+5. **Resetear DB para pruebas locales:**
+   ```bash
+   npm run reset-db  # Vacía la DB y crea admin@hako.test / Admin1234*
+   ```
+
+## 🏗️ Estructura del Proyecto
 
 ```text
 /
 ├── client/                 # Aplicación frontend en React
 │   ├── src/
-│   │   ├── components/     # Componentes de UI reutilizables
-│   │   ├── pages/          # Vistas principales (Admin, Checkout, Home, etc.)
+│   │   ├── components/     # Componentes reutilizables (Locker3DCanvas, WompiCheckout...)
+│   │   ├── pages/          # Vistas (Admin, Checkout, Orders, Landing...)
 │   │   ├── services/       # Conexiones con la API (axios)
-│   │   ├── contexts/       # Estado global (Auth, Cart, Configuración del Sitio)
-│   │   └── hooks/          # Custom hooks
+│   │   └── contexts/       # Estado global (Auth, Cart, SiteSettings)
 ├── server/                 # Aplicación backend Node.js / Express
 │   ├── controllers/        # Lógica de negocio
-│   ├── models/             # Esquemas de base de datos (Mongoose)
-│   ├── routes/             # Definición de endpoints de la API
-│   ├── middleware/         # Autenticación, guardias de seguridad
-│   └── services/           # Integraciones de servicios
-└── docs/                   # Documentación adicional
+│   ├── models/             # Esquemas Mongoose
+│   ├── routes/             # Endpoints de la API
+│   ├── middleware/         # JWT auth, adminAuth, rate limiting
+│   ├── services/           # lockerAssignmentService, binPackingService
+│   └── scripts/            # Utilidades de mantenimiento y seed
+└── docs/                   # Documentación técnica (AI_CONTEXT, MASTER_DOC)
 ```
 
-## Instalación
+## 🛡️ Seguridad
 
-### 1. Clonar el repositorio
-```bash
-git clone <repository-url>
-cd hako
-```
-
-### 2. Instalar dependencias
-Instalar las dependencias de la carpeta raíz, del frontend y del backend:
-```bash
-npm install
-cd client && npm install
-cd ../server && npm install
-```
-
-### 3. Variables de Entorno
-Crea archivos `.env` en la raíz, en `client/` y en `server/` basándote en los ejemplos (p. ej. `env-example.txt`). Necesitarás configurar:
-*   URI de MongoDB.
-*   Secretos para JWT.
-*   Credenciales de Mercado Pago.
-*   Client ID de Google para autenticación.
-
-### 4. Ejecutar el proyecto
-**Modo Desarrollo:**
-```bash
-# En la carpeta raíz
-npm run dev
-```
-Esto iniciará tanto el servidor backend como la aplicación frontend en React de forma simultánea.
-
-**Modo Producción:**
-```bash
-npm start
-```
-
-## Flujo de Uso (Para el Usuario)
-
-1.  **Exploración y Selección:** El cliente navega por los productos, añade al "Box" los que desea comprar.
-2.  **Checkout y Pago:** El usuario inicia el proceso de pago, es redirigido a Mercado Pago.
-3.  **Reserva de Locker:** Tras un pago exitoso, la plataforma indica que tiene productos sin reservar. El cliente va a "Mis Pedidos" y programa la fecha/hora de recogida.
-4.  **Generación de QR:** El sistema asigna un locker y genera un código QR único que sirve como "llave" para abrir el locker.
-5.  **Recogida:** El cliente se dirige a la ubicación física de la tienda en el horario acordado, muestra el QR y recoge sus productos.
-
-## Endpoints Principales de la API
-
-*   `GET /api/productos`: Lista de todos los productos disponibles.
-*   `POST /api/cart/add`: Añade un producto al carrito del usuario.
-*   `POST /api/payment/create-preference`: Inicia una intención de pago en Mercado Pago.
-*   `GET /api/orders/my-orders`: Devuelve las compras del usuario autenticado.
-*   `POST /api/appointments`: Crea una reserva de recogida y asigna un locker.
-*   `GET /api/lockers`: (Admin) Ver el estado de todos los casilleros.
+*   **CORS** condicional: abierto en desarrollo, restringido al `FRONTEND_URL` en producción.
+*   **Idempotencia de Webhooks**: guard basado en DB (`wompi_transaction_id` único) — resiste reinicios del servidor.
+*   **Rate Limiting** en todas las rutas de autenticación (login, registro, verificación, recuperación).
+*   **Validación de firmas SHA-256** en cada evento de Wompi.
+*   **Protección de rutas** mediante JWT y roles (Admin/User).
+*   **Helmet + CSP** con dominios de Wompi, Google y Cloudinary explícitamente permitidos.
 
 ---
-*Nota: Este proyecto está en desarrollo y algunas funcionalidades como los pagos y correos electrónicos pueden estar en modo de prueba (sandbox).*
+*Hako — Re-imaginando la logística de última milla.*

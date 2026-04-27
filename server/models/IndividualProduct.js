@@ -79,7 +79,8 @@ const individualProductSchema = new mongoose.Schema({
   
   // Información del pago que generó este producto individual
   payment: {
-    mp_payment_id: String,
+    payment_id: String,
+    wompi_transaction_id: String,
     status: String
   },
   

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import productService, { getVariantOrProductDimensions } from '../services/productService';
@@ -7,6 +7,7 @@ import gridPackingService from '../services/gridPackingService';
 import type { Product } from '../services/productService';
 import './AdminProductTestPage.css';
 import './AdminModalImprovements.css';
+import ConfirmModal from '../components/ConfirmModal';
 
 interface TestProduct {
   id: string;
@@ -28,7 +29,7 @@ interface Product3D {
   volume: number;
 }
 
-const AdminProductTestPage: React.FC = () => {
+const AdminProductTestPage = () => {
   const { isAuthenticated, isAdmin, isLoading } = useAuth();
   const navigate = useNavigate();
 
@@ -47,12 +48,52 @@ const AdminProductTestPage: React.FC = () => {
   const [sortBy, setSortBy] = useState('nombre');
 
   // Estados para límites
-  const [maxSlots, setMaxSlots] = useState(27); // Límite de slots del casillero
+  const [maxSlots] = useState(27); // Límite de slots del casillero
   const [currentSlotsUsed, setCurrentSlotsUsed] = useState(0);
 
   // Estados para selección de variantes
   const [selectedProductForVariants, setSelectedProductForVariants] = useState<Product | null>(null);
   const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
+
+  // Estado para el modal de confirmación genérico
+  const [modalConfig, setModalConfig] = useState<{
+    show: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    onCancel?: () => void;
+    type: 'confirm' | 'alert';
+    variant: 'primary' | 'danger' | 'warning' | 'success' | 'info';
+    confirmText?: string;
+  }>({
+    show: false,
+    title: '',
+    message: '',
+    onConfirm: () => { },
+    type: 'alert',
+    variant: 'primary'
+  });
+
+  // Helper para mostrar alertas asíncronas
+  const showAlert = (title: string, message: string, variant: 'primary' | 'danger' | 'warning' | 'success' | 'info' = 'primary') => {
+    return new Promise<void>((resolve) => {
+      setModalConfig({
+        show: true,
+        title,
+        message,
+        onConfirm: () => {
+          setModalConfig(prev => ({ ...prev, show: false }));
+          resolve();
+        },
+        onCancel: () => {
+          setModalConfig(prev => ({ ...prev, show: false }));
+          resolve();
+        },
+        type: 'alert',
+        variant
+      });
+    });
+  };
 
   useEffect(() => {
     if (!isLoading && (!isAuthenticated || !isAdmin)) {
@@ -124,7 +165,7 @@ const AdminProductTestPage: React.FC = () => {
             };
             console.log('✅ Usando dimensiones de variante:', dimensions);
           }
-        } catch (err) {
+        } catch (_err) {
           console.log('⚠️ No se pudieron obtener dimensiones de variantes seleccionadas');
         }
       }
@@ -148,7 +189,7 @@ const AdminProductTestPage: React.FC = () => {
                 height: variantDims.alto
               };
             }
-          } catch (err) {
+          } catch (_err) {
             console.log('⚠️ No se pudieron obtener dimensiones de variantes, usando valores por defecto');
           }
         }
@@ -166,13 +207,6 @@ const AdminProductTestPage: React.FC = () => {
         selectedVariants: variants || {}
       };
 
-      // Calcular slots que ocuparía este producto
-      const slotsX = Math.ceil(dimensions.length / 15);
-      const slotsY = Math.ceil(dimensions.width / 15);
-      const slotsZ = Math.ceil(dimensions.height / 15);
-      const productSlots = slotsX * slotsY * slotsZ;
-
-
       setTestProducts(prev => [...prev, testProduct]);
       console.log('✅ Producto agregado a prueba');
 
@@ -181,7 +215,7 @@ const AdminProductTestPage: React.FC = () => {
       setSelectedVariants({});
     } catch (err) {
       console.error('Error agregando producto:', err);
-      alert('Error al agregar el producto a la prueba');
+      await showAlert('Error', 'Error al agregar el producto a la prueba', 'danger');
     }
   };
 
@@ -261,7 +295,7 @@ const AdminProductTestPage: React.FC = () => {
               };
               console.log(`✅ Usando dimensiones de variante para ${product.name}:`, finalDimensions);
             }
-          } catch (err) {
+          } catch (_err) {
             console.log(`⚠️ No se pudieron obtener dimensiones de variante para ${product.name}, usando dimensiones guardadas`);
           }
         }
@@ -821,6 +855,17 @@ const AdminProductTestPage: React.FC = () => {
         </div>
       </main>
 
+      {/* Modal de confirmación genérico */}
+      <ConfirmModal
+        show={modalConfig.show}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        onConfirm={modalConfig.onConfirm}
+        onCancel={modalConfig.onCancel || (() => setModalConfig(prev => ({ ...prev, show: false })))}
+        variant={modalConfig.variant}
+        type={modalConfig.type}
+        confirmText={modalConfig.confirmText}
+      />
     </div>
   );
 };

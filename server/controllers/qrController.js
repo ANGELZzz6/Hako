@@ -56,22 +56,21 @@ async function generateQR(req, res) {
     }
 
 
-    // Verificar si existe ya un QR para esta cita
-    const existingQR = await Qr.findOne({ appointment: appointmentId });
+    // Verificar si existe ya un QR para esta cita (el más reciente)
+    const existingQR = await Qr.findOne({ appointment: appointmentId }).sort({ createdAt: -1 });
     
     if (existingQR) {
-      // Si el QR existe pero está vencido, generar uno nuevo
+      // Tarea 7: Si el QR existe pero está vencido, marcarlo como tal y generar uno nuevo
       if (existingQR.isExpired()) {
-        console.log('🔄 QR existente está vencido, generando uno nuevo...');
-        
-        // Eliminar el QR vencido
-        await Qr.findByIdAndDelete(existingQR._id);
-        console.log('🗑️ QR vencido eliminado');
+        console.log('🔄 QR existente está vencido, marcándolo y preparando uno nuevo...');
+        existingQR.status = 'vencido';
+        await existingQR.save(); 
       } else {
-        console.log('ℹ️ QR ya existe para esta cita y está vigente, devolviendo el existente');
-        return res.json({
-          success: true,
-          message: 'Código QR ya existe para esta cita',
+        // Tarea 7: Si el QR está activo, no permitir generar uno nuevo
+        console.log('ℹ️ Ya existe un QR activo para esta cita');
+        return res.status(400).json({
+          success: false,
+          error: 'Ya tienes un QR activo para esta cita',
           qr: {
             qr_id: existingQR.qr_id,
             qr_url: existingQR.qr_url,
@@ -80,7 +79,6 @@ async function generateQR(req, res) {
           }
         });
       }
-
     }
 
     // Generar ID único para el QR
@@ -104,7 +102,7 @@ async function generateQR(req, res) {
       appointment: appointmentId,
       user: userId,
       qr_url: qrCodeDataURL,
-      vencimiento: appointmentDateTime,
+      vencimiento: new Date(Date.now() + 4 * 60 * 60 * 1000), // Tarea 7: 4 horas desde la solicitud
       productos: appointment.itemsToPickup.map(item => ({
         individualProduct: item.individualProduct,
         lockerNumber: item.lockerNumber

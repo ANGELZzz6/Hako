@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import './UserManagement.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
@@ -8,6 +8,7 @@ import EditUserModal from '../components/EditUserModal';
 import userService, { type User, type UpdateUserData } from '../services/userService';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import ConfirmModal from '../components/ConfirmModal';
 
 
 const UserManagement = () => {
@@ -19,6 +20,47 @@ const UserManagement = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { isAdmin, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+
+  // Estado para el modal de confirmación genérico
+  const [modalConfig, setModalConfig] = useState<{
+    show: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    onCancel?: () => void;
+    type: 'confirm' | 'alert';
+    variant: 'primary' | 'danger' | 'warning' | 'success' | 'info';
+    confirmText?: string;
+  }>({
+    show: false,
+    title: '',
+    message: '',
+    onConfirm: () => { },
+    type: 'alert',
+    variant: 'primary'
+  });
+
+  // Función auxiliar para mostrar el modal de confirmación
+  const showConfirm = (title: string, message: string, variant: 'primary' | 'danger' | 'warning' | 'success' | 'info' = 'primary', confirmText?: string) => {
+    return new Promise<boolean>((resolve) => {
+      setModalConfig({
+        show: true,
+        title,
+        message,
+        onConfirm: () => {
+          setModalConfig(prev => ({ ...prev, show: false }));
+          resolve(true);
+        },
+        onCancel: () => {
+          setModalConfig(prev => ({ ...prev, show: false }));
+          resolve(false);
+        },
+        type: 'confirm',
+        variant,
+        confirmText
+      });
+    });
+  };
 
   // Cargar usuarios al montar el componente
   useEffect(() => {
@@ -53,10 +95,14 @@ const UserManagement = () => {
   };
 
   const handleDelete = async (userId: string) => {
-    const confirmation = window.prompt(
-      'Esta acción eliminará el usuario permanentemente.\nEscribe CONFIRMAR para continuar:'
+    const confirmed = await showConfirm(
+      'Confirmar Eliminación',
+      'Esta acción eliminará al usuario permanentemente. ¿Deseas continuar?',
+      'danger',
+      'Eliminar usuario'
     );
-    if (confirmation !== 'CONFIRMAR') return;
+    
+    if (!confirmed) return;
 
     try {
       await userService.deleteUser(userId);
@@ -170,6 +216,18 @@ const UserManagement = () => {
         isOpen={isModalOpen}
         onClose={closeModal}
         onSave={handleSaveUser}
+      />
+
+      {/* Modal de Confirmación Genérico */}
+      <ConfirmModal
+        show={modalConfig.show}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        onConfirm={modalConfig.onConfirm}
+        onCancel={modalConfig.onCancel}
+        type={modalConfig.type}
+        variant={modalConfig.variant}
+        confirmText={modalConfig.confirmText}
       />
     </div>
   );

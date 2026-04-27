@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import appointmentService, { type Appointment } from '../services/appointmentService';
+import ConfirmModal from '../components/ConfirmModal';
 
 const statusLabels: Record<string, string> = {
   scheduled: 'Agendada',
@@ -41,6 +42,68 @@ const AdminAppointmentsPage: React.FC = () => {
     date: ''
   });
 
+  // Estado para el modal de confirmación
+  const [modalConfig, setModalConfig] = useState<{
+    show: boolean;
+    title: string;
+    message: string;
+    confirmText?: string;
+    cancelText?: string;
+    onConfirm: () => void;
+    onCancel: () => void;
+    variant?: 'primary' | 'danger' | 'warning' | 'success';
+    type?: 'confirm' | 'alert';
+  }>({
+    show: false,
+    title: '',
+    message: '',
+    onConfirm: () => { },
+    onCancel: () => { },
+  });
+
+  // Helper para mostrar confirmación asíncrona
+  const showConfirm = (title: string, message: string, variant: 'primary' | 'danger' | 'warning' | 'success' = 'primary', confirmText: string = 'Confirmar'): Promise<boolean> => {
+    return new Promise((resolve) => {
+      setModalConfig({
+        show: true,
+        title,
+        message,
+        variant,
+        confirmText,
+        type: 'confirm',
+        onConfirm: () => {
+          setModalConfig((prev: any) => ({ ...prev, show: false }));
+          resolve(true);
+        },
+        onCancel: () => {
+          setModalConfig((prev: any) => ({ ...prev, show: false }));
+          resolve(false);
+        }
+      });
+    });
+  };
+
+  // Helper para mostrar alertas
+  const showAlert = (title: string, message: string, variant: 'primary' | 'danger' | 'warning' | 'success' = 'primary'): Promise<void> => {
+    return new Promise((resolve) => {
+      setModalConfig({
+        show: true,
+        title,
+        message,
+        variant,
+        type: 'alert',
+        onConfirm: () => {
+          setModalConfig((prev: any) => ({ ...prev, show: false }));
+          resolve();
+        },
+        onCancel: () => {
+          setModalConfig((prev: any) => ({ ...prev, show: false }));
+          resolve();
+        }
+      });
+    });
+  };
+
   useEffect(() => {
     if (!isLoading && (!isAuthenticated || !isAdmin)) {
       navigate('/', { replace: true });
@@ -75,7 +138,7 @@ const AdminAppointmentsPage: React.FC = () => {
   const handleStatusChange = async (appointmentId: string, newStatus: Appointment['status']) => {
     try {
       setUpdatingId(appointmentId);
-      const result = await appointmentService.updateAppointmentStatus(appointmentId, newStatus);
+      await appointmentService.updateAppointmentStatus(appointmentId, newStatus);
       
       setAppointments(appointments => 
         appointments.map(apt => 
@@ -85,19 +148,23 @@ const AdminAppointmentsPage: React.FC = () => {
         )
       );
       
-      alert(`Estado de cita actualizado a: ${statusLabels[newStatus]}`);
+      await showAlert('Éxito', `Estado de cita actualizado a: ${statusLabels[newStatus]}`, 'success');
     } catch (err: any) {
-      alert('Error al actualizar el estado de la cita: ' + err.message);
+      await showAlert('Error', 'Error al actualizar el estado de la cita: ' + err.message, 'danger');
     } finally {
       setUpdatingId(null);
     }
   };
 
   const handleDeleteAppointment = async (appointmentId: string) => {
-    const confirmation = window.prompt(
-      'Esta acción es permanente.\nEscribe CONFIRMAR para continuar:'
+    const confirmed = await showConfirm(
+      'Eliminar reserva',
+      'Esta acción es permanente. ¿Deseas eliminar esta reserva?',
+      'danger',
+      'Eliminar reserva'
     );
-    if (confirmation !== 'CONFIRMAR') return;
+    
+    if (!confirmed) return;
 
     try {
       setDeletingId(appointmentId);
@@ -112,9 +179,9 @@ const AdminAppointmentsPage: React.FC = () => {
       const statsData = await appointmentService.getAppointmentStats();
       setStats(statsData);
       
-      alert('Reserva eliminada exitosamente');
+      await showAlert('Éxito', 'Reserva eliminada exitosamente', 'success');
     } catch (err: any) {
-      alert('Error al eliminar la reserva: ' + err.message);
+      await showAlert('Error', 'Error al eliminar la reserva: ' + err.message, 'danger');
     } finally {
       setDeletingId(null);
     }
@@ -378,9 +445,12 @@ const AdminAppointmentsPage: React.FC = () => {
                         <div className="btn-group-vertical btn-group-sm">
                           <button
                             className="btn btn-outline-primary btn-sm"
-                            onClick={() => {
-                              // Aquí podrías abrir un modal con detalles completos
-                              alert(`Detalles de la cita:\n\nUsuario: ${appointment.user?.nombre || 'N/A'}\nEmail: ${appointment.user?.email || 'N/A'}\nFecha: ${formatDateTime(appointment.scheduledDate, appointment.timeSlot)}\nEstado: ${statusLabels[appointment.status]}`);
+                            onClick={async () => {
+                              await showAlert(
+                                'Detalles de la cita',
+                                `Usuario: ${appointment.user?.nombre || 'N/A'}\nEmail: ${appointment.user?.email || 'N/A'}\nFecha: ${formatDateTime(appointment.scheduledDate, appointment.timeSlot)}\nEstado: ${statusLabels[appointment.status]}`,
+                                'primary'
+                              );
                             }}
                             title="Ver detalles"
                           >
@@ -410,8 +480,9 @@ const AdminAppointmentsPage: React.FC = () => {
           )}
         </div>
       </main>
+      <ConfirmModal {...modalConfig} />
     </div>
   );
 };
 
-export default AdminAppointmentsPage; 
+export default AdminAppointmentsPage;

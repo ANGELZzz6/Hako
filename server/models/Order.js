@@ -58,13 +58,18 @@ const orderSchema = new mongoose.Schema({
     default: 'pending'
   },
   
-  // Información de pago
+  // Información de pago (Wompi Migration)
   payment: {
-    mp_payment_id: String,
+    payment_id: String,           // ID único de Wompi (puede ser la referencia)
+    wompi_transaction_id: String, // ID interno generado por Wompi
     status: {
       type: String,
-      enum: ['pending', 'approved', 'rejected', 'cancelled'],
+      enum: ['pending', 'approved', 'declined', 'failed', 'voided', 'error'],
       default: 'pending'
+    },
+    reference: {
+        type: String,
+        description: 'HAKO-{timestamp}-{userId}'
     },
     method: String,
     amount: Number,
@@ -74,7 +79,7 @@ const orderSchema = new mongoose.Schema({
     }
   },
   
-  // Referencia externa para Mercado Pago
+  // Referencia externa (Se mantiene a nivel superior por compatibilidad de búsqueda)
   external_reference: {
     type: String,
     required: true,
@@ -104,9 +109,7 @@ const orderSchema = new mongoose.Schema({
       max: [12, 'El número de casillero no puede ser mayor a 12'],
       validate: {
         validator: function(value) {
-          // Si el valor es null, es válido (para pedidos recogidos)
           if (value === null || value === undefined) return true;
-          // Si tiene valor, debe estar entre 1 y 12
           return value >= 1 && value <= 12;
         },
         message: 'El número de casillero debe estar entre 1 y 12'
@@ -145,10 +148,12 @@ const orderSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Índices para búsquedas eficientes
+// Índices actualizados para Wompi
 orderSchema.index({ user: 1 });
 orderSchema.index({ status: 1 });
-orderSchema.index({ 'payment.mp_payment_id': 1 });
+orderSchema.index({ 'payment.payment_id': 1 }); // Renombrado
+orderSchema.index({ 'payment.wompi_transaction_id': 1 }); // Nuevo
+orderSchema.index({ external_reference: 1 });
 orderSchema.index({ createdAt: -1 });
 
 // Método para obtener productos no reclamados
@@ -168,4 +173,4 @@ orderSchema.methods.getTotalUnclaimedQuantity = function() {
   }, 0);
 };
 
-module.exports = mongoose.model('Order', orderSchema); 
+module.exports = mongoose.model('Order', orderSchema);

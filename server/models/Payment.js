@@ -1,17 +1,23 @@
 const mongoose = require('mongoose');
 
 const paymentSchema = new mongoose.Schema({
-  // ID del pago en Mercado Pago
-  mp_payment_id: {
+  // ID único del pago (Referencia de Wompi)
+  payment_id: {
     type: String,
     required: true,
     unique: true
+  },
+  // ID interno de Wompi
+  wompi_transaction_id: {
+    type: String,
+    unique: true,
+    sparse: true
   },
   
   // Estado del pago
   status: {
     type: String,
-    enum: ['pending', 'approved', 'rejected', 'cancelled', 'refunded'],
+    enum: ['pending', 'approved', 'declined', 'failed', 'voided', 'error', 'refunded'],
     required: true
   },
   

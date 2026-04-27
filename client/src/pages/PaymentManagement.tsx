@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import './PaymentManagement.css';
@@ -7,6 +7,7 @@ import SearchBar from '../components/SearchBar';
 import PaymentTable from '../components/PaymentTable';
 import PaymentDetailsModal from '../components/PaymentDetailsModal';
 import paymentManagementService, { type Payment } from '../services/paymentManagementService';
+import ConfirmModal from '../components/ConfirmModal';
 
 const PaymentManagement = () => {
   const { isAdmin, isAuthenticated } = useAuth();
@@ -30,6 +31,68 @@ const PaymentManagement = () => {
     totalAmount: 0,
     averageAmount: 0
   });
+
+  // Estado para el modal de confirmación
+  const [modalConfig, setModalConfig] = useState<{
+    show: boolean;
+    title: string;
+    message: string;
+    confirmText?: string;
+    cancelText?: string;
+    onConfirm: () => void;
+    onCancel: () => void;
+    variant?: 'primary' | 'danger' | 'warning' | 'success';
+    type?: 'confirm' | 'alert';
+  }>({
+    show: false,
+    title: '',
+    message: '',
+    onConfirm: () => { },
+    onCancel: () => { },
+  });
+
+  // Helper para mostrar confirmación asíncrona
+  const showConfirm = (title: string, message: string, variant: 'primary' | 'danger' | 'warning' | 'success' = 'primary', confirmText: string = 'Confirmar'): Promise<boolean> => {
+    return new Promise((resolve) => {
+      setModalConfig({
+        show: true,
+        title,
+        message,
+        variant,
+        confirmText,
+        type: 'confirm',
+        onConfirm: () => {
+          setModalConfig((prev: any) => ({ ...prev, show: false }));
+          resolve(true);
+        },
+        onCancel: () => {
+          setModalConfig((prev: any) => ({ ...prev, show: false }));
+          resolve(false);
+        }
+      });
+    });
+  };
+
+  // Helper para mostrar alertas
+  const showAlert = (title: string, message: string, variant: 'primary' | 'danger' | 'warning' | 'success' = 'primary'): Promise<void> => {
+    return new Promise((resolve) => {
+      setModalConfig({
+        show: true,
+        title,
+        message,
+        variant,
+        type: 'alert',
+        onConfirm: () => {
+          setModalConfig((prev: any) => ({ ...prev, show: false }));
+          resolve();
+        },
+        onCancel: () => {
+          setModalConfig((prev: any) => ({ ...prev, show: false }));
+          resolve();
+        }
+      });
+    });
+  };
 
   // Cargar pagos al montar el componente
   useEffect(() => {
@@ -77,18 +140,24 @@ const PaymentManagement = () => {
   };
 
   const handleDelete = async (paymentId: string) => {
-    const confirmation = window.prompt(
-      '¿Estás seguro de que quieres eliminar este pago? Esta acción no se puede deshacer.\nEscribe CONFIRMAR para continuar:'
+    const confirmed = await showConfirm(
+      'Eliminar pago',
+      '¿Estás seguro de que quieres eliminar este pago? Esta acción no se puede deshacer.',
+      'danger',
+      'Eliminar pago'
     );
-    if (confirmation !== 'CONFIRMAR') return;
+    
+    if (!confirmed) return;
 
     try {
       await paymentManagementService.deletePayment(paymentId);
       setPayments(payments.filter(payment => payment._id !== paymentId));
       await loadStats(); // Recargar estadísticas
       setError('');
+      await showAlert('Éxito', 'Pago eliminado correctamente', 'success');
     } catch (err: any) {
       setError(err.message || 'Error al eliminar pago');
+      await showAlert('Error', 'Error al eliminar el pago: ' + err.message, 'danger');
     }
   };
 
@@ -106,10 +175,14 @@ const PaymentManagement = () => {
   };
 
   const handleDeleteAllPayments = async () => {
-    const confirmation = window.prompt(
-      'Esta acción eliminará TODOS los pagos permanentemente.\nEscribe CONFIRMAR para continuar:'
+    const confirmed = await showConfirm(
+      'Eliminar TODOS los pagos',
+      'Esta acción eliminará TODOS los pagos permanentemente. ¿Deseas continuar?',
+      'danger',
+      'Eliminar todos'
     );
-    if (confirmation !== 'CONFIRMAR') return;
+    
+    if (!confirmed) return;
 
     try {
       setIsDeletingAll(true);
@@ -117,9 +190,10 @@ const PaymentManagement = () => {
       const result = await paymentManagementService.deleteAllPayments();
       setPayments([]);
       await loadStats();
-      alert(`✅ ${result.message}`);
+      await showAlert('Éxito', result.message || 'Todos los pagos han sido eliminados', 'success');
     } catch (err: any) {
       setError(err.message || 'Error al eliminar todos los pagos');
+      await showAlert('Error', 'Error al eliminar todos los pagos: ' + err.message, 'danger');
     } finally {
       setIsDeletingAll(false);
     }
@@ -411,8 +485,9 @@ const PaymentManagement = () => {
           </div>
         </div>
       )}
+      <ConfirmModal {...modalConfig} />
     </div>
   );
 };
 
-export default PaymentManagement; 
+export default PaymentManagement;

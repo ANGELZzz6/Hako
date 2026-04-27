@@ -94,27 +94,33 @@ exports.getAvailableTimeSlots = async (req, res) => {
 
     if (isToday) {
       const now = new Date();
-      const currentHour = now.getHours();
-      const currentMinute = now.getMinutes();
+      // Obtener hora actual en Colombia (UTC-5)
+      const nowColombia = new Date(now.getTime() - COLOMBIA_OFFSET_MS);
+      const currentHour = nowColombia.getUTCHours();
+      const currentMinute = nowColombia.getUTCMinutes();
 
       if (isDev) {
-        console.log('  Filtrando horas para hoy:');
-        console.log('  Hora actual:', currentHour);
-        console.log('  Minuto actual:', currentMinute);
+        console.log('  Filtrando horas para hoy (Buffer 1h):');
+        console.log('  Hora actual Colombia:', currentHour);
+        console.log('  Minuto actual Colombia:', currentMinute);
       }
 
-      // Filtrar slots que ya han pasado
+      // Tarea 6: Filtrar slots que tengan al menos 1 hora de diferencia con la hora actual
       const filteredSlots = availableSlots.filter(slot => {
         const [hours, minutes] = slot.time.split(':');
         const slotHour = parseInt(hours);
         const slotMinute = parseInt(minutes);
 
-        const isFuture = slotHour > currentHour || (slotHour === currentHour && slotMinute > currentMinute);
+        // Comparar en minutos totales
+        const slotTotalMinutes = slotHour * 60 + slotMinute;
+        const currentTotalMinutes = currentHour * 60 + currentMinute;
+        
+        // La diferencia debe ser de al menos 60 minutos
+        const hasOneHourBuffer = (slotTotalMinutes - currentTotalMinutes) >= 60;
 
-        if (isDev) console.log(`    ${slot.time}: hora=${slotHour}, minuto=${slotMinute}, ¿es futuro?=${isFuture}`);
+        if (isDev) console.log(`    ${slot.time}: slotMin=${slotTotalMinutes}, currentMin=${currentTotalMinutes}, diff=${slotTotalMinutes - currentTotalMinutes}, ¿tiene buffer?=${hasOneHourBuffer}`);
 
-        // Si la hora del slot es menor a la hora actual, o si es la misma hora pero los minutos ya pasaron
-        return isFuture;
+        return hasOneHourBuffer;
       });
 
       if (isDev) console.log('  Horarios filtrados para hoy:', filteredSlots.map(s => s.time));
@@ -206,6 +212,15 @@ exports.createAppointment = async (req, res) => {
       return res.status(400).json({ error: 'Datos incompletos para crear la cita' });
     }
 
+    // HIGH-06: Validar timeSlot contra lista de slots permitidos (08:00-22:00)
+    const ALLOWED_TIME_SLOTS = [
+      '08:00', '09:00', '10:00', '11:00', '12:00', '13:00',
+      '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00'
+    ];
+    if (!ALLOWED_TIME_SLOTS.includes(timeSlot)) {
+      return res.status(400).json({ error: `Horario no válido. Los horarios permitidos son: ${ALLOWED_TIME_SLOTS.join(', ')}` });
+    }
+
     // Verificar que la orden existe y pertenece al usuario
     const order = await Order.findOne({
       _id: orderId,
@@ -222,41 +237,28 @@ exports.createAppointment = async (req, res) => {
     const today = getTodayColombia();
 
 
-    // Verificar penalización por reserva vencida (temporal - 24 horas)
+    // HIGH-01: Verificar penalización por reserva vencida (ventana global de 24 horas)
     const user = await User.findById(req.user.id);
-    if (user && user.reservationPenalties) {
+    if (user && user.reservationPenalties && user.reservationPenalties.length > 0) {
       const currentTime = new Date();
-      const penalty = user.reservationPenalties.find(p => {
-        const penaltyDate = new Date(p.date);
-        penaltyDate.setHours(0, 0, 0, 0);
-        const selectedDateNormalized = new Date(selectedDate);
-        selectedDateNormalized.setHours(0, 0, 0, 0);
+      const activePenalty = user.reservationPenalties.find(p => {
+        const penaltyTime = new Date(p.createdAt);
+        const hoursSincePenalty = (currentTime.getTime() - penaltyTime.getTime()) / (1000 * 60 * 60);
 
-        // Solo aplicar penalización si es el mismo día y no han pasado 24 horas
-        if (penaltyDate.getTime() === selectedDateNormalized.getTime()) {
-          const penaltyTime = new Date(p.createdAt);
-          const hoursSincePenalty = (currentTime.getTime() - penaltyTime.getTime()) / (1000 * 60 * 60);
-
-          if (isDev) {
-            console.log(`🔍 Penalización encontrada para ${selectedDate.toLocaleDateString('es-CO')}`);
-            console.log(`⏰ Horas transcurridas desde penalización: ${hoursSincePenalty.toFixed(2)}`);
-          }
-
-          // Si han pasado menos de 24 horas, aplicar penalización
-          if (hoursSincePenalty < 24) {
-            if (isDev) console.log(`❌ Penalización activa - No se puede reservar para este día`);
-            return true;
-          } else {
-            if (isDev) console.log(`✅ Penalización expirada - Se puede reservar para este día`);
-            return false;
-          }
+        if (isDev) {
+          console.log(`🔍 Penalización del ${new Date(p.date).toLocaleDateString('es-CO')}`);
+          console.log(`⏰ Horas transcurridas: ${hoursSincePenalty.toFixed(2)}`);
         }
-        return false;
+
+        return hoursSincePenalty < 24;
       });
 
-      if (penalty) {
+      if (activePenalty) {
+        const penaltyTime = new Date(activePenalty.createdAt);
+        const hoursRemaining = 24 - ((currentTime.getTime() - penaltyTime.getTime()) / (1000 * 60 * 60));
+        if (isDev) console.log(`❌ Penalización activa — ${hoursRemaining.toFixed(1)}h restantes`);
         return res.status(403).json({
-          error: `No puedes reservar para este día (${selectedDate.toLocaleDateString('es-CO')}) porque tuviste una reserva vencida recientemente. La penalización expira en 24 horas.`
+          error: `Tienes una penalización activa por reserva vencida. Podrás volver a reservar en ${Math.ceil(hoursRemaining)} hora(s).`
         });
       }
     }
@@ -305,6 +307,20 @@ exports.createAppointment = async (req, res) => {
         });
       }
 
+      // Tarea 4: Asignación automática de casillero si no se proporciona uno
+      let lockerNumber = pickupItem.lockerNumber;
+      if (!lockerNumber) {
+        if (isDev) console.log('🔍 No se proporcionó número de casillero, buscando el mejor disponible...');
+        lockerNumber = await lockerAssignmentService.findBestLocker(scheduledDate, timeSlot);
+        
+        if (!lockerNumber) {
+          return res.status(409).json({
+            error: 'No hay casilleros disponibles para este horario. Por favor intenta con otra fecha u hora.'
+          });
+        }
+        if (isDev) console.log(`✅ Casillero asignado automáticamente: ${lockerNumber}`);
+      }
+
       // Verificar que el producto no esté ya reservado
       if (individualProduct.status !== 'available') {
         return res.status(400).json({
@@ -324,7 +340,7 @@ exports.createAppointment = async (req, res) => {
         individualProduct: individualProduct._id,
         originalProduct: individualProduct.product._id,
         quantity: 1, // Siempre 1 para productos individuales
-        lockerNumber: pickupItem.lockerNumber,
+        lockerNumber: lockerNumber,
         individualProductId: individualProduct._id,
         // Enviar variantes y dimensiones para visualización combinada correcta
         variants: individualProduct.variants ? Object.fromEntries(individualProduct.variants) : undefined,
@@ -678,64 +694,7 @@ exports.getMyAppointment = async (req, res) => {
 exports.updateMyAppointment = async (req, res) => {
   try {
     const { appointmentId } = req.params;
-    const { scheduledDate, timeSlot, lockerNumber } = req.body;
-
-    // Verificar penalizaciones del usuario (reservas vencidas - temporal 24 horas)
-    const user = await User.findById(req.user.id);
-    const penalizedDates = new Set();
-    const currentTime = new Date();
-
-    // Agregar penalizaciones almacenadas en el modelo User (solo las activas)
-    if (user && user.reservationPenalties) {
-      user.reservationPenalties.forEach(penalty => {
-        const penaltyDate = new Date(penalty.date);
-        penaltyDate.setHours(0, 0, 0, 0);
-        const penaltyTime = new Date(penalty.createdAt);
-        const hoursSincePenalty = (currentTime.getTime() - penaltyTime.getTime()) / (1000 * 60 * 60);
-
-        // Solo agregar penalizaciones que no hayan expirado (menos de 24 horas)
-        if (hoursSincePenalty < 24) {
-          penalizedDates.add(penaltyDate.getTime());
-          if (isDev) console.log(`🔍 Penalización activa para ${penaltyDate.toLocaleDateString('es-CO')} (${hoursSincePenalty.toFixed(2)}h transcurridas)`);
-        } else {
-          if (isDev) console.log(`✅ Penalización expirada para ${penaltyDate.toLocaleDateString('es-CO')} (${hoursSincePenalty.toFixed(2)}h transcurridas)`);
-        }
-      });
-    }
-
-    // También verificar reservas vencidas activas (solo si no han pasado 24 horas)
-    const userAppointments = await Appointment.find({ user: req.user.id });
-    userAppointments.forEach(app => {
-      if (app.status !== 'cancelled' && app.status !== 'completed') {
-        const appDate = new Date(app.scheduledDate);
-        appDate.setHours(0, 0, 0, 0);
-        const appDateTime = new Date(app.scheduledDate);
-        const [h, m] = app.timeSlot.split(':');
-        appDateTime.setHours(parseInt(h), parseInt(m), 0, 0);
-
-        // Solo penalizar si la reserva venció hace menos de 24 horas
-        if (appDateTime < new Date()) {
-          const hoursSinceExpiry = (currentTime.getTime() - appDateTime.getTime()) / (1000 * 60 * 60);
-          if (hoursSinceExpiry < 24) {
-            penalizedDates.add(appDate.getTime());
-            if (isDev) console.log(`🔍 Reserva vencida activa para ${appDate.toLocaleDateString('es-CO')} (${hoursSinceExpiry.toFixed(2)}h transcurridas)`);
-          } else {
-            if (isDev) console.log(`✅ Reserva vencida expirada para ${appDate.toLocaleDateString('es-CO')} (${hoursSinceExpiry.toFixed(2)}h transcurridas)`);
-          }
-        }
-      }
-    });
-
-    // Validar que la nueva fecha no esté penalizada
-    if (scheduledDate) {
-      const newDate = createLocalDate(scheduledDate);
-      newDate.setHours(0, 0, 0, 0);
-      if (penalizedDates.has(newDate.getTime())) {
-        return res.status(403).json({
-          error: 'No puedes volver a reservar para el día en que se venció tu reserva recientemente. La penalización expira en 24 horas.'
-        });
-      }
-    }
+    const { scheduledDate, timeSlot } = req.body;
 
     // Buscar la cita y verificar que pertenece al usuario
     const appointment = await Appointment.findOne({
@@ -752,224 +711,62 @@ exports.updateMyAppointment = async (req, res) => {
       return res.status(400).json({ error: 'No se puede modificar una cita cancelada o completada' });
     }
 
-    // Verificar que la cita tenga al menos 1 hora de anticipación
-    const appointmentDateTime = createLocalDate(appointment.scheduledDate);
-    const [hours, minutes] = appointment.timeSlot.split(':');
-    appointmentDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+    // Determinar si la fecha u hora han cambiado
+    const dateChanged = scheduledDate && createLocalDate(scheduledDate).getTime() !== new Date(appointment.scheduledDate).getTime();
+    const slotChanged = timeSlot && timeSlot !== appointment.timeSlot;
 
-    const now = new Date();
-    const timeDifference = appointmentDateTime.getTime() - now.getTime();
-    const hoursDifference = timeDifference / (1000 * 60 * 60);
+    let newLockerNumber = appointment.itemsToPickup[0]?.lockerNumber;
 
-    // Permitir modificar reservas vencidas (fecha/hora pasada), pero no canceladas ni completadas
-    const isPast = appointmentDateTime < now;
-    if (!isPast && hoursDifference < 1) {
-      return res.status(400).json({
-        error: 'Solo se pueden modificar reservas con al menos 1 hora de anticipación'
-      });
+    if (dateChanged || slotChanged) {
+      if (isDev) console.log(`🔄 Fecha/Hora cambiada. Buscando mejor casillero para ${scheduledDate} ${timeSlot}...`);
+      
+      const newDate = createLocalDate(scheduledDate || appointment.scheduledDate);
+      newLockerNumber = await lockerAssignmentService.findBestLocker(newDate, timeSlot || appointment.timeSlot);
+
+      if (!newLockerNumber) {
+        return res.status(409).json({
+          error: 'No hay casilleros disponibles para el nuevo horario seleccionado. Por favor intenta con otra fecha u hora.'
+        });
+      }
+      if (isDev) console.log(`✅ Nuevo casillero asignado automáticamente: ${newLockerNumber}`);
     }
 
-    // Validar fecha y hora nueva
-    if (scheduledDate && timeSlot) {
-      const newDate = createLocalDate(scheduledDate);
-      const [newHours, newMinutes] = timeSlot.split(':');
-      newDate.setHours(parseInt(newHours), parseInt(newMinutes), 0, 0);
-      const now = new Date();
-      // Verificar que la nueva fecha no sea en el pasado
-      if (newDate <= now) {
-        return res.status(400).json({ error: 'No se pueden agendar citas en el pasado' });
-      }
-      // Si la nueva fecha/hora es para menos de 1 hora en el futuro, bloquear
-      const timeDifference = newDate.getTime() - now.getTime();
-      const hoursDifference = timeDifference / (1000 * 60 * 60);
-      if (hoursDifference < 1) {
-        return res.status(400).json({ error: 'Solo se pueden modificar reservas con al menos 1 hora de anticipación' });
-      }
+    // Actualizar la cita
+    if (scheduledDate) appointment.scheduledDate = createLocalDate(scheduledDate);
+    if (timeSlot) appointment.timeSlot = timeSlot;
 
-      // Verificar que el usuario no tenga otras reservas para el mismo casillero, fecha y hora
-      const requestedLockers = (appointment.itemsToPickup || [])
-        .filter(item => {
-          const isValid = item && (item.individualProduct || item.originalProduct);
-          if (!isValid && isDev) {
-            console.warn(`⚠️ [updateMyAppointment] Filtrando item nulo en cita ${appointment._id}`);
-          }
-          return isValid;
-        })
-        .map(item => lockerNumber || item.lockerNumber);
+    // Actualizar todos los ítems con el nuevo casillero (o mantener el anterior)
+    appointment.itemsToPickup = appointment.itemsToPickup.map(item => ({
+      ...item.toObject(),
+      lockerNumber: newLockerNumber
+    }));
 
-      const existingUserAppointments = await Appointment.find({
-        user: req.user.id,
-        scheduledDate: newDate,
-        timeSlot: timeSlot,
-        status: { $in: ['scheduled', 'confirmed'] },
-        _id: { $ne: appointmentId } // Excluir la cita actual
-      });
-
-      // Verificar si hay conflictos con casilleros
-      for (const existingAppointment of existingUserAppointments) {
-        for (const item of existingAppointment.itemsToPickup) {
-          if (requestedLockers.includes(item.lockerNumber)) {
-            return res.status(400).json({
-              error: `Ya tienes una reserva para el casillero ${item.lockerNumber} en la fecha y hora seleccionada`
-            });
-          }
-        }
-      }
-
-      // Verificar que el nuevo casillero no esté siendo usado por otros usuarios
-      const otherUsersAppointments = await Appointment.find({
-        scheduledDate: newDate,
-        timeSlot: timeSlot,
-        status: { $in: ['scheduled', 'confirmed'] },
-        'itemsToPickup.lockerNumber': { $in: requestedLockers }
-      });
-
-      if (otherUsersAppointments.length > 0) {
-        return res.status(400).json({
-          error: `Los casilleros ${requestedLockers.join(', ')} ya están ocupados por otros usuarios en la fecha y hora seleccionada`
-        });
-      }
-
-      const today = getTodayColombia();
-
-      // Validar que la nueva fecha no sea más de 7 días adelante
-      if (req.user.role !== 'admin') {
-        const maxDate = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
-        if (newDate > maxDate) {
-          return res.status(400).json({ error: 'No se pueden agendar citas con más de 7 días de anticipación' });
-        }
-      }
-
-      // Si es el día actual, validar que la hora no haya pasado
-      const isToday = newDate.getTime() === today.getTime();
-
-      if (isToday && timeSlot) {
-        const [hours, minutes] = timeSlot.split(':');
-        const selectedTime = new Date();
-        selectedTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-
-        if (selectedTime <= now) {
-          return res.status(400).json({ error: 'No se pueden agendar citas en horas que ya han pasado' });
-        }
-      }
-
-      // Verificar disponibilidad del casillero en la nueva fecha/hora
-      // Excluir la cita actual de la validación para evitar conflictos consigo misma
-      const availability = await Appointment.checkLockerAvailability(newDate, timeSlot, requestedLockers, appointmentId);
-
-      if (!availability.available) {
-        return res.status(400).json({
-          error: `Casillero(s) no disponible(s) en la fecha y hora seleccionada: ${availability.conflictingLockers.join(', ')}`
-        });
-      }
-
-      // Actualizar fecha y hora
-      appointment.scheduledDate = newDate;
-      appointment.timeSlot = timeSlot;
-    }
-
-    // Actualizar número de casillero si se proporciona
-    if (lockerNumber) {
-      // Obtener la cantidad de productos/items que tendrá la reserva
-      const itemsCount = appointment.itemsToPickup.length;
-
-      // Buscar todas las reservas del usuario para esa fecha/hora, excepto la actual
-      const existingUserAppointments = await Appointment.find({
-        user: req.user.id,
-        scheduledDate: appointment.scheduledDate,
-        timeSlot: appointment.timeSlot,
-        status: { $in: ['scheduled', 'confirmed'] },
-        _id: { $ne: appointmentId }
-      });
-
-      // Contar cuántos productos ya tiene el usuario en ese casillero en otras reservas
-      let totalCasilleroOcupado = 0;
-      for (const existingAppointment of existingUserAppointments) {
-        for (const item of existingAppointment.itemsToPickup) {
-          if (item.lockerNumber === lockerNumber) {
-            totalCasilleroOcupado++;
-          }
-        }
-      }
-
-      // Si ya hay productos en ese casillero, bloquear la actualización
-      if (totalCasilleroOcupado > 0) {
-        return res.status(400).json({
-          error: `Ya tienes ${totalCasilleroOcupado} producto(s) reservado(s) en el casillero ${lockerNumber} en la fecha y hora seleccionada. No puedes duplicar casilleros en reservas distintas.`
-        });
-      }
-
-      // Verificar que el nuevo casillero no esté siendo usado por otros usuarios
-      const otherUsersAppointments = await Appointment.find({
-        scheduledDate: appointment.scheduledDate,
-        timeSlot: appointment.timeSlot,
-        status: { $in: ['scheduled', 'confirmed'] },
-        'itemsToPickup.lockerNumber': lockerNumber
-      });
-
-      if (otherUsersAppointments.length > 0) {
-        return res.status(400).json({
-          error: `El casillero ${lockerNumber} ya está ocupado por otro usuario en la fecha y hora de esta reserva`
-        });
-      }
-
-      // Verificar que el nuevo casillero esté disponible
-      // Excluir la cita actual de la validación para evitar conflictos consigo misma
-      const appointmentDate = appointment.scheduledDate;
-      const availability = await Appointment.checkLockerAvailability(appointmentDate, appointment.timeSlot, [lockerNumber], appointmentId);
-
-      if (!availability.available) {
-        return res.status(400).json({
-          error: `Casillero ${lockerNumber} no disponible en la fecha y hora de la reserva`
-        });
-      }
-
-      // Actualizar número de casillero en todos los items
-      appointment.itemsToPickup.forEach(item => {
-        item.lockerNumber = lockerNumber;
-      });
-    }
-
-    // Guardar los cambios
     await appointment.save();
 
-    // Mantener sincronizadas las locker assignments cuando cambia fecha/hora/locker
-    try {
-      const d = new Date(appointment.scheduledDate);
-      const yyyy = d.getFullYear();
-      const mm = String(d.getMonth() + 1).padStart(2, '0');
-      const dd = String(d.getDate()).padStart(2, '0');
-      const formattedDate = `${yyyy}-${mm}-${dd}`;
-      const update = {
-        scheduledDate: formattedDate,
-        timeSlot: appointment.timeSlot
-      };
-      if (lockerNumber) {
-        update.lockerNumber = lockerNumber;
+    // Actualizar todos los productos individuales asociados
+    for (const item of appointment.itemsToPickup) {
+      if (item.individualProduct) {
+        await IndividualProduct.findByIdAndUpdate(item.individualProduct, {
+          assignedLocker: newLockerNumber
+        });
       }
-
-      const result = await LockerAssignment.updateMany(
-        { appointmentId: appointment._id.toString() },
-        { $set: update }
-      );
-
-      // Si no existían assignments para esta cita, intentar crearlas por sincronización
-      if (!result || (result.matchedCount !== undefined && result.matchedCount === 0)) {
-        await lockerAssignmentService.syncFromAppointments(formattedDate);
-      }
-    } catch (syncErr) {
-      console.error('⚠️ Error sincronizando locker assignments tras actualizar cita:', syncErr);
-      // No bloquear la respuesta al usuario por esto
     }
 
-    // Poblar datos para la respuesta
-    await appointment.populate('order', 'total_amount status');
-    await appointment.populate('itemsToPickup.individualProduct');
-    await appointment.populate('itemsToPickup.originalProduct', 'nombre imagen_url descripcion dimensiones');
+    // Sincronizar con el servicio de asignación de casilleros
+    try {
+      await lockerAssignmentService.syncFromAppointments(appointment.scheduledDate);
+    } catch (syncError) {
+      if (isDev) console.error('⚠️ Error sincronizando casilleros:', syncError);
+    }
 
     res.json({
       message: 'Reserva actualizada exitosamente',
-      appointment
+      appointment: {
+        _id: appointment._id,
+        scheduledDate: appointment.scheduledDate,
+        timeSlot: appointment.timeSlot,
+        lockerNumber: newLockerNumber
+      }
     });
 
   } catch (error) {
@@ -2091,28 +1888,28 @@ exports.markAppointmentAsCompleted = async (req, res) => {
     if (isDev) {
       console.log('🔓 Liberando casilleros y productos...');
     }
-    for (const pickupItem of appointment.itemsToPickup) {
-      if (pickupItem.lockerNumber) {
-        if (isDev) console.log(`  - Casillero ${pickupItem.lockerNumber}`);
 
-        // Liberar el producto individual
-        if (pickupItem.individualProduct) {
-          try {
-            const IndividualProduct = require('../models/IndividualProduct');
-            const individualProduct = await IndividualProduct.findById(pickupItem.individualProduct);
+    // Actualizar todos los productos individuales asociados a la cita en una sola operación
+    const individualProductIds = appointment.itemsToPickup
+      .filter(item => item.individualProduct)
+      .map(item => item.individualProduct._id || item.individualProduct);
 
-            if (individualProduct) {
-              individualProduct.status = 'picked_up';
-              individualProduct.assignedLocker = undefined;
-              individualProduct.reservedAt = undefined;
-              individualProduct.pickedUpAt = new Date();
-              await individualProduct.save();
-              if (isDev) console.log(`    ✅ Producto ${individualProduct._id} marcado como recogido`);
-            }
-          } catch (productError) {
-            console.error(`    ❌ Error liberando producto:`, productError);
+    if (individualProductIds.length > 0) {
+      try {
+        await IndividualProduct.updateMany(
+          { _id: { $in: individualProductIds } },
+          { 
+            $set: { 
+              status: 'picked_up',
+              assignedLocker: undefined,
+              reservedAt: undefined,
+              pickedUpAt: new Date()
+            } 
           }
-        }
+        );
+        if (isDev) console.log(`✅ ${individualProductIds.length} productos marcados como recogidos`);
+      } catch (productError) {
+        console.error(`❌ Error actualizando estados de productos individuales:`, productError);
       }
     }
 

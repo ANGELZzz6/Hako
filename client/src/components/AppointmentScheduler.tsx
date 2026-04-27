@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import appointmentService from '../services/appointmentService';
 import type { TimeSlot, CreateAppointmentData, AppointmentItem } from '../services/appointmentService';
 import type { Locker3D } from '../services/gridPackingService';
+import ConfirmModal from './ConfirmModal';
 
 interface AppointmentSchedulerProps {
   isOpen: boolean;
@@ -55,6 +56,68 @@ const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [availableLockers, setAvailableLockers] = useState<{ [key: string]: number[] }>({}); // key: `${date}_${timeSlot}`
   const [occupiedLockers, setOccupiedLockers] = useState<{ [key: string]: number[] }>({});
+
+  // Estado para el modal de confirmación genérico
+  const [modalConfig, setModalConfig] = useState<{
+    show: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    onCancel?: () => void;
+    type: 'confirm' | 'alert';
+    variant: 'primary' | 'danger' | 'warning' | 'success' | 'info';
+    confirmText?: string;
+  }>({
+    show: false,
+    title: '',
+    message: '',
+    onConfirm: () => { },
+    type: 'alert',
+    variant: 'primary'
+  });
+
+  // Helper para mostrar confirmación asíncrona
+  const showConfirm = (title: string, message: string, variant: 'primary' | 'danger' | 'warning' | 'success' | 'info' = 'primary', confirmText?: string) => {
+    return new Promise<boolean>((resolve) => {
+      setModalConfig({
+        show: true,
+        title,
+        message,
+        onConfirm: () => {
+          setModalConfig(prev => ({ ...prev, show: false }));
+          resolve(true);
+        },
+        onCancel: () => {
+          setModalConfig(prev => ({ ...prev, show: false }));
+          resolve(false);
+        },
+        type: 'confirm',
+        variant,
+        confirmText
+      });
+    });
+  };
+
+  // Helper para mostrar alertas asíncronas
+  const showAlert = (title: string, message: string, variant: 'primary' | 'danger' | 'warning' | 'success' | 'info' = 'primary') => {
+    return new Promise<void>((resolve) => {
+      setModalConfig({
+        show: true,
+        title,
+        message,
+        onConfirm: () => {
+          setModalConfig(prev => ({ ...prev, show: false }));
+          resolve();
+        },
+        onCancel: () => {
+          setModalConfig(prev => ({ ...prev, show: false }));
+          resolve();
+        },
+        type: 'alert',
+        variant
+      });
+    });
+  };
 
   useEffect(() => {
     console.log('🔍 AppointmentScheduler - itemsToPickup recibidos:', itemsToPickup);
@@ -215,7 +278,7 @@ const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
       setTimeSlots(newSlots);
     } catch (error) {
       console.error('Error al cargar horarios:', error);
-      alert('Error al cargar horarios disponibles');
+      await showAlert('Error', 'Error al cargar horarios disponibles', 'danger');
     } finally {
       setLoadingSlots(false);
     }
@@ -249,7 +312,7 @@ const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
     );
   };
 
-  const handleSchedule = () => {
+  const handleSchedule = async () => {
     console.log('🚀 handleSchedule iniciado');
     console.log('📊 lockerSchedules actuales:', lockerSchedules);
 
@@ -260,7 +323,7 @@ const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
 
     if (invalidSchedules.length > 0) {
       console.log('❌ Schedules inválidos:', invalidSchedules);
-      alert('Por favor selecciona fecha y hora para todos los casilleros');
+      await showAlert('Atención', 'Por favor selecciona fecha y hora para todos los casilleros', 'warning');
       return;
     }
 
@@ -537,6 +600,18 @@ const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Modal de confirmación genérico */}
+      <ConfirmModal
+        show={modalConfig.show}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        onConfirm={modalConfig.onConfirm}
+        onCancel={modalConfig.onCancel || (() => setModalConfig(prev => ({ ...prev, show: false })))}
+        variant={modalConfig.variant}
+        type={modalConfig.type}
+        confirmText={modalConfig.confirmText}
+      />
     </div>
   );
 };

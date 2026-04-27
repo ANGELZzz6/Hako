@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import './AdminDashboard.css';
@@ -83,7 +83,7 @@ const AdminDashboard: React.FC = () => {
               <i className="bi bi-boxes icon"></i>
               <p>Casilleros</p>
             </Link>
-            
+
             {/* Botón de Pruebas de Productos 3D */}
             <Link to="/admin/product-test" className="dashboard-card" style={{ textDecoration: 'none' }}>
               <i className="bi bi-cube icon"></i>

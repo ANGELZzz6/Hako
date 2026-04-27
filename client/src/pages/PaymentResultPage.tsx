@@ -1,367 +1,138 @@
-import React, { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import './PaymentResultPage.css';
-import { Navigate } from 'react-router-dom';
 
-// Función para limpiar el estado del SDK de Mercado Pago
-const cleanupMercadoPagoSDK = () => {
-  try {
-    // Limpiar cualquier instancia del SDK
-    if ((window as any).mp) {
-      delete (window as any).mp;
-    }
-
-    // Limpiar cualquier script del SDK
-    const scripts = document.querySelectorAll('script[src*="mercadopago"]');
-    scripts.forEach(script => script.remove());
-
-    // Limpiar cualquier contenedor de formularios
-    const containers = document.querySelectorAll('#cardFormContainer, #moneyFormContainer');
-    containers.forEach(container => {
-      if (container) {
-        container.innerHTML = '';
-      }
-    });
-
-    // Limpiar cualquier elemento con clase de Mercado Pago
-    const mpElements = document.querySelectorAll('[class*="mercadopago"], [class*="mp-"]');
-    mpElements.forEach(element => {
-      if (element.parentNode) {
-        element.parentNode.removeChild(element);
-      }
-    });
-
-    // Limpiar cualquier iframe de Mercado Pago
-    const iframes = document.querySelectorAll('iframe[src*="mercadopago"]');
-    iframes.forEach(iframe => {
-      if (iframe.parentNode) {
-        iframe.parentNode.removeChild(iframe);
-      }
-    });
-
-    // Limpiar localStorage relacionado con pagos
-    localStorage.removeItem('payment_auto_reload');
-    localStorage.removeItem('mp_');
-
-  } catch (error) {
-  }
-};
-
-interface PaymentResult {
+interface WompiResult {
+  id: string;
   status: string;
-  payment_id?: string;
-  preference_id?: string;
-  payment_method_id?: string;
-  installments?: string;
-  issuer_id?: string;
-  status_detail?: string;
+  reference: string;
 }
 
 const PaymentResultPage = () => {
   const [searchParams] = useSearchParams();
-  const [paymentResult, setPaymentResult] = useState<PaymentResult | null>(null);
+  const [result, setResult] = useState<WompiResult | null>(null);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    const result: PaymentResult = {
-      status: searchParams.get('status') || '',
-      payment_id: searchParams.get('payment_id') || undefined,
-      preference_id: searchParams.get('preference_id') || undefined,
-      payment_method_id: searchParams.get('payment_method_id') || undefined,
-      installments: searchParams.get('installments') || undefined,
-      issuer_id: searchParams.get('issuer_id') || undefined,
-      status_detail: searchParams.get('status_detail') || undefined,
-    };
+    const wompiId = searchParams.get('id');
+    const status = searchParams.get('status');
+    const reference = searchParams.get('reference');
 
-    setPaymentResult(result);
+    if (wompiId && status && reference) {
+      setResult({ id: wompiId, status, reference });
+    }
     setLoading(false);
-    cleanupMercadoPagoSDK();
-    localStorage.removeItem('payment_auto_reload');
   }, [searchParams]);
 
-  const getStatusInfo = (status: string, statusDetail?: string) => {
-    // Primero verificamos el status_detail específico para casos especiales
-    if (statusDetail) {
-      switch (statusDetail.toUpperCase()) {
-        case 'APRO':
-          return {
-            title: '¡Pago Aprobado!',
-            message: 'Tu pago ha sido procesado exitosamente.',
-            icon: 'bi-check-circle-fill',
-            color: 'success',
-            bgColor: 'bg-success'
-          };
-        case 'OTHE':
-          return {
-            title: 'Pago Rechazado',
-            message: 'Tu pago fue rechazado por un error general. Por favor, intenta nuevamente.',
-            icon: 'bi-x-circle-fill',
-            color: 'danger',
-            bgColor: 'bg-danger'
-          };
-        case 'CONT':
-          return {
-            title: 'Pago Pendiente',
-            message: 'Tu pago está pendiente de confirmación. Te notificaremos cuando se complete.',
-            icon: 'bi-clock-fill',
-            color: 'warning',
-            bgColor: 'bg-warning'
-          };
-        case 'PENDING_WAITING_TRANSFER':
-          return {
-            title: 'Pago PSE Pendiente',
-            message: 'Tu pago PSE está pendiente. Completa la transferencia en tu banco para finalizar el pago.',
-            icon: 'bi-bank',
-            color: 'warning',
-            bgColor: 'bg-warning'
-          };
-        case 'PENDING_WAITING_PAYMENT':
-          return {
-            title: 'Pago PSE Pendiente',
-            message: 'Tu pago PSE está pendiente de confirmación. Te notificaremos cuando se complete.',
-            icon: 'bi-bank',
-            color: 'warning',
-            bgColor: 'bg-warning'
-          };
-        case 'PENDING_WAITING_CONFIRMATION':
-          return {
-            title: 'Pago PSE Pendiente',
-            message: 'Tu pago PSE está pendiente de confirmación. Te notificaremos cuando se complete.',
-            icon: 'bi-bank',
-            color: 'warning',
-            bgColor: 'bg-warning'
-          };
-        case 'CALL':
-          return {
-            title: 'Pago Rechazado',
-            message: 'Tu pago fue rechazado y requiere validación para autorizar. Contacta a tu banco.',
-            icon: 'bi-x-circle-fill',
-            color: 'danger',
-            bgColor: 'bg-danger'
-          };
-        case 'FUND':
-          return {
-            title: 'Pago Rechazado',
-            message: 'Tu pago fue rechazado por fondos insuficientes. Verifica tu saldo disponible.',
-            icon: 'bi-x-circle-fill',
-            color: 'danger',
-            bgColor: 'bg-danger'
-          };
-        case 'SECU':
-          return {
-            title: 'Pago Rechazado',
-            message: 'Tu pago fue rechazado por código de seguridad inválido. Verifica el CVV de tu tarjeta.',
-            icon: 'bi-x-circle-fill',
-            color: 'danger',
-            bgColor: 'bg-danger'
-          };
-        case 'EXPI':
-          return {
-            title: 'Pago Rechazado',
-            message: 'Tu pago fue rechazado por problema con la fecha de vencimiento. Verifica la fecha de tu tarjeta.',
-            icon: 'bi-x-circle-fill',
-            color: 'danger',
-            bgColor: 'bg-danger'
-          };
-        case 'FORM':
-          return {
-            title: 'Pago Rechazado',
-            message: 'Tu pago fue rechazado por error en el formulario. Verifica los datos ingresados.',
-            icon: 'bi-x-circle-fill',
-            color: 'danger',
-            bgColor: 'bg-danger'
-          };
-      }
-    }
-
-    // Si no hay status_detail específico o no coincide, usamos el status general
-    switch (status.toLowerCase()) {
-      case 'approved':
+  const getStatusInfo = (status: string) => {
+    switch (status.toUpperCase()) {
+      case 'APPROVED':
         return {
           title: '¡Pago Aprobado!',
-          message: 'Tu pago ha sido procesado exitosamente.',
+          message: 'Tu transacción ha sido completada con éxito. Ya puedes ver tu pedido.',
           icon: 'bi-check-circle-fill',
           color: 'success',
           bgColor: 'bg-success'
         };
-      case 'pending':
+      case 'DECLINED':
         return {
-          title: 'Pago Pendiente',
-          message: 'Tu pago está siendo procesado. Te notificaremos cuando se complete.',
-          icon: 'bi-clock-fill',
-          color: 'warning',
-          bgColor: 'bg-warning'
-        };
-      case 'rejected':
-        return {
-          title: 'Pago Rechazado',
-          message: 'Tu pago fue rechazado. Por favor, intenta con otro método de pago.',
+          title: 'Pago Declinado',
+          message: 'La transacción fue rechazada por la entidad financiera.',
           icon: 'bi-x-circle-fill',
           color: 'danger',
           bgColor: 'bg-danger'
         };
-      case 'in_process':
+      case 'VOIDED':
         return {
-          title: 'Pago en Proceso',
-          message: 'Tu pago está siendo revisado. Te notificaremos el resultado.',
-          icon: 'bi-hourglass-split',
-          color: 'info',
-          bgColor: 'bg-info'
+          title: 'Transacción Anulada',
+          message: 'La transacción ha sido anulada correctamente.',
+          icon: 'bi-info-circle-fill',
+          color: 'warning',
+          bgColor: 'bg-warning'
         };
+      case 'ERROR':
       default:
         return {
-          title: 'Estado Desconocido',
-          message: 'No se pudo determinar el estado del pago.',
-          icon: 'bi-question-circle-fill',
+          title: 'Error en el Pago',
+          message: 'Ocurrió un error al procesar tu pago. Por favor intenta de nuevo.',
+          icon: 'bi-exclamation-triangle-fill',
           color: 'secondary',
           bgColor: 'bg-secondary'
         };
     }
   };
 
-  const handleContinueShopping = () => {
-    cleanupMercadoPagoSDK();
-    // Limpiar cualquier estado de pago
-    localStorage.removeItem('payment_auto_reload');
-    // Recargar la página para limpiar completamente el estado
-    window.location.href = '/productos';
-  };
-
-  const handleViewOrders = () => {
-    cleanupMercadoPagoSDK();
-    // Limpiar cualquier estado de pago
-    localStorage.removeItem('payment_auto_reload');
-    // Recargar la página para limpiar completamente el estado
-    window.location.href = '/orders';
-  };
-
-  const handleReloadPage = () => {
-    cleanupMercadoPagoSDK();
-    // Limpiar cualquier estado de pago
-    localStorage.removeItem('payment_auto_reload');
-    // Recargar la página
-    window.location.reload();
-  };
+  const handleContinueShopping = () => navigate('/productos');
+  const handleViewOrders = () => navigate('/mis-pedidos');
 
   if (loading) {
     return (
-      <div className="payment-result-page container py-5">
-        <div className="text-center">
-          <div className="spinner-border text-primary" role="status">
-            <span className="visually-hidden">Cargando...</span>
-          </div>
-          <p className="mt-3">Procesando resultado del pago...</p>
+      <div className="payment-result-page container py-5 text-center">
+        <div className="spinner-border text-primary" role="status">
+          <span className="visually-hidden">Procesando...</span>
         </div>
+        <p className="mt-3">Obteniendo resultado de Wompi...</p>
       </div>
     );
   }
 
-  if (!paymentResult) {
+  if (!result) {
     return (
       <div className="payment-result-page container py-5">
-        <div className="alert alert-danger">
-          <h4>Error</h4>
-          <p>No se encontró información del pago.</p>
-          <button className="btn btn-primary" onClick={handleContinueShopping}>
-            Continuar Comprando
+        <div className="alert alert-danger text-center shadow-sm">
+          <h4 className="fw-bold">Sesión de pago no encontrada</h4>
+          <p>No pudimos recuperar la información de tu transacción desde Wompi.</p>
+          <button className="btn btn-primary mt-3" onClick={handleContinueShopping}>
+            Volver a la tienda
           </button>
         </div>
       </div>
     );
   }
 
-  // Logs de depuración
-
-  const statusInfo = getStatusInfo(paymentResult.status, paymentResult.status_detail);
+  const statusInfo = getStatusInfo(result.status);
 
   return (
-    <div className="payment-result-page container py-5">
+    <div className="payment-result-page container py-5 animate__animated animate__fadeIn">
       <div className="row justify-content-center">
         <div className="col-md-8 col-lg-6">
-          <div className={`card border-${statusInfo.color}`}>
-            <div className={`card-header ${statusInfo.bgColor} text-white text-center`}>
-              <i className={`bi ${statusInfo.icon} fs-1`}></i>
-              <h3 className="mt-3 mb-0">{statusInfo.title}</h3>
+          <div className={`card border-0 shadow-lg overflow-hidden`}>
+            <div className={`${statusInfo.bgColor} text-white text-center py-5`}>
+              <i className={`bi ${statusInfo.icon} display-1`}></i>
+              <h2 className="mt-4 fw-bold text-uppercase">{statusInfo.title}</h2>
             </div>
-            <div className="card-body text-center">
-              <p className="lead">{statusInfo.message}</p>
+            <div className="card-body text-center p-4">
+              <p className="lead fw-semibold text-muted mb-4">{statusInfo.message}</p>
 
-              {paymentResult.payment_id?.startsWith('TEST_') && (
-                <div className="alert alert-warning mt-3">
-                  <i className="bi bi-exclamation-triangle me-2"></i>
-                  <strong>Pago de Prueba:</strong> Este es un pago simulado para probar los diferentes estados.
+              <div className="details-container bg-light rounded p-3 mb-4 text-start">
+                <div className="mb-2">
+                  <small className="text-muted d-block text-uppercase">Referencia Hako</small>
+                  <span className="fw-bold">{result.reference}</span>
                 </div>
-              )}
-
-              {!paymentResult.payment_id?.startsWith('TEST_') && (
-                <div className="alert alert-info mt-3">
-                  <i className="bi bi-info-circle me-2"></i>
-                  <strong>Nota:</strong> El estado del sistema de pagos ha sido limpiado. Ya puedes realizar una nueva compra.
+                <div className="mb-0">
+                  <small className="text-muted d-block text-uppercase">ID Transacción Wompi</small>
+                  <span className="font-monospace text-break" style={{ fontSize: '0.9rem' }}>{result.id}</span>
                 </div>
-              )}
+              </div>
 
-              {paymentResult.payment_id && (
-                <div className="alert alert-info">
-                  <strong>ID de Pago:</strong> {paymentResult.payment_id}
-                </div>
-              )}
-
-              {paymentResult.payment_method_id && (
-                <div className="mb-3">
-                  <strong>Método de Pago:</strong> {paymentResult.payment_method_id.toUpperCase()}
-                  {paymentResult.payment_method_id === 'pse' && (
-                    <div className="mt-2">
-                      <small className="text-muted">
-                        <i className="bi bi-bank me-1"></i>
-                        Pagos Seguros en Línea - Transferencia bancaria
-                      </small>
-                      {paymentResult.status === 'pending' && (
-                        <div className="alert alert-info mt-2">
-                          <i className="bi bi-info-circle me-2"></i>
-                          <strong>Próximo paso:</strong> Serás redirigido a tu banco para completar la transferencia.
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {paymentResult.installments && paymentResult.installments !== '1' && (
-                <div className="mb-3">
-                  <strong>Cuotas:</strong> {paymentResult.installments}
-                </div>
-              )}
-
-              {paymentResult.status_detail && (
-                <div className="alert alert-secondary">
-                  <strong>Detalle:</strong> {paymentResult.status_detail}
-                </div>
-              )}
-
-              <div className="d-grid gap-2 d-md-flex justify-content-md-center mt-4">
-                <button
-                  className="btn btn-primary me-md-2"
-                  onClick={handleContinueShopping}
-                >
-                  <i className="bi bi-cart-plus me-2"></i>
-                  Continuar Comprando
-                </button>
-                <button
-                  className="btn btn-outline-secondary me-md-2"
-                  onClick={handleViewOrders}
-                >
-                  <i className="bi bi-person me-2"></i>
+              <div className="d-grid gap-3">
+                <button className="btn btn-primary btn-lg fw-bold py-3" onClick={handleViewOrders}>
+                  <i className="bi bi-clipboard-check me-2"></i>
                   Ver Mis Pedidos
                 </button>
-                <button
-                  className="btn btn-outline-warning"
-                  onClick={handleReloadPage}
-                >
-                  <i className="bi bi-arrow-clockwise me-2"></i>
-                  Recargar Página
+                <button className="btn btn-outline-secondary btn-lg" onClick={handleContinueShopping}>
+                  <i className="bi bi-shop me-2"></i>
+                  Seguir Comprando
                 </button>
               </div>
             </div>
+          </div>
+          
+          <div className="text-center mt-4">
+            <small className="text-muted">
+              Si tienes dudas sobre tu pago, contáctanos con tu ID de transacción.
+            </small>
           </div>
         </div>
       </div>
@@ -369,4 +140,4 @@ const PaymentResultPage = () => {
   );
 };
 
-export default PaymentResultPage; 
+export default PaymentResultPage;

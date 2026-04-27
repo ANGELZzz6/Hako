@@ -137,3 +137,18 @@
     padding: 1.5rem;
   }
 }
+
+/* Rating Stars */
+.estrellas-container {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.estrellas-container i {
+  font-size: 0.9rem;
+}
+
+.op-5 {
+  opacity: 0.5;
+}

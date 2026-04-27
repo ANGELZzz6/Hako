@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import orderService from '../services/orderService';
 import type { Order } from '../types/order';
 import OrderDetailModal from '../components/OrderDetailModal';
+import ConfirmModal from '../components/ConfirmModal';
 import './AdminOrdersPage.css';
 import './AdminModalImprovements.css';
 
@@ -85,6 +86,68 @@ const AdminOrdersPage: React.FC = () => {
   // Estados para modal de detalles
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showOrderModal, setShowOrderModal] = useState(false);
+
+  // Estado para el modal de confirmación genérico
+  const [modalConfig, setModalConfig] = useState<{
+    show: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    onCancel?: () => void;
+    type: 'confirm' | 'alert';
+    variant: 'primary' | 'danger' | 'warning' | 'success' | 'info';
+    confirmText?: string;
+  }>({
+    show: false,
+    title: '',
+    message: '',
+    onConfirm: () => { },
+    type: 'alert',
+    variant: 'primary'
+  });
+
+  // Función auxiliar para mostrar el modal de confirmación
+  const showConfirm = (title: string, message: string, variant: 'primary' | 'danger' | 'warning' | 'success' | 'info' = 'primary', confirmText?: string) => {
+    return new Promise<boolean>((resolve) => {
+      setModalConfig({
+        show: true,
+        title,
+        message,
+        onConfirm: () => {
+          setModalConfig(prev => ({ ...prev, show: false }));
+          resolve(true);
+        },
+        onCancel: () => {
+          setModalConfig(prev => ({ ...prev, show: false }));
+          resolve(false);
+        },
+        type: 'confirm',
+        variant,
+        confirmText
+      });
+    });
+  };
+
+  // Función auxiliar para mostrar alertas no bloqueantes
+  const showAlert = (title: string, message: string, variant: 'primary' | 'danger' | 'warning' | 'success' | 'info' = 'primary') => {
+    return new Promise<void>((resolve) => {
+      setModalConfig({
+        show: true,
+        title,
+        message,
+        onConfirm: () => {
+          setModalConfig(prev => ({ ...prev, show: false }));
+          resolve();
+        },
+        onCancel: () => {
+          setModalConfig(prev => ({ ...prev, show: false }));
+          resolve();
+        },
+        type: 'alert',
+        variant,
+      });
+    });
+  };
 
   // Verificar autenticación y permisos
   useEffect(() => {
@@ -234,35 +297,41 @@ const AdminOrdersPage: React.FC = () => {
       const updatedOrder = await orderService.updateOrderStatus(orderId, newStatus);
       setOrders(orders => orders.map(o => o._id === orderId ? updatedOrder : o));
     } catch (err: any) {
-      alert('Error al actualizar el estado del pedido: ' + err.message);
+      await showAlert('Error', 'Error al actualizar el estado del pedido: ' + err.message, 'danger');
     } finally {
       setUpdatingId(null);
     }
   };
 
   const handleDeleteOrder = async (orderId: string) => {
-    const confirmation = window.prompt(
-      'Esta acción es permanente.\nEscribe CONFIRMAR para continuar:'
+    const confirmed = await showConfirm(
+      'Confirmar Eliminación',
+      'Esta acción eliminará la orden permanentemente. ¿Deseas continuar?',
+      'danger',
+      'Eliminar orden'
     );
-    if (confirmation !== 'CONFIRMAR') return;
+    if (!confirmed) return;
 
     try {
       setDeletingId(orderId);
       await orderService.deleteOrder(orderId);
       setOrders(orders => orders.filter(o => o._id !== orderId));
-      alert('Pedido borrado exitosamente');
+      await showAlert('Éxito', 'Pedido borrado exitosamente', 'success');
     } catch (err: any) {
-      alert('Error al borrar el pedido: ' + err.message);
+      await showAlert('Error', 'Error al borrar el pedido: ' + err.message, 'danger');
     } finally {
       setDeletingId(null);
     }
   };
 
   const handleReleaseLocker = async (orderId: string) => {
-    const confirmation = window.prompt(
-      '¿Estás seguro de que quieres liberar el casillero de este pedido?\nEscribe CONFIRMAR para continuar:'
+    const confirmed = await showConfirm(
+      'Liberar Casillero',
+      '¿Estás seguro de que quieres liberar el casillero de este pedido?',
+      'warning',
+      'Liberar'
     );
-    if (confirmation !== 'CONFIRMAR') {
+    if (!confirmed) {
       return;
     }
 
@@ -270,9 +339,9 @@ const AdminOrdersPage: React.FC = () => {
       setUpdatingId(orderId);
       const result = await orderService.releaseLocker(orderId);
       setOrders(orders => orders.map(o => o._id === orderId ? result.order : o));
-      alert('Casillero liberado exitosamente');
+      await showAlert('Éxito', 'Casillero liberado exitosamente', 'success');
     } catch (err: any) {
-      alert('Error al liberar el casillero: ' + err.message);
+      await showAlert('Error', 'Error al liberar el casillero: ' + err.message, 'danger');
     } finally {
       setUpdatingId(null);
     }
@@ -307,14 +376,17 @@ const AdminOrdersPage: React.FC = () => {
 
   const handleBulkStatusChange = async (newStatus: Order['status']) => {
     if (selectedOrders.size === 0) {
-      alert('Por favor selecciona al menos un pedido');
+      await showAlert('Atención', 'Por favor selecciona al menos un pedido', 'warning');
       return;
     }
 
-    const confirmation = window.prompt(
-      `¿Estás seguro de que quieres cambiar el estado de ${selectedOrders.size} pedidos a "${statusLabels[newStatus]}"?\nEscribe CONFIRMAR para continuar:`
+    const confirmed = await showConfirm(
+      'Cambio de Estado Masivo',
+      `¿Estás seguro de que quieres cambiar el estado de ${selectedOrders.size} pedidos a "${statusLabels[newStatus]}"?`,
+      'warning',
+      'Cambiar estado'
     );
-    if (confirmation !== 'CONFIRMAR') {
+    if (!confirmed) {
       return;
     }
 
@@ -331,9 +403,9 @@ const AdminOrdersPage: React.FC = () => {
       }));
       
       setSelectedOrders(new Set());
-      alert(`${selectedOrders.size} pedidos actualizados exitosamente`);
+      await showAlert('Éxito', `${selectedOrders.size} pedidos actualizados exitosamente`, 'success');
     } catch (err: any) {
-      alert('Error al actualizar los pedidos: ' + err.message);
+      await showAlert('Error', 'Error al actualizar los pedidos: ' + err.message, 'danger');
     } finally {
       setUpdatingId(null);
     }
@@ -803,6 +875,18 @@ const AdminOrdersPage: React.FC = () => {
           onClose={() => setShowOrderModal(false)} 
         />
       )}
+
+      {/* Modal de Confirmación Genérico */}
+      <ConfirmModal
+        show={modalConfig.show}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        onConfirm={modalConfig.onConfirm}
+        onCancel={modalConfig.onCancel}
+        type={modalConfig.type}
+        variant={modalConfig.variant}
+        confirmText={modalConfig.confirmText}
+      />
     </div>
   );
 };

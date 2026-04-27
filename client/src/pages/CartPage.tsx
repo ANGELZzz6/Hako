@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import cartService, { type Cart } from '../services/cartService';
+import ConfirmModal from '../components/ConfirmModal';
 import './CartPage.css';
 
 const CartPage = () => {
@@ -12,6 +13,68 @@ const CartPage = () => {
   const [processing, setProcessing] = useState(false);
   const { isAuthenticated, currentUser } = useAuth();
   const navigate = useNavigate();
+
+  // Estado para el modal de confirmación
+  const [modalConfig, setModalConfig] = useState<{
+    show: boolean;
+    title: string;
+    message: string;
+    confirmText?: string;
+    cancelText?: string;
+    onConfirm: () => void;
+    onCancel: () => void;
+    variant?: 'primary' | 'danger' | 'warning' | 'success';
+    type?: 'confirm' | 'alert';
+  }>({
+    show: false,
+    title: '',
+    message: '',
+    onConfirm: () => { },
+    onCancel: () => { },
+  });
+
+  // Helper para mostrar confirmación asíncrona
+  const showConfirm = (title: string, message: string, variant: 'primary' | 'danger' | 'warning' | 'success' = 'primary', confirmText: string = 'Confirmar'): Promise<boolean> => {
+    return new Promise((resolve) => {
+      setModalConfig({
+        show: true,
+        title,
+        message,
+        variant,
+        confirmText,
+        type: 'confirm',
+        onConfirm: () => {
+          setModalConfig((prev: any) => ({ ...prev, show: false }));
+          resolve(true);
+        },
+        onCancel: () => {
+          setModalConfig((prev: any) => ({ ...prev, show: false }));
+          resolve(false);
+        }
+      });
+    });
+  };
+
+  // Helper para mostrar alertas
+  const showAlert = (title: string, message: string, variant: 'primary' | 'danger' | 'warning' | 'success' = 'primary'): Promise<void> => {
+    return new Promise((resolve) => {
+      setModalConfig({
+        show: true,
+        title,
+        message,
+        variant,
+        type: 'alert',
+        onConfirm: () => {
+          setModalConfig((prev: any) => ({ ...prev, show: false }));
+          resolve();
+        },
+        onCancel: () => {
+          setModalConfig((prev: any) => ({ ...prev, show: false }));
+          resolve();
+        }
+      });
+    });
+  };
 
   // Cargar el carrito
   useEffect(() => {
@@ -50,16 +113,21 @@ const CartPage = () => {
       setCart(updatedCart);
     } catch (error) {
       console.error('Error al actualizar cantidad:', error);
-      alert('Error al actualizar la cantidad');
+      await showAlert('Error', 'Error al actualizar la cantidad', 'danger');
     } finally {
       setUpdating(null);
     }
   };
 
   const handleRemoveItem = async (productId: string, variants?: Record<string, string>) => {
-    if (!window.confirm('¿Estás seguro de que quieres eliminar este producto del box?')) {
-      return;
-    }
+    const confirmed = await showConfirm(
+      'Eliminar producto',
+      '¿Estás seguro de que quieres eliminar este producto del box?',
+      'danger',
+      'Eliminar del box'
+    );
+    
+    if (!confirmed) return;
 
     try {
       setUpdating(productId);
@@ -68,16 +136,21 @@ const CartPage = () => {
       setSelectedItems(prev => prev.filter(id => id !== productId));
     } catch (error) {
       console.error('Error al eliminar producto:', error);
-      alert('Error al eliminar el producto');
+      await showAlert('Error', 'Error al eliminar el producto', 'danger');
     } finally {
       setUpdating(null);
     }
   };
 
   const handleClearCart = async () => {
-    if (!window.confirm('¿Estás seguro de que quieres vaciar todo el box?')) {
-      return;
-    }
+    const confirmed = await showConfirm(
+      'Vaciar box',
+      '¿Estás seguro de que quieres vaciar todo el box?',
+      'danger',
+      'Vaciar box'
+    );
+    
+    if (!confirmed) return;
 
     try {
       const updatedCart = await cartService.clearCart();
@@ -85,7 +158,7 @@ const CartPage = () => {
       setSelectedItems([]);
     } catch (error) {
       console.error('Error al vaciar box:', error);
-      alert('Error al vaciar el box');
+      await showAlert('Error', 'Error al vaciar el box', 'danger');
     }
   };
 
@@ -119,11 +192,11 @@ const CartPage = () => {
 
   const handleProcessPayment = async () => {
     if (!currentUser) {
-      alert('Debes estar logueado para realizar el pago');
+      await showAlert('Sesión requerida', 'Debes estar logueado para realizar el pago', 'warning');
       return;
     }
     if (selectedItems.length === 0) {
-      alert('Selecciona al menos un producto para proceder al pago.');
+      await showAlert('Selección vacía', 'Selecciona al menos un producto para proceder al pago.', 'warning');
       return;
     }
     try {
@@ -150,7 +223,7 @@ const CartPage = () => {
       });
     } catch (error) {
       console.error('Error al procesar el pago:', error);
-      alert('Error al procesar el pago. Por favor intenta de nuevo.');
+      await showAlert('Error', 'Error al procesar el pago. Por favor intenta de nuevo.', 'danger');
     } finally {
       setProcessing(false);
     }
@@ -372,6 +445,7 @@ const CartPage = () => {
           </div>
         </div>
       </div>
+      <ConfirmModal {...modalConfig} />
     </div>
   );
 };

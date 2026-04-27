@@ -11,7 +11,8 @@ export default defineConfig({
       'localhost',
       '127.0.0.1',
       'ccd5-190-25-116-52.ngrok-free.app',
-      '7215-190-25-116-52.ngrok-free.app'
+      '7215-190-25-116-52.ngrok-free.app',
+      'b3c7-190-25-116-52.ngrok-free.app'
     ],
     headers: {
       'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
