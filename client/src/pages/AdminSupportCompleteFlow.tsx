@@ -492,24 +492,6 @@ const AdminSupportCompleteFlow = () => {
 
       logDebugError('Producto asignado manualmente', response, 'info');
 
-      // Log del precio calculado
-      console.log('💰 Precio del producto asignado:', {
-        precioBase: selectedProductToAdd.precio,
-        variantesSeleccionadas: selectedVariants,
-        precioTotal: response.products?.[0]?.unitPrice || 'No disponible'
-      });
-
-      // Log de la estructura de la respuesta para debugging
-      console.log('🔍 Estructura de la respuesta del servidor:', {
-        responseKeys: Object.keys(response),
-        hasProducts: !!response.products,
-        productsType: typeof response.products,
-        productsLength: response.products?.length,
-        firstProduct: response.products?.[0],
-        firstProductVariants: response.products?.[0]?.variants,
-        variantsType: typeof response.products?.[0]?.variants
-      });
-
       // Actualizar la lista de productos individuales solo si hay productos en la respuesta
       if (response.products && Array.isArray(response.products)) {
         setIndividualProducts(prev => [
@@ -525,8 +507,7 @@ const AdminSupportCompleteFlow = () => {
                 } else if (typeof p.variants === 'object') {
                   variants = p.variants;
                 }
-              } catch (error) {
-                console.warn('Error al convertir variants:', error, p.variants);
+              } catch (_variantErr) {
                 variants = undefined;
               }
             }
@@ -544,7 +525,7 @@ const AdminSupportCompleteFlow = () => {
           ...prev
         ]);
       } else {
-        console.warn('⚠️ La respuesta no contiene productos válidos:', response);
+        logDebugError('La respuesta no contiene productos válidos', response, 'warning');
       }
 
       // Limpiar selecciones del modal pero mantener el usuario seleccionado

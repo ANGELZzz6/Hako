@@ -51,10 +51,10 @@ exports.getMyPurchasedProducts = async (req, res) => {
   try {
     if (isDev) console.log('🔍 Buscando productos individuales para usuario:', req.user.id);
 
-    // Obtener todos los productos individuales del usuario
+    // Incluir 'claimed': productos forzados por admin deben seguir visibles para el usuario
     let individualProducts = await IndividualProduct.find({
       user: req.user.id,
-      status: { $in: ['available', 'reserved'] }
+      status: { $in: ['available', 'reserved', 'claimed'] }
     }).populate('product order');
 
     // Filtrar productos donde el producto base fue eliminado
@@ -62,42 +62,23 @@ exports.getMyPurchasedProducts = async (req, res) => {
 
     if (isDev) console.log(`📊 Productos individuales encontrados: ${individualProducts.length}`);
 
-    // Transformar los productos individuales al formato esperado
     const allItems = individualProducts.map(individualProduct => {
       try {
         const product = individualProduct.product;
-
-        // Verificar que el producto existe
         if (!product) {
           if (isDev) console.log('⚠️ Producto no encontrado para individualProduct:', individualProduct._id);
           return null;
         }
 
-        // Usar los métodos del IndividualProduct para dimensiones y volumen
         const tieneDimensiones = individualProduct.tieneDimensiones();
         const volumen = individualProduct.getVolumen();
 
-        // Obtener dimensiones considerando variantes si existen
         let dimensiones = individualProduct.dimensiones;
-        if (isDev) console.log('🔍 Procesando producto individual:', individualProduct._id);
-        console.log('   - Variants:', individualProduct.variants);
-        console.log('   - Dimensiones base:', individualProduct.dimensiones);
-
         if (individualProduct.variants && individualProduct.variants.size > 0) {
-          console.log('   - Tiene variantes, calculando dimensiones de variante...');
           const variantDimensiones = individualProduct.getVariantOrProductDimensions();
-          console.log('   - Dimensiones de variante calculadas:', variantDimensiones);
-          if (variantDimensiones) {
-            dimensiones = variantDimensiones;
-            console.log('   - Usando dimensiones de variante:', dimensiones);
-          } else {
-            console.log('   - No se encontraron dimensiones de variante, usando base');
-          }
-        } else {
-          console.log('   - No tiene variantes, usando dimensiones base');
+          if (variantDimensiones) dimensiones = variantDimensiones;
         }
 
-        // Agregar los campos calculados al producto
         product.tieneDimensiones = tieneDimensiones;
         product.volumen = volumen;
 
@@ -106,13 +87,14 @@ exports.getMyPurchasedProducts = async (req, res) => {
           product: product,
           orderId: individualProduct.order?._id,
           orderCreatedAt: individualProduct.order?.createdAt,
-          quantity: 1, // Cada producto individual tiene cantidad 1
+          quantity: 1,
           remaining_quantity: individualProduct.status === 'available' ? 1 : 0,
           isClaimed: individualProduct.status === 'claimed',
-          isReserved: individualProduct.status === 'reserved', status: individualProduct.status, status: individualProduct.status,
-          originalItemId: individualProduct._id, // ID del producto individual
+          isReserved: individualProduct.status === 'reserved',
+          status: individualProduct.status,
+          originalItemId: individualProduct._id,
           individualIndex: individualProduct.individualIndex,
-          totalInOrder: 1, // Cada producto individual es único
+          totalInOrder: 1,
           assigned_locker: individualProduct.assignedLocker,
           unit_price: individualProduct.unitPrice,
           variants: individualProduct.variants ? Object.fromEntries(individualProduct.variants) : undefined,
@@ -122,7 +104,7 @@ exports.getMyPurchasedProducts = async (req, res) => {
         if (isDev) console.error('❌ Error procesando producto individual:', individualProduct._id, itemError);
         return null;
       }
-    }).filter(item => item !== null); // Filtrar items nulos
+    }).filter(item => item !== null);
 
     if (isDev) console.log(`✅ Productos transformados exitosamente: ${allItems.length}`);
     res.json(allItems);
@@ -138,53 +120,33 @@ exports.getUserProducts = async (req, res) => {
     const { userId } = req.params;
     if (isDev) console.log('🔍 [ADMIN] Buscando productos individuales para usuario:', userId);
 
-    // Obtener todos los productos individuales del usuario especificado
+    // Incluir 'claimed': el admin debe ver el estado real incluyendo forzados
     let individualProducts = await IndividualProduct.find({
       user: userId,
-      status: { $in: ['available', 'reserved'] }
+      status: { $in: ['available', 'reserved', 'claimed'] }
     }).populate('product order user');
 
-    // Filtrar productos donde el producto base fue eliminado
     individualProducts = individualProducts.filter(p => p && p.product !== null);
 
     if (isDev) console.log(`📊 [ADMIN] Productos individuales encontrados: ${individualProducts.length}`);
 
-    // Transformar los productos individuales al formato esperado
     const allItems = individualProducts.map(individualProduct => {
       try {
         const product = individualProduct.product;
-
-        // Verificar que el producto existe
         if (!product) {
           if (isDev) console.log('⚠️ [ADMIN] Producto no encontrado para individualProduct:', individualProduct._id);
           return null;
         }
 
-        // Usar los métodos del IndividualProduct para dimensiones y volumen
         const tieneDimensiones = individualProduct.tieneDimensiones();
         const volumen = individualProduct.getVolumen();
 
-        // Obtener dimensiones considerando variantes si existen
         let dimensiones = individualProduct.dimensiones;
-        if (isDev) console.log('🔍 [ADMIN] Procesando producto individual:', individualProduct._id);
-        console.log('   - Variants:', individualProduct.variants);
-        console.log('   - Dimensiones base:', individualProduct.dimensiones);
-
         if (individualProduct.variants && individualProduct.variants.size > 0) {
-          console.log('   - Tiene variantes, calculando dimensiones de variante...');
           const variantDimensiones = individualProduct.getVariantOrProductDimensions();
-          console.log('   - Dimensiones de variante calculadas:', variantDimensiones);
-          if (variantDimensiones) {
-            dimensiones = variantDimensiones;
-            console.log('   - Usando dimensiones de variante:', dimensiones);
-          } else {
-            console.log('   - No se encontraron dimensiones de variante, usando base');
-          }
-        } else {
-          console.log('   - No tiene variantes, usando dimensiones base');
+          if (variantDimensiones) dimensiones = variantDimensiones;
         }
 
-        // Agregar los campos calculados al producto
         product.tieneDimensiones = tieneDimensiones;
         product.volumen = volumen;
 
@@ -193,24 +155,25 @@ exports.getUserProducts = async (req, res) => {
           product: product,
           orderId: individualProduct.order?._id,
           orderCreatedAt: individualProduct.order?.createdAt,
-          quantity: 1, // Cada producto individual tiene cantidad 1
+          quantity: 1,
           remaining_quantity: individualProduct.status === 'available' ? 1 : 0,
           isClaimed: individualProduct.status === 'claimed',
-          isReserved: individualProduct.status === 'reserved', status: individualProduct.status, status: individualProduct.status,
-          originalItemId: individualProduct._id, // ID del producto individual
+          isReserved: individualProduct.status === 'reserved',
+          status: individualProduct.status,
+          originalItemId: individualProduct._id,
           individualIndex: individualProduct.individualIndex,
-          totalInOrder: 1, // Cada producto individual es único
+          totalInOrder: 1,
           assigned_locker: individualProduct.assignedLocker,
           unit_price: individualProduct.unitPrice,
           variants: individualProduct.variants ? Object.fromEntries(individualProduct.variants) : undefined,
           dimensiones: dimensiones,
-          user: individualProduct.user // Incluir información del usuario
+          user: individualProduct.user
         };
       } catch (itemError) {
         if (isDev) console.error('❌ [ADMIN] Error procesando producto individual:', individualProduct._id, itemError);
         return null;
       }
-    }).filter(item => item !== null); // Filtrar items nulos
+    }).filter(item => item !== null);
 
     if (isDev) console.log(`✅ [ADMIN] Productos transformados exitosamente: ${allItems.length}`);
     res.json(allItems);
@@ -545,6 +508,12 @@ exports.markAsPickedUp = async (req, res) => {
     order.locker.number = null; // Liberar el casillero
     await order.save();
 
+    // CRIT-5: Marcar productos individuales como recogidos
+    await IndividualProduct.updateMany(
+      { order: orderId, status: 'claimed' },
+      { $set: { status: 'picked_up', pickedUpAt: new Date() } }
+    );
+
     if (isDev) console.log('✅ Pedido marcado como recogido y casillero liberado:', orderId);
 
     res.json(order);
@@ -576,10 +545,17 @@ exports.updateOrderStatus = async (req, res) => {
   try {
     if (req.user.role !== 'admin') return res.status(403).json({ error: 'Solo admin puede cambiar el estado' });
     const { status } = req.body;
+
+    // CRIT-2: Validar estado contra whitelist
+    const VALID_STATUSES = ['pending', 'paid', 'ready_for_pickup', 'picked_up', 'cancelled'];
+    if (!VALID_STATUSES.includes(status)) {
+      return res.status(400).json({ error: `Estado inválido. Debe ser: ${VALID_STATUSES.join(', ')}` });
+    }
+
     const order = await Order.findByIdAndUpdate(
       req.params.id,
       { status },
-      { new: true }
+      { new: true, runValidators: true }
     ).populate('items.product user');
     if (!order) return res.status(404).json({ error: 'Pedido no encontrado' });
     res.json(order);
@@ -611,6 +587,18 @@ exports.getAvailableLockers = async (req, res) => {
     }).select('locker.number');
 
     const occupiedNumbers = occupiedLockers.map(order => order.locker.number);
+
+    // MED-5: Considerar también casilleros asignados a productos individuales directamente
+    const occupiedIndividualProducts = await IndividualProduct.find({
+      status: { $nin: ['picked_up', 'available'] },
+      assignedLocker: { $ne: null, $exists: true }
+    }).select('assignedLocker');
+
+    occupiedIndividualProducts.forEach(ip => {
+      if (!occupiedNumbers.includes(ip.assignedLocker)) {
+        occupiedNumbers.push(ip.assignedLocker);
+      }
+    });
 
     // Generar lista de todos los casilleros (1-12)
     const allLockers = Array.from({ length: 12 }, (_, i) => i + 1);
@@ -858,6 +846,12 @@ exports.releaseLocker = async (req, res) => {
     order.locker.number = null;
     await order.save();
 
+    // CRIT-3: Marcar productos individuales asociados como recogidos
+    await IndividualProduct.updateMany(
+      { order: orderId, status: { $nin: ['available'] } },
+      { $set: { status: 'picked_up', pickedUpAt: new Date() } }
+    );
+
     if (isDev) console.log('✅ Casillero liberado manualmente por admin:', orderId);
 
     res.json({
@@ -886,6 +880,12 @@ exports.deleteOrder = async (req, res) => {
     if (order.locker && order.locker.number) {
       if (isDev) console.log('🔓 Liberando casillero antes de borrar pedido:', order.locker.number);
     }
+
+    // CRIT-1: Liberar productos individuales asociados
+    await IndividualProduct.updateMany(
+      { order: id, status: { $nin: ['picked_up'] } },
+      { $set: { status: 'available' }, $unset: { assignedLocker: '', reservedAt: '', claimedAt: '' } }
+    );
 
     await Order.findByIdAndDelete(id);
 

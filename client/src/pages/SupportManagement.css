@@ -1,4 +1,4 @@
-.support-management {
+﻿.support-management {
   background-color: #f5f2f2;
   min-height: 100vh;
   font-family: 'Montserrat', sans-serif;
@@ -1000,38 +1000,114 @@
   gap: 0.5rem;
 }
 
-/* MODO OSCURO SOLO PARA EL FONDO DE SOPORTE */
-/* [data-theme='dark'] .support-management {
-  background-color: #464646 !important;
-}
-[data-theme='dark'] .support-main-content {
-  background: none !important;
-}
-[data-theme='dark'] .support-main-content .container {
-  background: none !important;
-}
-[data-theme='dark'] .support-main-content .bg-white,
-[data-theme='dark'] .support-main-content .form-control,
-[data-theme='dark'] .support-main-content .table,
-[data-theme='dark'] .support-main-content .table-bordered,
-[data-theme='dark'] .support-main-content .table-hover {
-  background-color: #fff !important;
-  color: #111 !important;
-}
-[data-theme='dark'] .support-main-content .form-label,
-[data-theme='dark'] .support-main-content .form-control,
-[data-theme='dark'] .support-main-content .table,
-[data-theme='dark'] .support-main-content .table-bordered,
-[data-theme='dark'] .support-main-content .table-hover,
-[data-theme='dark'] .support-main-content h2,
-[data-theme='dark'] .support-main-content h4,
-[data-theme='dark'] .support-main-content h5,
-[data-theme='dark'] .support-main-content p,
-[data-theme='dark'] .support-main-content th,
-[data-theme='dark'] .support-main-content td {
-  color: #111 !important;
-}
-[data-theme='dark'] .support-main-content .form-control::placeholder {
-  color: #888 !important;
-}
-*/ 
+/* ===================================================
+   NUEVOS ESTILOS: TARJETAS DE TICKETS + RATING
+   =================================================== */
+
+.support-page-title { font-weight: 700; color: #2c3e50; }
+.support-page-subtitle { color: #666; }
+.support-section-title { font-weight: 700; color: #2c3e50; margin-bottom: 1rem; }
+.support-empty-text { color: #888; }
+
+.support-form { background: #fff; border: 1px solid rgba(0,0,0,0.07); }
+.support-form .form-label { font-weight: 600; color: #2c3e50; font-size: 0.9rem; }
+.support-form .form-control { border-radius: 10px; border: 1.5px solid #e0e0e0; background: #fafafa; color: #2c3e50; }
+.support-form .form-control:focus { border-color: #db554e; box-shadow: 0 0 0 3px rgba(219,85,78,0.12); }
+
+.btn-support-submit { background: linear-gradient(135deg, #db554e, #c04c3e); border: none; color: #fff; font-weight: 600; border-radius: 12px; padding: 0.75rem; transition: all 0.2s ease; box-shadow: 0 4px 15px rgba(219,85,78,0.25); }
+.btn-support-submit:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(219,85,78,0.35); color: #fff; }
+.btn-support-submit:disabled { opacity: 0.6; cursor: not-allowed; color: #fff; }
+
+.support-contact-block { color: #555; padding: 1.5rem; background: #f8f9fa; border-radius: 16px; border: 1px solid rgba(0,0,0,0.07); }
+.support-contact-block h5 { color: #2c3e50; font-weight: 700; }
+
+.support-tickets-list { display: flex; flex-direction: column; gap: 1rem; padding-bottom: 2rem; }
+
+.support-ticket-card { background: #fff; border-radius: 16px; border: 1px solid rgba(0,0,0,0.07); padding: 1.25rem; box-shadow: 0 2px 12px rgba(0,0,0,0.06); transition: box-shadow 0.2s ease; }
+.support-ticket-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.10); }
+
+.ticket-card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; margin-bottom: 0.4rem; }
+.ticket-subject { font-weight: 600; color: #2c3e50; font-size: 1rem; flex: 1; word-break: break-word; }
+.ticket-meta { color: #95a5a6; font-size: 0.8rem; margin-bottom: 0.75rem; }
+.ticket-actions { display: flex; gap: 0.5rem; margin-bottom: 0; }
+
+.ticket-status-badge { font-size: 0.72rem; font-weight: 600; padding: 0.3rem 0.65rem; border-radius: 20px; white-space: nowrap; flex-shrink: 0; }
+.badge-status-abierto { background: rgba(39,174,96,0.12); color: #27ae60; border: 1px solid rgba(39,174,96,0.3); }
+.badge-status-proceso { background: rgba(243,156,18,0.12); color: #e67e22; border: 1px solid rgba(243,156,18,0.3); }
+.badge-status-solucionado { background: rgba(52,152,219,0.12); color: #2980b9; border: 1px solid rgba(52,152,219,0.3); }
+.badge-status-cerrado { background: rgba(149,165,166,0.15); color: #7f8c8d; border: 1px solid rgba(149,165,166,0.3); }
+.badge-status-default { background: rgba(108,117,125,0.12); color: #495057; border: 1px solid rgba(108,117,125,0.2); }
+
+.ticket-rating-section { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(0,0,0,0.07); }
+.rating-label { font-weight: 600; font-size: 0.9rem; color: #2c3e50; margin-bottom: 0.5rem; }
+
+.star-rating { display: flex; gap: 0.25rem; }
+.star-btn { background: none; border: none; padding: 0.15rem; font-size: 1.5rem; cursor: pointer; transition: transform 0.15s ease; line-height: 1; }
+.star-btn:hover:not(:disabled) { transform: scale(1.2); }
+.star-btn:disabled { cursor: default; }
+.star-filled i { color: #f39c12; }
+.star-empty i { color: #ddd; }
+
+.rating-form { display: flex; flex-direction: column; gap: 0.5rem; }
+.rating-comment-input { border-radius: 10px; border: 1.5px solid #e0e0e0; background: #fafafa; color: #2c3e50; font-size: 0.9rem; resize: none; width: 100%; }
+.rating-comment-input:focus { border-color: #db554e; box-shadow: 0 0 0 2px rgba(219,85,78,0.12); outline: none; }
+.rating-form-actions { display: flex; gap: 0.5rem; justify-content: flex-end; }
+.btn-rating-submit { background: linear-gradient(135deg,#f39c12,#e67e22); border: none; color: #fff; font-weight: 600; border-radius: 8px; transition: all 0.2s ease; }
+.btn-rating-submit:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(243,156,18,0.35); color: #fff; }
+.btn-rating-submit:disabled { opacity: 0.5; color: #fff; }
+.btn-rating-open { background: rgba(243,156,18,0.10); border: 1.5px solid rgba(243,156,18,0.4); color: #e67e22; font-weight: 600; border-radius: 8px; transition: all 0.2s ease; }
+.btn-rating-open:hover { background: rgba(243,156,18,0.2); color: #d68910; }
+.rating-readonly { display: flex; flex-direction: column; gap: 0.35rem; }
+.rating-comment-display { font-style: italic; color: #7f8c8d; font-size: 0.88rem; margin: 0; }
+
+/* ===================================================
+   DARK MODE COMPLETO
+   =================================================== */
+[data-theme='dark'] .support-management { background-color: #121212; }
+[data-theme='dark'] .support-main-content { background: transparent; }
+[data-theme='dark'] .support-page-title, [data-theme='dark'] .support-section-title { color: #f0f0f0; }
+[data-theme='dark'] .support-page-subtitle, [data-theme='dark'] .support-empty-text { color: #aaa; }
+[data-theme='dark'] .user-header-bar { background: #1e1e1e; border-bottom: 1px solid rgba(255,255,255,0.08); }
+[data-theme='dark'] .header-title, [data-theme='dark'] .logo-japanese, [data-theme='dark'] .brand-text { color: #f0f0f0; }
+[data-theme='dark'] .back-link { color: #aaa; }
+[data-theme='dark'] .back-link:hover { color: #db554e; }
+[data-theme='dark'] .support-form { background: #1e1e1e; border-color: rgba(255,255,255,0.08); }
+[data-theme='dark'] .support-form .form-label, [data-theme='dark'] .support-form label { color: #d0d0d0; }
+[data-theme='dark'] .support-form .form-control { background: #2a2a2a; border-color: rgba(255,255,255,0.12); color: #f0f0f0; }
+[data-theme='dark'] .support-form .form-control::placeholder { color: #666; }
+[data-theme='dark'] .support-form .form-control:disabled { background: #222; color: #888; }
+[data-theme='dark'] .support-form .form-control:focus { background: #2a2a2a; border-color: #db554e; box-shadow: 0 0 0 3px rgba(219,85,78,0.2); }
+[data-theme='dark'] .support-contact-block { background: #1e1e1e; border-color: rgba(255,255,255,0.08); color: #bdc3c7; }
+[data-theme='dark'] .support-contact-block h5 { color: #f0f0f0; }
+[data-theme='dark'] .support-ticket-card { background: #1e1e1e; border-color: rgba(255,255,255,0.08); box-shadow: 0 2px 12px rgba(0,0,0,0.3); }
+[data-theme='dark'] .ticket-subject { color: #f0f0f0; }
+[data-theme='dark'] .ticket-meta { color: #6c757d; }
+[data-theme='dark'] .badge-status-abierto { background: rgba(39,174,96,0.15); color: #4cd07d; border-color: rgba(39,174,96,0.25); }
+[data-theme='dark'] .badge-status-proceso { background: rgba(230,126,34,0.15); color: #f0a030; border-color: rgba(230,126,34,0.25); }
+[data-theme='dark'] .badge-status-solucionado { background: rgba(52,152,219,0.15); color: #5dade2; border-color: rgba(52,152,219,0.25); }
+[data-theme='dark'] .badge-status-cerrado { background: rgba(149,165,166,0.1); color: #aaa; border-color: rgba(149,165,166,0.2); }
+[data-theme='dark'] .ticket-rating-section { border-top-color: rgba(255,255,255,0.08); }
+[data-theme='dark'] .rating-label { color: #d0d0d0; }
+[data-theme='dark'] .star-empty i { color: #444; }
+[data-theme='dark'] .rating-comment-input { background: #2a2a2a; border-color: rgba(255,255,255,0.12); color: #f0f0f0; }
+[data-theme='dark'] .rating-comment-input::placeholder { color: #555; }
+[data-theme='dark'] .rating-comment-input:focus { background: #2a2a2a; border-color: #db554e; }
+[data-theme='dark'] .rating-comment-display { color: #888; }
+[data-theme='dark'] .btn-rating-open { background: rgba(243,156,18,0.08); border-color: rgba(243,156,18,0.3); color: #f0a030; }
+[data-theme='dark'] .btn-rating-open:hover { background: rgba(243,156,18,0.15); }
+[data-theme='dark'] .support-management .table { color: #d0d0d0; border-color: rgba(255,255,255,0.08); }
+[data-theme='dark'] .support-management .table thead { background: #2a2a2a; color: #f0f0f0; }
+[data-theme='dark'] .support-management .table-light { background: #1e1e1e !important; color: #d0d0d0 !important; }
+[data-theme='dark'] .support-management .table-active { background: rgba(219,85,78,0.1) !important; }
+[data-theme='dark'] .support-management .table-bordered td, [data-theme='dark'] .support-management .table-bordered th { border-color: rgba(255,255,255,0.08); }
+[data-theme='dark'] .support-management .table-hover tbody tr:hover { background: rgba(255,255,255,0.04) !important; color: #f0f0f0; }
+[data-theme='dark'] .support-management .text-muted { color: #888 !important; }
+[data-theme='dark'] .support-management .form-control, [data-theme='dark'] .support-management .form-select { background: #2a2a2a; border-color: rgba(255,255,255,0.12); color: #f0f0f0; }
+[data-theme='dark'] .support-management .form-control::placeholder { color: #555; }
+[data-theme='dark'] .support-management .form-control:focus, [data-theme='dark'] .support-management .form-select:focus { background: #2a2a2a; border-color: #db554e; color: #f0f0f0; box-shadow: 0 0 0 2px rgba(219,85,78,0.2); }
+[data-theme='dark'] .support-management .card { background: #1e1e1e; border-color: rgba(255,255,255,0.08); color: #d0d0d0; }
+[data-theme='dark'] .support-management .card-header { background: #2a2a2a; border-bottom-color: rgba(255,255,255,0.08); color: #f0f0f0; }
+[data-theme='dark'] .support-management .card-body { color: #d0d0d0; }
+[data-theme='dark'] .support-management h2 { color: #f0f0f0; }
+[data-theme='dark'] .support-management .sugerencias-list { background: #1e1e1e !important; }
+[data-theme='dark'] .support-management .alert-info { background: rgba(52,152,219,0.1); color: #7fc3e8; border-color: rgba(52,152,219,0.2); }

@@ -151,8 +151,7 @@ const AppointmentCard: FC<AppointmentCardProps> = ({
         }
       });
       return result;
-    } catch (e) {
-      console.error('Error creando bins de casillero para la reserva:', e);
+    } catch {
       return [] as Locker3D[];
     }
   }, [appointment.itemsToPickup]);
@@ -172,8 +171,7 @@ const AppointmentCard: FC<AppointmentCardProps> = ({
           const isQRExpired = existingQR.qr.status === 'vencido' || new Date(existingQR.qr.vencimiento) < new Date();
           
           if (!isQRExpired) {
-            console.log('✅ QR existente activo encontrado:', existingQR.qr);
-            // Convertir el QR del backend al tipo completo
+            // QR existente activo — usarlo directamente
             const fullQR: QRCode = {
               ...existingQR.qr,
               status: existingQR.qr.status as 'disponible' | 'vencido' | 'recogido',
@@ -185,11 +183,10 @@ const AppointmentCard: FC<AppointmentCardProps> = ({
             setShowQRModal(true);
             return;
           }
-          console.log('⚠️ QR existente está vencido, se requiere uno nuevo');
+          // QR existente está vencido — generar uno nuevo
         }
-      } catch (error) {
-        // Si no existe, continuar con la generación
-        console.log('ℹ️ No existe QR previo, generando uno nuevo...');
+      } catch {
+        // No existe QR previo — continuar con la generación
       }
 
       // Generar nuevo QR
@@ -208,7 +205,6 @@ const AppointmentCard: FC<AppointmentCardProps> = ({
         setShowQRModal(true);
       }
     } catch (error: any) {
-      console.error('Error al generar QR:', error);
       await showAlert('Error', `Error al generar QR: ${error.message}`, 'danger');
     } finally {
       setGeneratingQR(false);
@@ -223,25 +219,13 @@ const AppointmentCard: FC<AppointmentCardProps> = ({
       const response = await appointmentService.markAsCompleted(appointment._id);
       
       if (response.success) {
-        console.log('✅ Cita marcada como completada:', response.appointment);
-        
-        // Cerrar la modal
         setShowQRModal(false);
-        
-        // Mostrar mensaje de éxito
         await showAlert('Éxito', 'Productos marcados como recogidos exitosamente. La reserva se moverá a tu historial.', 'success');
-        
-        // Opción 1: Recargar la página para reflejar los cambios
         window.location.reload();
-        
-        // Opción 2: Actualizar el estado local (implementar después)
-        // TODO: Implementar callback para actualizar el estado del padre
-        // onAppointmentCompleted?.(appointment._id);
       } else {
         throw new Error(response.message || 'Error al marcar como completada');
       }
     } catch (error: any) {
-      console.error('Error al marcar como recogida:', error);
       await showAlert('Error', `Error al marcar como recogida: ${error.message}`, 'danger');
     } finally {
       setPickingUp(false);
@@ -498,14 +482,19 @@ const AppointmentCard: FC<AppointmentCardProps> = ({
               
               {/* Botón Cerrar Centrado */}
               <div className="modal-footer flex-column flex-sm-row justify-content-center py-2 gap-2">
-                {/* Botón Recoger Test - Solo en modo desarrollo (oculto en producción) */}
+              {/* ============================================================
+                   ⚠️  DEV ONLY — ELIMINAR O COMENTAR EN PRODUCCIÓN  ⚠️
+                   Este botón llama a markAsCompleted y recarga la página.
+                   Sirve ÚNICAMENTE para pruebas locales del flujo de recogida.
+                   Para deshabilitarlo en producción, comentar este bloque completo.
+                  ============================================================ */}
                 {isAppointmentActive && import.meta.env.DEV && (
                   <button
                     type="button"
                     className="btn btn-success btn-sm me-2"
                     onClick={handlePickupTest}
                     disabled={pickingUp}
-                    title="Marcar productos como recogidos (test)"
+                    title="[DEV] Marcar productos como recogidos (test local)"
                   >
                     {pickingUp ? (
                       <>
@@ -515,11 +504,14 @@ const AppointmentCard: FC<AppointmentCardProps> = ({
                     ) : (
                       <>
                         <i className="bi bi-box-arrow-in-down me-1"></i>
-                        Recoger Test
+                        🧪 Recoger Test
                       </>
                     )}
                   </button>
                 )}
+                {/* ============================================================
+                   FIN DEV ONLY
+                  ============================================================ */}
                 <button
                   type="button"
                   className="btn btn-primary btn-sm px-4"

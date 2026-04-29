@@ -913,3 +913,29 @@
   gap: 3px;
   letter-spacing: 0.3px;
 } 
+
+/* ===================================================
+   DARK MODE --- PRODUCTOS PAGE
+   =================================================== */
+[data-theme='dark'] .productos-page, [data-theme='dark'] .productos-container { background: #121212; }
+[data-theme='dark'] .search-header, [data-theme='dark'] .filters-bar { background: #1a1a1a; border-color: rgba(255,255,255,0.08); }
+[data-theme='dark'] .search-title, [data-theme='dark'] .productos-title { color: #f0f0f0; }
+[data-theme='dark'] .search-subtitle { color: #aaa; }
+[data-theme='dark'] .search-input { background: #2a2a2a; border-color: rgba(255,255,255,0.12); color: #f0f0f0; }
+[data-theme='dark'] .search-input::placeholder { color: rgba(255,255,255,0.4); }
+[data-theme='dark'] .search-input:focus { background: #2a2a2a; border-color: #db554e; color: #f0f0f0; }
+[data-theme='dark'] .filter-select, [data-theme='dark'] .form-select { background: #2a2a2a; border-color: rgba(255,255,255,0.12); color: #f0f0f0; }
+[data-theme='dark'] .product-card { background: #1e1e1e; border-color: rgba(255,255,255,0.08); box-shadow: 0 4px 16px rgba(0,0,0,0.4); }
+[data-theme='dark'] .product-card:hover { box-shadow: 0 8px 28px rgba(0,0,0,0.5); border-color: rgba(219,85,78,0.3); }
+[data-theme='dark'] .product-card .card-body { background: #1e1e1e; }
+[data-theme='dark'] .product-card .card-title, [data-theme='dark'] .product-card .card-title.h5 { color: #f0f0f0 !important; }
+[data-theme='dark'] .product-card .card-text { color: #bdc3c7 !important; }
+[data-theme='dark'] .product-card .price-tag { color: #f0f0f0 !important; }
+[data-theme='dark'] .product-card .text-muted { color: #888 !important; }
+[data-theme='dark'] .no-products-found { color: #aaa; background: #1e1e1e; border-color: rgba(255,255,255,0.08); }
+[data-theme='dark'] .search-results-info { color: #aaa; }
+[data-theme='dark'] .clear-filters-btn { color: #db554e; border-color: #db554e; }
+[data-theme='dark'] .clear-filters-btn:hover { background: #db554e; color: #fff; }
+[data-theme='dark'] .price-original, [data-theme='dark'] .product-card del { color: #6c757d !important; }
+[data-theme='dark'] .oferta-ribbon { background: #e67e22; color: #fff; }
+[data-theme='dark'] .destacado-ribbon { background: #c9a800; color: #111; }

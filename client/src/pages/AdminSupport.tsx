@@ -224,6 +224,7 @@ const AdminSupportPage = () => {
     let color = 'secondary', icon = 'question-circle';
     if (status === 'abierto') { color = 'success'; icon = 'inbox-fill'; }
     else if (status === 'en proceso') { color = 'warning'; icon = 'clock-fill'; }
+    else if (status === 'solucionado') { color = 'info'; icon = 'check-circle-fill'; }
     else if (status === 'cerrado') { color = 'dark'; icon = 'lock-fill'; }
     return (
       <span className={`badge bg-${color} d-inline-flex align-items-center gap-1 px-2 py-2`} style={{ fontSize: '1em', minWidth: 90, justifyContent: 'center' }}>
@@ -286,7 +287,7 @@ const AdminSupportPage = () => {
 
 
   return (
-    <div className="support-management" data-theme="light">
+    <div className="support-management">
       {/* Barra superior */}
       <header className="user-header-bar">
         <div className="header-content">
@@ -312,6 +313,7 @@ const AdminSupportPage = () => {
               <option value="todos">Todos</option>
               <option value="abierto">Abiertos</option>
               <option value="en proceso">En proceso</option>
+              <option value="solucionado">Solucionados</option>
               <option value="cerrado">Cerrados</option>
             </select>
             <select className="form-select w-auto" value={responsableFilter} onChange={e => setResponsableFilter(e.target.value)}>
@@ -388,9 +390,10 @@ const AdminSupportPage = () => {
                         </button>
                       </OverlayTrigger>
                       <OverlayTrigger placement="top" overlay={<Tooltip id={`estado-tooltip-${ticket._id}`}>Cambiar estado</Tooltip>}>
-                        <select className="form-select form-select-sm d-inline w-auto" style={{ minWidth: 110 }} value={ticket.status} onChange={e => handleChangeStatus(ticket._id, e.target.value)} disabled={statusLoading}>
+                        <select className="form-select form-select-sm d-inline w-auto" style={{ minWidth: 120 }} value={ticket.status} onChange={e => handleChangeStatus(ticket._id, e.target.value)} disabled={statusLoading}>
                           <option value="abierto">Abierto</option>
                           <option value="en proceso">En proceso</option>
+                          <option value="solucionado">Solucionado</option>
                           <option value="cerrado">Cerrado</option>
                         </select>
                       </OverlayTrigger>

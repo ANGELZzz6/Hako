@@ -807,10 +807,11 @@ exports.cancelAppointment = async (req, res) => {
     // Liberar productos individuales que estaban reservados
     const liberatedProducts = [];
     for (const pickupItem of appointment.itemsToPickup) {
+      let originalProduct; // Declarado fuera del try para acceso en el catch
       try {
         const itemDoc = pickupItem._doc || pickupItem;
         const individualProductId = itemDoc.individualProduct;
-        const originalProduct = itemDoc.originalProduct;
+        originalProduct = itemDoc.originalProduct;
 
         if (isDev) console.log(`🔍 Buscando producto individual para: ${originalProduct?.nombre || 'Producto sin nombre'}`);
         if (isDev) console.log(`   IndividualProduct ID: ${individualProductId}`);
@@ -1219,10 +1220,11 @@ exports.deleteAppointment = async (req, res) => {
     // Liberar productos individuales que estaban reservados
     const liberatedProducts = [];
     for (const pickupItem of appointment.itemsToPickup) {
+      let originalProduct;
       try {
         const itemDoc = pickupItem._doc || pickupItem;
         const individualProductId = itemDoc.individualProduct;
-        const originalProduct = itemDoc.originalProduct;
+        originalProduct = itemDoc.originalProduct;
 
         // Buscar el producto individual directamente por su ID
         let individualProduct = await IndividualProduct.findById(individualProductId);

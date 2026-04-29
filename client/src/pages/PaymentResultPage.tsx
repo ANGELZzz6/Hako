@@ -98,7 +98,7 @@ const PaymentResultPage = () => {
       <div className="row justify-content-center">
         <div className="col-md-8 col-lg-6">
           <div className={`card border-0 shadow-lg overflow-hidden`}>
-            <div className={`${statusInfo.bgColor} text-white text-center py-5`}>
+            <div className={`${statusInfo.bgColor} text-white text-center py-4 py-md-5`}>
               <i className={`bi ${statusInfo.icon} display-1`}></i>
               <h2 className="mt-4 fw-bold text-uppercase">{statusInfo.title}</h2>
             </div>

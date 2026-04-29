@@ -292,9 +292,15 @@ exports.closeByUser = async (req, res) => {
 exports.rateTicket = async (req, res) => {
   try {
     const { stars, comment } = req.body;
+    if (!stars || stars < 1 || stars > 5) {
+      return res.status(400).json({ error: 'La calificación debe ser un número entre 1 y 5' });
+    }
     const ticket = await SupportTicket.findOne({ _id: req.params.id, user: req.user.id });
     if (!ticket) return res.status(404).json({ error: 'Ticket no encontrado' });
-    ticket.rating = { stars, comment, user: req.user.id, createdAt: new Date() };
+    if (ticket.status !== 'solucionado') {
+      return res.status(400).json({ error: 'Solo puedes calificar tickets que hayan sido solucionados' });
+    }
+    ticket.rating = { stars: Number(stars), comment: comment || '', user: req.user.id, createdAt: new Date() };
     await ticket.save();
     res.json(ticket);
   } catch (err) {

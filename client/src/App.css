@@ -134,6 +134,15 @@ button, .btn, a.nav-link, .form-control, .form-select {
   }
 }
 
+/* Mobile-first adjustments for Auth Cards */
+@media (max-width: 480px) {
+  .auth-form-card {
+    padding: 1.5rem !important;
+    width: 95% !important;
+    max-width: 400px;
+  }
+}
+
 /* Estilos generales */
 html, body {
   margin: 0;

@@ -106,7 +106,7 @@ class UserService {
     }
   }
 
-  async deleteUser(id: string): Promise<{ message: string }> {
+  async deleteUser(id: string): Promise<{ message: string; user?: { id: string; isActive: boolean } }> {
     try {
       const response = await fetch(`${ENDPOINTS.AUTH}/${id}`, {
         method: 'DELETE',

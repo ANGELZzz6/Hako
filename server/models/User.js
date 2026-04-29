@@ -51,6 +51,12 @@ const userSchema = new mongoose.Schema({
         type: Boolean,
         default: true
     },
+    // Timestamp del soft-delete (null mientras el usuario está activo)
+    deactivatedAt: {
+        type: Date,
+        default: null,
+        select: false
+    },
     verificationCode: {
         type: String,
         select: false // No incluir en consultas por defecto

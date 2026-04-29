@@ -17,7 +17,7 @@ import ConfirmModal from '../../components/ConfirmModal';
 import './OrdersPage.css';
 import gridPackingService from '../../services/gridPackingService';
 
-const isDev = import.meta.env.DEV;
+const isDev = (import.meta as any).env?.DEV;
 
 const OrdersPage = () => {
   const { isAuthenticated, isLoading } = useAuth();
@@ -256,6 +256,7 @@ const OrdersPage = () => {
       setReservingLocker(true);
 
       if (!packingResult || !packingResult.lockers.length) {
+        setReservingLocker(false);
         await showAlert('Atención', 'No hay casilleros para reservar', 'warning');
         return;
       }
@@ -270,6 +271,7 @@ const OrdersPage = () => {
         const totalCapacity = packingResult.lockers.length * 27;
         const overallUsage = (totalSlots / totalCapacity) * 100;
 
+        setReservingLocker(false);
         const shouldContinue = await showConfirm(
           'Optimización de Espacio',
           `⚠️ Tu selección actual usa ${overallUsage.toFixed(1)}% del espacio total.\n\n` +
@@ -284,9 +286,11 @@ const OrdersPage = () => {
         }
       }
 
+      setReservingLocker(false);
       setShowAppointmentScheduler(true);
 
     } catch (error: any) {
+      setReservingLocker(false);
       await showAlert('Error', error.message || 'Error al procesar la reserva inteligente', 'danger');
     } finally {
       setReservingLocker(false);
@@ -1068,7 +1072,7 @@ const OrdersPage = () => {
                 </div>
               </div>
             ) : myAppointments.filter(appointment => appointment.status === 'completed').length > 0 ? (
-<>
+              <>
                 <div className="row mb-4">
                   {myAppointments
                     .filter(appointment => appointment.status === 'completed')

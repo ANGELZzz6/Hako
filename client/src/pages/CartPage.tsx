@@ -445,7 +445,7 @@ const CartPage = () => {
           </div>
         </div>
       </div>
-      <ConfirmModal {...modalConfig} />
+      <ConfirmModal {...modalConfig} bottomSheet size="sm" />
     </div>
   );
 };

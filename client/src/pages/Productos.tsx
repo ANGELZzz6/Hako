@@ -19,7 +19,7 @@ interface ProductCardItemProps {
 }
 
 const ProductCardItem: FC<ProductCardItemProps> = ({ product, onCardClick, onButtonClick }) => (
-  <Col xs={4} sm={6} md={4} lg={3} className="px-1">
+  <Col xs={6} sm={6} md={4} lg={3} className="px-1 mb-3">
     <Card
       className="h-100 product-card"
       style={{ cursor: 'pointer', position: 'relative' }}
@@ -50,13 +50,14 @@ const ProductCardItem: FC<ProductCardItemProps> = ({ product, onCardClick, onBut
           <span style={{ fontSize: '0.95em', fontWeight: 400, marginRight: 4 }}>COP</span>
           {product.precio.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}
         </div>
-        <div className="d-none d-md-block">
+        <div className="mt-auto">
           <button
             className="btn btn-danger w-100"
             onClick={(e) => onButtonClick(e, product._id)}
           >
-            <i className="bi bi-box-seam me-2"></i>
-            A MI BOX
+            <i className="bi bi-box-seam me-1"></i>
+            <span className="d-none d-sm-inline">A MI BOX</span>
+            <span className="d-sm-none">BOX</span>
           </button>
         </div>
       </Card.Body>
@@ -205,7 +206,7 @@ const Productos: FC<ProductosProps> = ({ products }) => {
   };
 
   return (
-    <Container className="py-5 position-relative">
+    <Container className="py-3 py-md-5 position-relative">
       <div className="productos-falling-lines">
         <FallingLines />
       </div>

@@ -68,7 +68,7 @@ const PasswordModal: React.FC<PasswordModalProps> = ({ show, onHide, isGoogleNoP
   };
 
   return (
-    <Modal show={show} onHide={handleClose} centered>
+    <Modal show={show} onHide={handleClose} centered scrollable>
       <Modal.Header closeButton>
         <Modal.Title>{isGoogleNoPassword ? 'Establecer Contraseña' : 'Cambiar Contraseña'}</Modal.Title>
       </Modal.Header>
@@ -111,11 +111,11 @@ const PasswordModal: React.FC<PasswordModalProps> = ({ show, onHide, isGoogleNoP
             />
           </div>
         </Modal.Body>
-        <Modal.Footer>
-          <button type="button" className="btn btn-secondary" onClick={handleClose} disabled={passwordLoading}>
+        <Modal.Footer className="flex-column flex-sm-row">
+          <button type="button" className="btn btn-secondary w-100 w-sm-auto mb-2 mb-sm-0" onClick={handleClose} disabled={passwordLoading}>
             Cancelar
           </button>
-          <button type="submit" className="btn btn-primary" disabled={passwordLoading}>
+          <button type="submit" className="btn btn-primary w-100 w-sm-auto" disabled={passwordLoading}>
             {passwordLoading ? (
               <span className="spinner-border spinner-border-sm me-2" role="status"></span>
             ) : null}

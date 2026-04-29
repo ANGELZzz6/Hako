@@ -1,94 +1,125 @@
-# Hako — Smart Locker & 3D Bin Packing System
+# Hako 📦 - Smart Lockers & E-Commerce Management System
 
-Hako (箱) es una plataforma avanzada de gestión de casilleros inteligentes que combina una experiencia de compra e-commerce con una logística de retiro físico automatizada. El sistema utiliza un motor de empaquetado 3D (3D Bin Packing) para optimizar el espacio de los casilleros y una visualización en tiempo real para el usuario.
-
-## 🚀 Propuesta de Valor
-
-Hako automatiza el ciclo de vida completo de un producto físico: desde la compra segura en línea hasta la asignación inteligente de un espacio físico en un casillero y su posterior retiro mediante tecnología QR.
-
-**Diferenciadores Clave:**
-*   **Motor 3D Real:** Visualización interactiva del casillero usando Three.js.
-*   **Optimización de Espacio:** Algoritmo de Bin Packing que calcula la disposición óptima de productos según dimensiones reales (cm).
-*   **Seguridad Transaccional:** Integración robusta con Wompi (Colombia) y validación de firmas SHA-256.
-
-## 🛠️ Stack Tecnológico
-
-*   **Frontend:** React 18, TypeScript, Vite, Three.js (Locker3DCanvas), Vanilla CSS.
-*   **Backend:** Node.js, Express.js.
-*   **Base de Datos:** MongoDB + Mongoose (Modelos complejos de asignación de espacio).
-*   **Pagos:** Wompi API (Tarjetas, PSE, Nequi).
-*   **Autenticación:** JWT + Google OAuth 2.0.
-*   **Comunicaciones:** Nodemailer para envío de QRs de acceso.
-
-## 📦 Características Principales
-
-### Flujo del Usuario
-1.  **Compra:** Selección de productos físicos con dimensiones específicas.
-2.  **Pago:** Checkout seguro vía Wompi con estados en tiempo real (Webhooks).
-3.  **Agendamiento:** Selección de slots de tiempo y asignación automática del mejor casillero disponible.
-4.  **Retiro:** Recepción de un QR único que permite el acceso físico al casillero asignado.
-
-### Panel Administrativo
-*   **Monitoreo de Casilleros:** Vista en tiempo real del estado de ocupación (1-12 casilleros).
-*   **Gestión de Inventario:** Control de productos individuales y sus dimensiones (Largo/Ancho/Alto).
-*   **Auditoría de Pagos:** Control de transacciones, estados de Wompi y gestión de reembolsos.
-*   **Sistema de Penalizaciones:** Bloqueo automático de usuarios por incumplimiento en retiros (24h).
-*   **Editor de Contenido:** Personalizar la página principal directamente desde el panel, sin tocar código.
-*   **Sistema de Soporte:** Gestión de tickets y sugerencias de clientes.
-
-## 🔧 Instalación y Configuración
-
-1. **Clonar el repositorio:** `git clone <repo-url>`
-2. **Instalar dependencias:** `npm install` en root, `client/` y `server/`.
-3. **Variables de Entorno (`.env` en raíz):**
-   * `MONGODB_URI`: Conexión a la base de datos.
-   * `WOMPI_PUBLIC_KEY_TEST` / `WOMPI_PRIVATE_KEY_TEST`: Credenciales de la pasarela.
-   * `WOMPI_EVENTS_SECRET`: Secret para validación de webhooks.
-   * `WEBHOOK_URL`: URL pública para recibir notificaciones de pago.
-   * `JWT_SECRET`: Llave para sesiones de usuario.
-   * `GOOGLE_CLIENT_ID`: Para autenticación con Google.
-4. **Levantar en desarrollo:**
-   ```bash
-   # Terminal 1 — Backend
-   npm run dev       # → http://localhost:5000
-
-   # Terminal 2 — Frontend
-   cd client
-   npm run dev       # → http://localhost:5173
-   ```
-5. **Resetear DB para pruebas locales:**
-   ```bash
-   npm run reset-db  # Vacía la DB y crea admin@hako.test / Admin1234*
-   ```
-
-## 🏗️ Estructura del Proyecto
-
-```text
-/
-├── client/                 # Aplicación frontend en React
-│   ├── src/
-│   │   ├── components/     # Componentes reutilizables (Locker3DCanvas, WompiCheckout...)
-│   │   ├── pages/          # Vistas (Admin, Checkout, Orders, Landing...)
-│   │   ├── services/       # Conexiones con la API (axios)
-│   │   └── contexts/       # Estado global (Auth, Cart, SiteSettings)
-├── server/                 # Aplicación backend Node.js / Express
-│   ├── controllers/        # Lógica de negocio
-│   ├── models/             # Esquemas Mongoose
-│   ├── routes/             # Endpoints de la API
-│   ├── middleware/         # JWT auth, adminAuth, rate limiting
-│   ├── services/           # lockerAssignmentService, binPackingService
-│   └── scripts/            # Utilidades de mantenimiento y seed
-└── docs/                   # Documentación técnica (AI_CONTEXT, MASTER_DOC)
-```
-
-## 🛡️ Seguridad
-
-*   **CORS** condicional: abierto en desarrollo, restringido al `FRONTEND_URL` en producción.
-*   **Idempotencia de Webhooks**: guard basado en DB (`wompi_transaction_id` único) — resiste reinicios del servidor.
-*   **Rate Limiting** en todas las rutas de autenticación (login, registro, verificación, recuperación).
-*   **Validación de firmas SHA-256** en cada evento de Wompi.
-*   **Protección de rutas** mediante JWT y roles (Admin/User).
-*   **Helmet + CSP** con dominios de Wompi, Google y Cloudinary explícitamente permitidos.
+Hako es una plataforma integral Full-Stack diseñada para la gestión automatizada de **Smart Lockers (Casilleros Inteligentes)** vinculados a una tienda de E-Commerce. Permite a los usuarios comprar productos físicos, asignarlos algorítmicamente a casilleros según su volumen (Bin Packing 3D) y programar recolecciones físicas seguras.
 
 ---
-*Hako — Re-imaginando la logística de última milla.*
+
+## 🏗 Arquitectura del Sistema
+
+El sistema utiliza una arquitectura MERN moderna (MongoDB, Express, React, Node.js) tipada con TypeScript en el frontend.
+
+```mermaid
+graph TD;
+    Client[React Frontend / Vite] <-->|REST API| LoadBalancer[Express Server / Node.js];
+    LoadBalancer <--> DB[(MongoDB)];
+    LoadBalancer <--> Wompi[Wompi Payment Gateway];
+    Client <--> Auth[Context API + JWT];
+    
+    subgraph "Core Modules (Backend)"
+        OrderCtrl[Order Controller]
+        PaymentCtrl[Payment Controller]
+        LockerCtrl[Locker Assignment Engine]
+        ApptCtrl[Appointment / Pickup Controller]
+    end
+    
+    LoadBalancer --> OrderCtrl
+    OrderCtrl <--> LockerCtrl
+    PaymentCtrl --> OrderCtrl
+```
+
+---
+
+## 🛠 Tecnologías Principales
+
+- **Frontend:** React 18, TypeScript, Vite, React Router, Context API, CSS Vanilla (Mobile First).
+- **Backend:** Node.js, Express, Mongoose (MongoDB).
+- **Pagos:** Integración con **Wompi** (Checkout Pro y Webhooks asíncronos).
+- **Notificaciones:** Nodemailer.
+- **Seguridad:** JWT (JSON Web Tokens), Bcrypt para encriptación de contraseñas, Idempotencia en pagos.
+
+---
+
+## ⚙️ Implementaciones Complejas y Algoritmos
+
+### 1. Algoritmo de Asignación de Casilleros (Bin Packing 3D)
+El sistema asigna productos automáticamente a los casilleros disponibles calculando el volumen. Evita saturación y permite optimizar el espacio usando un enfoque de **Bin Packing 3D**.
+- **Cálculo de Volumen:** `Largo x Ancho x Alto`.
+- **Lógica:** Cuando un usuario realiza un pago o agenda una recogida, el sistema evalúa los productos comprados y los introduce en un casillero virtual verificando si el volumen total excede la capacidad máxima del casillero físico.
+- **Manejo de Variantes:** La lógica dimensional es capaz de leer las dimensiones específicas de la variante seleccionada, no solo del producto base.
+
+### 2. Flujo de Pagos Resiliente (Webhook con Idempotencia)
+Para evitar pagos duplicados o pérdida de datos por fallas de red:
+1. El frontend genera un `reference_id` único y llama a Wompi.
+2. Wompi procesa el pago y llama al Webhook expuesto en el servidor de Hako.
+3. El webhook valida la firma **SHA-256** del payload.
+4. **Operación Atómica:** El sistema asegura la creación física en la base de datos de los ítems (`IndividualProduct`) *antes* de marcar la orden como pagada.
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Frontend
+    participant Backend
+    participant Wompi
+    
+    User->>Frontend: Click "Pagar"
+    Frontend->>Wompi: Redirección a Checkout Pro
+    Wompi-->>User: Ingresa datos tarjeta
+    Wompi->>Backend: [Webhook Async] Payment Status
+    Backend->>Backend: Validar Firma SHA-256
+    Backend->>Backend: Crear IndividualProducts (Inventory)
+    Backend->>Backend: Actualizar Order a 'paid'
+    Backend-->>Wompi: 200 OK
+    User->>Frontend: Retorno a la app
+    Frontend->>Backend: Polling / Get status
+```
+
+### 3. Ciclo de Vida del Inventario y Reservas
+El sistema no borra productos cuando el administrador cancela una orden, utiliza un sistema de estados estricto para evitar pérdidas (Data Leaks de inventario).
+
+**Estados del `IndividualProduct`:**
+- `available`: En bodega, listo para ser reservado.
+- `reserved`: Asignado por el sistema/admin a un locker.
+- `claimed`: En un locker, esperando a ser recogido por el usuario en una cita (Appointment).
+- `picked_up`: Retirado físicamente del casillero.
+
+---
+
+## 🗄️ Modelado de Datos Core
+
+### `User`
+Maneja autenticación y auditoría. Cuenta con un mecanismo de **Soft-Delete** (`isActive: boolean`, `deactivatedAt: Date`) para mantener integridad relacional de los pagos históricos si un usuario es borrado por el administrador.
+
+### `Order`
+Registra la compra maestra. Se enlaza con el E-commerce. Contiene detalles transaccionales (`wompi_transaction_id`).
+
+### `IndividualProduct`
+**El corazón del E-commerce**. Por cada `item` en una `Order`, se generan N `IndividualProducts`. Esto permite rastrear físicamente *cada caja* individualmente, permitiendo que un usuario compre 5 shampoos pero retire solo 2 hoy y 3 mañana en diferentes casilleros.
+
+### `Appointment`
+Gestiona las "Citas" de recolección. Vincula uno o más `IndividualProducts` con un casillero específico y un horario (`timeSlot`).
+
+---
+
+## 🛡️ Seguridad y Buenas Prácticas
+1. **Middlewares Estrictos:** `auth` para usuarios y `adminAuth` para operaciones destructivas o de lectura global.
+2. **Sanitización (Whitelist):** Los endpoints de actualización de estados de órdenes y pagos rechazan cualquier valor que no esté en la lista permitida.
+3. **No-Delete Financiero:** No se puede borrar un pago (`deletePayment`) si existe una orden activa asociada al mismo.
+4. **Control de Errores Silenciosos:** Los logs masivos están protegidos por una variable de entorno `isDev` para no saturar los contenedores en Producción.
+
+---
+
+## 🚀 Despliegue (Deployment)
+
+1. Compilar el cliente Vite:
+   ```bash
+   cd client
+   npm run build
+   ```
+2. Iniciar el servidor (Production Mode):
+   ```bash
+   export NODE_ENV=production
+   node server.js
+   ```
+
+## 🧑‍💻 Autor y Mantenimiento
+Proyecto mantenido bajo altos estándares de DevSecOps, enfocado al E-commerce físico y experiencia de usuario Mobile-First.

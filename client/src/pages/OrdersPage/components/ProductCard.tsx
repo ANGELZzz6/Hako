@@ -16,29 +16,39 @@ const ProductCard: React.FC<ProductCardProps> = ({
   yaEstaEnReserva
 }) => {
   const isClaimed = item.isClaimed || item.status === 'claimed' || item.status === 'picked_up';
-  
+  // Reservado por administración: status='reserved' pero no fue el usuario quien lo reservó
+  // Se detecta cuando isReserved=true y el producto tiene assignedLocker sin que el usuario lo haya elegido,
+  // O simplemente cuando status==='reserved' (el usuario no puede reservar directamente — eso lo hace el scheduler)
+  const isAdminReserved = item.status === 'reserved' && !isClaimed;
+
   return (
-    <div className={`card shadow-sm mb-3 ${isRecentlyUnlocked ? 'border-success border-2' : ''}`}>
+    <div className={`card shadow-sm mb-3 ${isRecentlyUnlocked ? 'border-success border-2' : ''} ${isAdminReserved ? 'border-warning border-2' : ''}`}>
       {isRecentlyUnlocked && (
         <div className="card-header bg-success text-white text-center py-2">
           <i className="bi bi-unlock me-2"></i>
           <strong>Producto Recién Desbloqueado</strong>
         </div>
       )}
+      {isAdminReserved && !isRecentlyUnlocked && (
+        <div className="card-header bg-warning text-dark text-center py-2">
+          <i className="bi bi-shield-lock me-2"></i>
+          <strong>Reservado por Administración</strong>
+        </div>
+      )}
       <div className="card-body">
         <div className="row align-items-center">
           <div className="col-md-2">
-            <img 
-              src={item.product.imagen_url} 
-              alt={item.product?.nombre} 
+            <img
+              src={item.product.imagen_url}
+              alt={item.product?.nombre}
               className="img-fluid rounded"
-              style={{ width: 80, height: 80, objectFit: 'cover' }} 
+              style={{ width: 80, height: 80, objectFit: 'cover' }}
             />
           </div>
           <div className="col-md-3">
             <h6 className="mb-1">{item.product?.nombre}</h6>
             <p className="text-muted mb-1">{item.product.descripcion}</p>
-            
+
             {/* Mostrar variantes si existen */}
             {item.variants && Object.keys(item.variants).length > 0 && (
               <div className="mb-2">
@@ -54,7 +64,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
                 </div>
               </div>
             )}
-            
+
             <div className="d-flex gap-2 flex-wrap">
               <span className="badge bg-primary">${item.unit_price.toLocaleString('es-CO')}</span>
               {(() => {
@@ -65,7 +75,6 @@ const ProductCard: React.FC<ProductCardProps> = ({
                   </span>
                 ) : null;
               })()}
-
             </div>
           </div>
           <div className="col-md-2 text-center">
@@ -73,8 +82,30 @@ const ProductCard: React.FC<ProductCardProps> = ({
               <strong>Producto:</strong> {item.individualIndex}/{item.totalInOrder}
             </div>
             <div className="mb-1">
-              <span className={`badge ${isClaimed ? 'bg-success' : yaEstaEnReserva ? 'bg-warning' : item.assigned_locker ? 'bg-warning' : isRecentlyUnlocked ? 'bg-success' : 'bg-info'}`}>
-                {isClaimed ? 'Listo para recoger' : yaEstaEnReserva ? 'En Reserva' : item.assigned_locker ? 'Reservado' : isRecentlyUnlocked ? 'Disponible (Recién Desbloqueado)' : 'Disponible'}
+              <span className={`badge ${
+                isClaimed
+                  ? 'bg-success'
+                  : isAdminReserved
+                  ? 'bg-warning text-dark'
+                  : yaEstaEnReserva
+                  ? 'bg-warning'
+                  : item.assigned_locker
+                  ? 'bg-warning'
+                  : isRecentlyUnlocked
+                  ? 'bg-success'
+                  : 'bg-info'
+              }`}>
+                {isClaimed
+                  ? 'Listo para recoger'
+                  : isAdminReserved
+                  ? 'Reservado (Admin)'
+                  : yaEstaEnReserva
+                  ? 'En Reserva'
+                  : item.assigned_locker
+                  ? 'Reservado'
+                  : isRecentlyUnlocked
+                  ? 'Disponible (Recién Desbloqueado)'
+                  : 'Disponible'}
               </span>
             </div>
             {isClaimed && item.assigned_locker && (
@@ -82,11 +113,25 @@ const ProductCard: React.FC<ProductCardProps> = ({
                 <span className="badge bg-primary">Casillero {item.assigned_locker}</span>
               </div>
             )}
+            {isAdminReserved && item.assigned_locker && (
+              <div>
+                <span className="badge bg-primary">Casillero {item.assigned_locker}</span>
+              </div>
+            )}
           </div>
           <div className="col-md-3">
-            {!isClaimed && !item.assigned_locker && !yaEstaEnReserva ? (
+            {/* Bloquear cualquier acción si fue reservado por admin */}
+            {isAdminReserved ? (
+              <div className="text-center">
+                <i className="bi bi-shield-lock text-warning fs-4 mb-1 d-block"></i>
+                <span className="badge bg-warning text-dark d-block mb-1">Ya fue reservado</span>
+                <small className="text-muted d-block">
+                  La administración ha gestionado este producto.<br />
+                  Pronto recibirás instrucciones.
+                </small>
+              </div>
+            ) : !isClaimed && !item.assigned_locker && !yaEstaEnReserva ? (
               <div className="d-flex flex-column gap-2">
-                {/* Producto automáticamente seleccionado */}
                 <div className="d-flex align-items-center gap-2">
                   <div className="form-check">
                     <input
@@ -101,7 +146,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
                     </label>
                   </div>
                 </div>
-                
+
                 {selectedProduct && (
                   <div className="d-flex align-items-center gap-2">
                     <label className="form-label mb-0 small">Casillero:</label>
@@ -109,11 +154,10 @@ const ProductCard: React.FC<ProductCardProps> = ({
                       <span className="badge bg-primary">
                         Casillero {selectedProduct.lockerNumber}
                       </span>
-
                     </div>
                   </div>
                 )}
-                
+
                 {selectedProduct && !tieneDimensiones(item) && (
                   <small className="text-warning">
                     <i className="bi bi-exclamation-triangle me-1"></i>
@@ -152,4 +196,4 @@ const ProductCard: React.FC<ProductCardProps> = ({
   );
 };
 
-export default ProductCard; 
+export default ProductCard;

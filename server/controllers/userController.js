@@ -279,9 +279,12 @@ exports.verifyCode = async (req, res) => {
 };
 
 // Obtener todos los usuarios (para administrador)
+// Activos primero, inactivos al final. Dentro de cada grupo: más recientes primero.
 exports.getAllUsers = async (req, res) => {
   try {
-    const users = await User.find({}).select('-contraseña -verificationCode -verificationCodeExpires -loginAttempts -lockUntil');
+    const users = await User.find({})
+      .select('-contraseña -verificationCode -verificationCodeExpires -loginAttempts -lockUntil')
+      .sort({ isActive: -1, createdAt: -1 }); // true(1) > false(0) → activos primero
     res.json(users);
   } catch (error) {
     console.error('Error obteniendo usuarios:', error);
@@ -355,7 +358,8 @@ exports.updateUser = async (req, res) => {
   }
 };
 
-// Eliminar usuario
+// Desactivar usuario (Soft Delete — no elimina físicamente de la BD)
+// El usuario queda con isActive: false e irá al final de la lista en getAllUsers.
 exports.deleteUser = async (req, res) => {
   try {
     const { id } = req.params;
@@ -369,17 +373,28 @@ exports.deleteUser = async (req, res) => {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
 
-    // Prevenir eliminación de usuarios admin (opcional)
+    // Proteger cuentas admin
     if (user.role === 'admin') {
-      return res.status(400).json({ error: 'No se puede eliminar un usuario administrador' });
+      return res.status(400).json({ error: 'No se puede desactivar un usuario administrador' });
     }
 
-    await User.findByIdAndDelete(id);
+    // Ya está desactivado — idempotente
+    if (!user.isActive) {
+      return res.json({ message: 'El usuario ya estaba desactivado', user: { id: user._id, isActive: false } });
+    }
 
-    console.log(`Usuario eliminado: ${user.email} por admin desde IP: ${req.ip}`);
-    res.json({ message: 'Usuario eliminado correctamente' });
+    // Soft Delete
+    user.isActive = false;
+    user.deactivatedAt = new Date();
+    await user.save();
+
+    console.log(`Usuario desactivado (soft delete): ${user.email} por admin desde IP: ${req.ip}`);
+    res.json({
+      message: 'Usuario desactivado correctamente. Sus datos se conservan en la base de datos.',
+      user: { id: user._id, email: user.email, isActive: false }
+    });
   } catch (error) {
-    console.error('Error eliminando usuario:', error);
+    console.error('Error desactivando usuario:', error);
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 };

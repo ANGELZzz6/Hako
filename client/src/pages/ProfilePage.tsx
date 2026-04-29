@@ -376,10 +376,6 @@ const ProfilePage: FC = () => {
               <i className="bi bi-key me-2"></i>
               Cambiar Contraseña
             </button>
-            <button className="btn btn-outline-warning">
-              <i className="bi bi-bell me-2"></i>
-              Notificaciones
-            </button>
           </div>
         </div>
 

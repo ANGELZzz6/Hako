@@ -16,7 +16,7 @@ const supportTicketSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   subject: { type: String, required: true },
   message: { type: String, required: true },
-  status: { type: String, enum: ['abierto', 'en proceso', 'cerrado', 'cerrado por usuario'], default: 'abierto' },
+  status: { type: String, enum: ['abierto', 'en proceso', 'solucionado', 'cerrado', 'cerrado por usuario'], default: 'abierto' },
   replies: [replySchema],
   internalNotes: [internalNoteSchema],
   responsable: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: false },

@@ -251,49 +251,49 @@ const AdminAppointmentsPage: React.FC = () => {
           
           {/* Estadísticas */}
           {stats && (
-            <div className="row mb-4">
-              <div className="col-md-2">
-                <div className="card text-center">
+            <div className="row mb-4 g-2">
+              <div className="col-6 col-md-2">
+                <div className="card text-center h-100">
                   <div className="card-body">
                     <h5 className="card-title text-primary">{stats.total}</h5>
                     <p className="card-text small">Total</p>
                   </div>
                 </div>
               </div>
-              <div className="col-md-2">
-                <div className="card text-center">
+              <div className="col-6 col-md-2">
+                <div className="card text-center h-100">
                   <div className="card-body">
                     <h5 className="card-title text-warning">{stats.today}</h5>
                     <p className="card-text small">Hoy</p>
                   </div>
                 </div>
               </div>
-              <div className="col-md-2">
-                <div className="card text-center">
+              <div className="col-6 col-md-2">
+                <div className="card text-center h-100">
                   <div className="card-body">
                     <h5 className="card-title text-primary">{stats.byStatus.scheduled}</h5>
                     <p className="card-text small">Agendadas</p>
                   </div>
                 </div>
               </div>
-              <div className="col-md-2">
-                <div className="card text-center">
+              <div className="col-6 col-md-2">
+                <div className="card text-center h-100">
                   <div className="card-body">
                     <h5 className="card-title text-info">{stats.byStatus.confirmed}</h5>
                     <p className="card-text small">Confirmadas</p>
                   </div>
                 </div>
               </div>
-              <div className="col-md-2">
-                <div className="card text-center">
+              <div className="col-6 col-md-2">
+                <div className="card text-center h-100">
                   <div className="card-body">
                     <h5 className="card-title text-success">{stats.byStatus.completed}</h5>
                     <p className="card-text small">Completadas</p>
                   </div>
                 </div>
               </div>
-              <div className="col-md-2">
-                <div className="card text-center">
+              <div className="col-6 col-md-2">
+                <div className="card text-center h-100">
                   <div className="card-body">
                     <h5 className="card-title text-danger">{stats.byStatus.cancelled}</h5>
                     <p className="card-text small">Canceladas</p>

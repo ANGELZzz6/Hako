@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import appointmentService from '../services/appointmentService';
 import type { TimeSlot, CreateAppointmentData, AppointmentItem } from '../services/appointmentService';
-import type { Locker3D } from '../services/gridPackingService';
 import ConfirmModal from './ConfirmModal';
 
 interface AppointmentSchedulerProps {
@@ -35,7 +34,6 @@ interface LockerSchedule {
   }>;
 }
 
-const LOCKER_NUMBERS = Array.from({ length: 12 }, (_, i) => i + 1);
 
 const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
   isOpen,
@@ -54,7 +52,6 @@ const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
   const [lockerSchedules, setLockerSchedules] = useState<LockerSchedule[]>([]);
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
-  const [availableLockers, setAvailableLockers] = useState<{ [key: string]: number[] }>({}); // key: `${date}_${timeSlot}`
   const [occupiedLockers, setOccupiedLockers] = useState<{ [key: string]: number[] }>({});
 
   // Estado para el modal de confirmación genérico
@@ -76,27 +73,6 @@ const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
     variant: 'primary'
   });
 
-  // Helper para mostrar confirmación asíncrona
-  const showConfirm = (title: string, message: string, variant: 'primary' | 'danger' | 'warning' | 'success' | 'info' = 'primary', confirmText?: string) => {
-    return new Promise<boolean>((resolve) => {
-      setModalConfig({
-        show: true,
-        title,
-        message,
-        onConfirm: () => {
-          setModalConfig(prev => ({ ...prev, show: false }));
-          resolve(true);
-        },
-        onCancel: () => {
-          setModalConfig(prev => ({ ...prev, show: false }));
-          resolve(false);
-        },
-        type: 'confirm',
-        variant,
-        confirmText
-      });
-    });
-  };
 
   // Helper para mostrar alertas asíncronas
   const showAlert = (title: string, message: string, variant: 'primary' | 'danger' | 'warning' | 'success' | 'info' = 'primary') => {
@@ -185,10 +161,8 @@ const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
         const key = `${schedule.date}_${schedule.timeSlot}`;
         try {
           const res = await appointmentService.getAvailableLockersForDateTime(schedule.date, schedule.timeSlot);
-          setAvailableLockers(prev => ({ ...prev, [key]: res.available }));
           setOccupiedLockers(prev => ({ ...prev, [key]: res.occupied }));
         } catch (err) {
-          setAvailableLockers(prev => ({ ...prev, [key]: [] }));
           setOccupiedLockers(prev => ({ ...prev, [key]: [] }));
         }
       }
@@ -397,7 +371,7 @@ const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
 
   return (
     <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-      <div className="modal-dialog modal-xl">
+      <div className="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div className="modal-content">
           <div className="modal-header">
             <h5 className="modal-title">
@@ -460,7 +434,7 @@ const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
                   const lockersOcupados = occupiedLockers[key] || [];
                   // Solo mostrar si el casillero NO está ocupado
                   return !lockersOcupados.includes(schedule.lockerNumber);
-                }).map((schedule, index) => {
+                }).map((schedule, _index) => {
                   const key = `${schedule.date}_${schedule.timeSlot}`;
                   const lockersOcupados = occupiedLockers[key] || [];
                   const isOcupado = lockersOcupados.includes(schedule.lockerNumber);
@@ -568,10 +542,10 @@ const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
             )}
           </div>
 
-          <div className="modal-footer">
+          <div className="modal-footer flex-column flex-sm-row">
             <button
               type="button"
-              className="btn btn-secondary"
+              className="btn btn-secondary w-100 w-sm-auto mb-2 mb-sm-0"
               onClick={onClose}
               disabled={loading}
             >
@@ -579,7 +553,7 @@ const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
             </button>
             <button
               type="button"
-              className="btn btn-primary"
+              className="btn btn-primary w-100 w-sm-auto"
               onClick={handleSchedule}
               disabled={(!onlyExistingLockers && (lockerSchedules.some(schedule => !schedule.date || !schedule.timeSlot) || lockerSchedules.some(schedule => (
                 (occupiedLockers[`${schedule.date}_${schedule.timeSlot}`] || []).includes(schedule.lockerNumber)

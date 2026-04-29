@@ -96,20 +96,23 @@ const UserManagement = () => {
 
   const handleDelete = async (userId: string) => {
     const confirmed = await showConfirm(
-      'Confirmar Eliminación',
-      'Esta acción eliminará al usuario permanentemente. ¿Deseas continuar?',
+      'Desactivar usuario',
+      'El usuario será desactivado. Sus datos se conservarán en la base de datos y podrás reactivarlo en cualquier momento con el botón de estado. ¿Deseas continuar?',
       'danger',
-      'Eliminar usuario'
+      'Desactivar usuario'
     );
     
     if (!confirmed) return;
 
     try {
-      await userService.deleteUser(userId);
-      setUsers(users.filter(user => user._id !== userId));
+      const result = await userService.deleteUser(userId);
+      // Soft delete: actualizar isActive en lugar de remover de la lista
+      setUsers(users.map(user =>
+        user._id === userId ? { ...user, isActive: result.user?.isActive ?? false } : user
+      ));
       setError('');
     } catch (err: any) {
-      setError(err.message || 'Error al eliminar usuario');
+      setError(err.message || 'Error al desactivar usuario');
     }
   };
 

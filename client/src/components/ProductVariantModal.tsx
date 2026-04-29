@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Button, Form, Badge } from 'react-bootstrap';
+import { Modal, Form, Badge } from 'react-bootstrap';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 
 interface VariantOption {
@@ -65,7 +65,7 @@ const ProductVariantModal: React.FC<ProductVariantModalProps> = ({
     }
 
     let basePrice = product.precio;
-    
+
     Object.entries(selectedVariants).forEach(([attributeName, selectedValue]) => {
       const attribute = product.variants?.attributes?.find(attr => attr.name === attributeName);
       if (attribute) {
@@ -81,7 +81,7 @@ const ProductVariantModal: React.FC<ProductVariantModalProps> = ({
 
   const isFormValid = () => {
     if (!product.variants?.enabled) return true;
-    
+
     const attributes = product.variants?.attributes || [];
     return attributes.every(attribute => {
       if (!attribute.required) return true;
@@ -124,12 +124,12 @@ const ProductVariantModal: React.FC<ProductVariantModalProps> = ({
   const hasVariants = product.variants?.enabled && product.variants?.attributes?.length > 0;
 
   return (
-    <Modal show={show} onHide={onHide} size="lg" centered>
+    <Modal show={show} onHide={onHide} size="lg" centered scrollable>
       <Modal.Header closeButton>
         <Modal.Title>
           <div className="d-flex align-items-center">
-            <img 
-              src={product.imagen_url} 
+            <img
+              src={product.imagen_url}
               alt={product.nombre}
               style={{ width: '50px', height: '50px', objectFit: 'cover', marginRight: '15px' }}
             />
@@ -140,7 +140,7 @@ const ProductVariantModal: React.FC<ProductVariantModalProps> = ({
           </div>
         </Modal.Title>
       </Modal.Header>
-      
+
       <Modal.Body>
         {hasVariants ? (
           <div>
@@ -154,13 +154,12 @@ const ProductVariantModal: React.FC<ProductVariantModalProps> = ({
                   {attribute.options
                     .filter(option => option.isActive)
                     .map((option, optionIndex) => (
-                      <Button
+                      <button
                         key={optionIndex}
-                        variant={selectedVariants[attribute.name] === option.value ? 'primary' : 'outline-secondary'}
-                        size="sm"
+                        type="button"
+                        className={`btn btn-sm position-relative ${selectedVariants[attribute.name] === option.value ? 'btn-primary' : 'btn-outline-secondary'}`}
                         onClick={() => handleVariantChange(attribute.name, option.value)}
                         disabled={option.stock === 0}
-                        className="position-relative"
                       >
                         {option.value}
                         {option.stock === 0 && (
@@ -168,7 +167,7 @@ const ProductVariantModal: React.FC<ProductVariantModalProps> = ({
                             Sin stock
                           </Badge>
                         )}
-                      </Button>
+                      </button>
                     ))}
                 </div>
                 {selectedVariants[attribute.name] && (
@@ -182,13 +181,13 @@ const ProductVariantModal: React.FC<ProductVariantModalProps> = ({
         ) : (
           <div className="text-center py-4">
             <div className="mb-3">
-              <img 
-                src={product.imagen_url} 
+              <img
+                src={product.imagen_url}
                 alt={product.nombre}
-                style={{ 
-                  width: '120px', 
-                  height: '120px', 
-                  objectFit: 'cover', 
+                style={{
+                  width: '120px',
+                  height: '120px',
+                  objectFit: 'cover',
                   borderRadius: '8px',
                   boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
                 }}
@@ -215,23 +214,23 @@ const ProductVariantModal: React.FC<ProductVariantModalProps> = ({
           <div className="col-md-6">
             <Form.Label className="fw-bold">Cantidad</Form.Label>
             <div className="d-flex align-items-center">
-              <Button
-                variant="outline-secondary"
-                size="sm"
+              <button
+                type="button"
+                className="btn btn-outline-secondary btn-sm"
                 onClick={() => setQuantity(Math.max(1, quantity - 1))}
                 disabled={quantity <= 1 || (hasVariants && !isFormValid())}
               >
                 <i className="bi bi-dash"></i>
-              </Button>
+              </button>
               <span className="mx-3 fw-bold">{quantity}</span>
-              <Button
-                variant="outline-secondary"
-                size="sm"
+              <button
+                type="button"
+                className="btn btn-outline-secondary btn-sm"
                 onClick={() => setQuantity(Math.min(availableStock, quantity + 1))}
                 disabled={quantity >= availableStock || (hasVariants && !isFormValid())}
               >
                 <i className="bi bi-plus"></i>
-              </Button>
+              </button>
             </div>
             <small className="text-muted">
               Stock disponible: {availableStock}
@@ -248,15 +247,20 @@ const ProductVariantModal: React.FC<ProductVariantModalProps> = ({
         </div>
       </Modal.Body>
 
-      <Modal.Footer>
-        <Button variant="secondary" onClick={onHide}>
+      <Modal.Footer className="flex-column flex-sm-row">
+        <button
+          type="button"
+          className="btn btn-secondary w-100 mb-2"
+          onClick={onHide}
+        >
           Cancelar
-        </Button>
-        <Button
-          variant="primary"
+        </button>
+        <button
+          type="button"
+          className="btn w-100"
           onClick={handleAddToCart}
           disabled={!isFormValid() || loading || availableStock === 0}
-          style={{ backgroundColor: '#d32f2f', borderColor: '#d32f2f' }}
+          style={{ backgroundColor: '#d32f2f', borderColor: '#d32f2f', color: '#fff' }}
         >
           {loading ? (
             <>
@@ -269,7 +273,7 @@ const ProductVariantModal: React.FC<ProductVariantModalProps> = ({
               Agregar al carrito
             </>
           )}
-        </Button>
+        </button>
       </Modal.Footer>
     </Modal>
   );

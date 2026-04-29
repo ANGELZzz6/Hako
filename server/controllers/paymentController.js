@@ -135,31 +135,35 @@ exports.mercadoPagoWebhook = async (req, res) => {
         if (tx.status === 'APPROVED') {
             const order = await Order.findOne({ external_reference: reference });
             if (order) {
-                order.status = 'paid';
-                order.paid_at = new Date();
-                order.payment = {
-                    payment_id: reference,
-                    wompi_transaction_id: tx.id,
-                    status: 'approved',
-                    amount: tx.amount_in_cents / 100,
-                    reference: reference
-                };
-                await order.save();
+                // CRIT-4: Crear productos individuales PRIMERO para evitar estado parcial
+                const productsCreated = await createIndividualProductsForPayment(order, tx);
 
-                // Crear productos individuales
-                await createIndividualProductsForPayment(order, tx);
+                if (productsCreated) {
+                    order.status = 'paid';
+                    order.paid_at = new Date();
+                    order.payment = {
+                        payment_id: reference,
+                        wompi_transaction_id: tx.id,
+                        status: 'approved',
+                        amount: tx.amount_in_cents / 100,
+                        reference: reference
+                    };
+                    await order.save();
 
-                // Limpiar Carrito
-                await Cart.updateOne({ id_usuario: order.user }, { $set: { items: [] } });
+                    // Limpiar Carrito
+                    await Cart.updateOne({ id_usuario: order.user }, { $set: { items: [] } });
 
-                // Notificar por correo
-                const user = await User.findById(order.user);
-                if (user) {
-                    await transporter.sendMail({
-                        to: user.email,
-                        subject: 'Confirmación de Pago - Hako',
-                        html: `<h2>¡Pago recibido!</h2><p>Tu orden ${order._id} ha sido confirmada.</p>`
-                    });
+                    // Notificar por correo
+                    const user = await User.findById(order.user);
+                    if (user) {
+                        await transporter.sendMail({
+                            to: user.email,
+                            subject: 'Confirmación de Pago - Hako',
+                            html: `<h2>¡Pago recibido!</h2><p>Tu orden ${order._id} ha sido confirmada.</p>`
+                        });
+                    }
+                } else {
+                    console.error('❌ Error crítico: webhook abortado porque no se crearon los IndividualProducts');
                 }
             }
         }
@@ -193,8 +197,10 @@ async function createIndividualProductsForPayment(order, tx) {
             }
         }
         await IndividualProduct.insertMany(itemsToCreate);
+        return true;
     } catch (error) {
         console.error('❌ Error creando productos individuales:', error.message);
+        return false;
     }
 }
 
@@ -289,7 +295,33 @@ module.exports = {
     refundPayment: exports.refundPayment,
     getAllPayments: async (req, res) => res.json(await Payment.find().populate('user_id')),
     getPaymentById: async (req, res) => res.json(await Payment.findById(req.params.paymentId).populate('user_id')),
-    updatePaymentStatus: async (req, res) => res.json(await Payment.findByIdAndUpdate(req.params.paymentId, req.body, { new: true })),
-    deletePayment: async (req, res) => { await Payment.findByIdAndDelete(req.params.paymentId); res.send('OK'); },
+    updatePaymentStatus: async (req, res) => {
+        const { status } = req.body;
+        const validStatuses = ['pending', 'approved', 'declined', 'failed', 'voided', 'error', 'refunded'];
+        if (status && !validStatuses.includes(status)) {
+            return res.status(400).json({ message: 'Estado inválido' });
+        }
+        res.json(await Payment.findByIdAndUpdate(req.params.paymentId, { status }, { new: true, runValidators: true }));
+    },
+    deletePayment: async (req, res) => {
+        const payment = await Payment.findById(req.params.paymentId);
+        if (!payment) return res.status(404).json({ message: 'Pago no encontrado' });
+
+        const Order = require('../models/Order');
+        const activeOrder = await Order.findOne({
+            $or: [
+                { 'payment.payment_id': payment.payment_id },
+                { 'payment.wompi_transaction_id': payment.wompi_transaction_id }
+            ],
+            status: { $nin: ['cancelled'] }
+        });
+
+        if (activeOrder) {
+            return res.status(400).json({ message: 'No se puede eliminar el pago: existe una orden activa asociada.' });
+        }
+
+        await Payment.findByIdAndDelete(req.params.paymentId);
+        res.send('OK');
+    },
     getPaymentStats: async (req, res) => res.json({ total: await Payment.countDocuments() })
 };
