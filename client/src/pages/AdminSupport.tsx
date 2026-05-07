@@ -358,32 +358,32 @@ const AdminSupportPage = () => {
             </button>
           </div>
           <div className="table-responsive">
-            <table className="table table-bordered table-hover">
+            <table className="table table-bordered table-hover text-center align-middle">
               <thead>
                 <tr>
-                  <th>Usuario</th>
-                  <th>Correo</th>
-                  <th>Asunto</th>
-                  <th>Estado</th>
-                  <th>Responsable</th>
-                  <th>Fecha</th>
-                  <th>Acciones</th>
+                  <th className="text-center align-middle">Usuario</th>
+                  <th className="text-center align-middle">Correo</th>
+                  <th className="text-center align-middle">Asunto</th>
+                  <th className="text-center align-middle">Estado</th>
+                  <th className="text-center align-middle">Responsable</th>
+                  <th className="text-center align-middle">Fecha</th>
+                  <th className="text-center align-middle">Acciones</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredTickets.map((ticket, idx) => (
                   <tr key={ticket._id} className={selectedTicket?._id === ticket._id ? 'table-active' : idx % 2 === 0 ? 'table-light' : ''}>
-                    <td style={{ fontWeight: 600 }}>{ticket.user?.nombre}</td>
-                    <td>{ticket.user?.email}</td>
-                    <td>
+                    <td className="text-center align-middle" style={{ fontWeight: 600 }}>{ticket.user?.nombre}</td>
+                    <td className="text-center align-middle">{ticket.user?.email}</td>
+                    <td className="text-center align-middle">
                       <OverlayTrigger placement="top" overlay={<Tooltip id={`asunto-tooltip-${ticket._id}`}>{ticket.message}</Tooltip>}>
                         <span style={{ fontWeight: 500, cursor: 'pointer' }}>{ticket.subject}</span>
                       </OverlayTrigger>
                     </td>
-                    <td>{getStatusBadge(ticket.status)}</td>
-                    <td>{admins.find(a => a._id === ticket.responsable)?.nombre || <span className="text-muted">Sin asignar</span>}</td>
-                    <td>{new Date(ticket.createdAt).toLocaleString('es-CO')}</td>
-                    <td className="d-flex gap-1 flex-wrap" style={{ minWidth: 180 }}>
+                    <td className="text-center align-middle">{getStatusBadge(ticket.status)}</td>
+                    <td className="text-center align-middle">{admins.find(a => a._id === ticket.responsable)?.nombre || <span className="text-muted">Sin asignar</span>}</td>
+                    <td className="text-center align-middle">{new Date(ticket.createdAt).toLocaleString('es-CO')}</td>
+                    <td className="d-flex justify-content-center gap-1 flex-wrap align-middle" style={{ minWidth: 180 }}>
                       <OverlayTrigger placement="top" overlay={<Tooltip id={`ver-tooltip-${ticket._id}`}>Ver/Responder</Tooltip>}>
                         <button className="btn btn-sm btn-primary" onClick={() => setSelectedTicket(ticket)}>
                           <i className="bi bi-chat-dots"></i>

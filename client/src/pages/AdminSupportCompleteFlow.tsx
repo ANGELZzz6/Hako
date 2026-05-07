@@ -1591,7 +1591,8 @@ const AdminSupportCompleteFlow = () => {
                 </h5>
                 <button type="button" className="btn-close" onClick={() => setShowReservationStatusModal(false)}></button>
               </div>
-              <div className="modal-body">
+              <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
+                <style>{`.modal-body::-webkit-scrollbar { display: none; }`}</style>
                 {reservationStatusLoading ? (
                   <div className="text-center">
                     <div className="spinner-border" role="status">

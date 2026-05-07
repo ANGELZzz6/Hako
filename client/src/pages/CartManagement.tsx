@@ -212,25 +212,25 @@ const CartManagement: React.FC = () => {
               <h5 className="mb-0">Lista de Boxes</h5>
             </Card.Header>
             <Card.Body>
-              <Table responsive striped hover>
+              <Table responsive striped hover className="text-center align-middle">
                 <thead>
                   <tr>
-                    <th>ID</th>
-                    <th>Usuario</th>
-                    <th>Items</th>
-                    <th>Total</th>
-                    <th>Estado</th>
-                    <th>Creado</th>
-                    <th>Acciones</th>
+                    <th className="text-center align-middle">ID</th>
+                    <th className="text-center align-middle">Usuario</th>
+                    <th className="text-center align-middle">Items</th>
+                    <th className="text-center align-middle">Total</th>
+                    <th className="text-center align-middle">Estado</th>
+                    <th className="text-center align-middle">Creado</th>
+                    <th className="text-center align-middle">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
                   {carts.map((cart) => (
                     <tr key={cart._id}>
-                      <td>
+                      <td className="text-center align-middle">
                         <small className="text-muted">{cart._id.slice(-8)}</small>
                       </td>
-                      <td>
+                      <td className="text-center align-middle">
                         <div>
                           <strong>
                             {typeof cart.id_usuario === 'object' && cart.id_usuario !== null
@@ -244,23 +244,23 @@ const CartManagement: React.FC = () => {
                           )}
                         </div>
                       </td>
-                      <td>
+                      <td className="text-center align-middle">
                         <Badge bg="info">{cart.items.length} productos</Badge>
                       </td>
-                      <td>
+                      <td className="text-center align-middle">
                         <strong>${cart.total.toLocaleString('es-CO')}</strong>
                       </td>
-                      <td>
+                      <td className="text-center align-middle">
                         {cart.items.length > 0 ? (
                           <Badge bg="success">Activo</Badge>
                         ) : (
                           <Badge bg="secondary">Vacío</Badge>
                         )}
                       </td>
-                      <td>
+                      <td className="text-center align-middle">
                         <small>{formatDate(cart.creado_en)}</small>
                       </td>
-                      <td>
+                      <td className="text-center align-middle">
                         <button className="btn btn-outline-primary btn-sm" onClick={() => handleViewCart(cart)}>
                           <i className="bi bi-eye me-1"></i>
                           Ver
